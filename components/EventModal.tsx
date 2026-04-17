@@ -26,6 +26,7 @@ type CalEvent = {
   allDay: boolean;
   color: string;
   isPrivate: boolean;
+  overtimeAvailable: boolean;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null };
@@ -96,6 +97,7 @@ export default function EventModal({
   const [allDay, setAllDay] = useState(defaultAllDay);
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
+  const [overtimeAvailable, setOvertimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -152,6 +154,7 @@ export default function EventModal({
       allDay,
       color,
       isPrivate,
+      overtimeAvailable,
       groupId: group?.id ?? null,
     };
 
@@ -349,6 +352,23 @@ export default function EventModal({
               <span className="text-xs text-slate-400">
                 {isPrivate ? "리더에게도 보임" : "그룹원 모두에게 보임"}
               </span>
+            </div>
+          )}
+
+          {/* 특근 가능 여부 (그룹장/파트장만) */}
+          {group && isLeader && (
+            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+              <input
+                type="checkbox"
+                id="overtimeAvailable"
+                checked={overtimeAvailable}
+                onChange={(e) => setOvertimeAvailable(e.target.checked)}
+                className="w-4 h-4 rounded accent-orange-500"
+              />
+              <label htmlFor="overtimeAvailable" className="text-sm font-medium text-orange-700 cursor-pointer select-none">
+                특근 가능
+              </label>
+              <span className="text-xs text-orange-400 ml-auto">그룹장·파트장만 표시</span>
             </div>
           )}
 

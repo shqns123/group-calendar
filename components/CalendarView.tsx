@@ -33,6 +33,7 @@ type CalEvent = {
   allDay: boolean;
   color: string;
   isPrivate: boolean;
+  overtimeAvailable: boolean;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;

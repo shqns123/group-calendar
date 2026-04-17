@@ -33,7 +33,7 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { title, description, startDate, endDate, allDay, color, isPrivate } = body;
+  const { title, description, startDate, endDate, allDay, color, isPrivate, overtimeAvailable } = body;
 
   const updated = await prisma.event.update({
     where: { id: eventId },
@@ -45,6 +45,7 @@ export async function PATCH(
       ...(allDay !== undefined && { allDay }),
       ...(color && { color }),
       ...(isPrivate !== undefined && { isPrivate }),
+      ...(overtimeAvailable !== undefined && { overtimeAvailable }),
     },
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },

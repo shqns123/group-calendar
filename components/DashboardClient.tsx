@@ -22,6 +22,7 @@ import GroupPanel from "./GroupPanel";
 import GroupModal, { type GroupFromApi } from "./GroupModal";
 import JoinGroupModal from "./JoinGroupModal";
 import EventSummary from "./EventSummary";
+import AdminModal from "./AdminModal";
 
 type UserInfo = {
   id: string;
@@ -41,6 +42,7 @@ type CalEvent = {
   allDay: boolean;
   color: string;
   isPrivate: boolean;
+  overtimeAvailable: boolean;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -68,6 +70,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [refreshingCode, setRefreshingCode] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
@@ -127,6 +130,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
     const role = myRole(g);
     return role === "admin" || role === "leader";
   };
+
+  const isGlobalAdmin = groups.some((g) => g.leaderId === user.id);
 
   const copyInviteCode = (value: string) => {
     navigator.clipboard.writeText(value);
@@ -392,6 +397,31 @@ export function DashboardClient({ user, initialGroups }: Props) {
             gap: 8,
           }}
         >
+          {isGlobalAdmin && (
+            <button
+              onClick={() => setShowAdminModal(true)}
+              title="사용자 관리"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 4,
+                borderRadius: 4,
+                color: "var(--text-tertiary)",
+                display: "flex",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.color = "var(--accent)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--text-tertiary)")
+              }
+            >
+              <Settings style={{ width: 13, height: 13 }} />
+            </button>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
               style={{
@@ -636,6 +666,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
           userId={user.id}
           onClose={() => setShowGroupPanel(false)}
           onUpdated={refreshGroups}
+        />
+      )}
+
+      {/* ── 사용자 관리 모달 ── */}
+      {showAdminModal && (
+        <AdminModal
+          currentUserId={user.id}
+          onClose={() => setShowAdminModal(false)}
         />
       )}
 

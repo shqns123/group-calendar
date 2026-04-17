@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, description, startDate, endDate, allDay, color, isPrivate, groupId } = body;
+  const { title, description, startDate, endDate, allDay, color, isPrivate, overtimeAvailable, groupId } = body;
 
   if (!title?.trim()) {
     return Response.json({ error: "제목은 필수입니다" }, { status: 400 });
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
       allDay: allDay ?? false,
       color: color ?? "#3B82F6",
       isPrivate: isPrivate ?? false,
+      overtimeAvailable: overtimeAvailable ?? false,
       creatorId: session.user.id,
       groupId: groupId || null,
     },
