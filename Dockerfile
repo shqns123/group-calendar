@@ -9,6 +9,7 @@ RUN npm ci
 
 # 2. 빌드
 FROM base AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
