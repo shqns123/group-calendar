@@ -55,4 +55,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # DB 마이그레이션 후 서버 시작
-CMD ["sh", "-c", "DATABASE_URL=file:/app/data/prod.db node ./node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "DATABASE_URL=file:/app/data/prod.db node ./node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss && node server.js"]
