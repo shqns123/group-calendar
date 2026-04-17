@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
       },
     });
     const group = await prisma.group.findUnique({ where: { id: groupId } });
-    const isLeader = group?.leaderId === session.user.id;
+    const isAdmin = group?.leaderId === session.user.id;
+    const isLeader = isAdmin || member?.role === "그룹장" || member?.role === "파트장";
 
     if (!member) {
       return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
       where: {
         groupId,
         ...dateFilter,
-        // 리더는 모든 이벤트, 멤버는 공개 이벤트 + 자신의 비공개 이벤트
+        // 관리자/리더는 모든 이벤트, 멤버는 공개 이벤트 + 자신의 비공개 이벤트
         OR: isLeader
           ? undefined
           : [{ isPrivate: false }, { creatorId: session.user.id }],

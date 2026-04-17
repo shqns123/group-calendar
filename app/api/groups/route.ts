@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         create: {
           userId: session.user.id,
           nickname: session.user.name || undefined,
+          role: "ADMIN",
         },
       },
     },

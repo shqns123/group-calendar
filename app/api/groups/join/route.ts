@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "초대 코드를 입력해주세요" }, { status: 400 });
   }
 
-  const group = await prisma.group.findUnique({
+  const group = await prisma.group.findFirst({
     where: { inviteCode: inviteCode.trim() },
   });
 
@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "이미 참가한 그룹입니다" }, { status: 409 });
   }
 
-  // checkOnly: 코드만 확인하고 실제 참가는 안 함 (닉네임 설정 단계 전용)
   if (checkOnly) {
     return Response.json({ groupId: group.id, groupName: group.name });
   }
@@ -41,6 +40,7 @@ export async function POST(request: NextRequest) {
       groupId: group.id,
       userId: session.user.id,
       nickname: nickname?.trim() || null,
+      role: "MEMBER",
     },
   });
 

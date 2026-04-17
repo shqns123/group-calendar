@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { format, isToday, isTomorrow, isThisWeek, isThisMonth, isPast, startOfDay } from "date-fns";
+import { format, isToday, isTomorrow, isThisMonth, isPast, startOfDay } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, Lock, MapPin, RefreshCw } from "lucide-react";
+import { Clock, Lock, MapPin, RefreshCw, PanelLeftClose } from "lucide-react";
 
 type CalEvent = {
   id: string;
@@ -28,6 +28,7 @@ type Group = {
     id: string;
     userId: string;
     nickname: string | null;
+    role: string;
     user: { id: string; name: string | null; email: string | null; image: string | null };
   }>;
 };
@@ -38,11 +39,12 @@ type Props = {
   isLeader: boolean;
   onEventClick: (event: CalEvent) => void;
   refreshKey: number;
+  onClose: () => void;
 };
 
 type GroupedEvents = {
   label: string;
-  color: string;
+  accent: string;
   events: CalEvent[];
 };
 
@@ -59,7 +61,7 @@ function getDateLabel(date: Date): string {
   return format(date, "M월", { locale: ko });
 }
 
-export default function EventSummary({ userId, group, isLeader, onEventClick, refreshKey }: Props) {
+export default function EventSummary({ userId, group, isLeader, onEventClick, refreshKey, onClose }: Props) {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -68,7 +70,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      // 오늘부터 365일 후까지
       const future = new Date(today);
       future.setDate(future.getDate() + 365);
 
@@ -81,7 +82,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
       const res = await fetch(`/api/events?${params}`);
       if (res.ok) {
         const data: CalEvent[] = await res.json();
-        // 시작일 기준 정렬
         data.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
         setEvents(data);
       }
@@ -94,7 +94,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
     fetchEvents();
   }, [fetchEvents, refreshKey]);
 
-  // 날짜 그룹핑
   const grouped: GroupedEvents[] = [];
   const labelMap = new Map<string, CalEvent[]>();
   const labelOrder: string[] = [];
@@ -108,18 +107,18 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
     labelMap.get(label)!.push(event);
   }
 
-  const labelColors: Record<string, string> = {
-    "오늘": "text-blue-600",
-    "내일": "text-indigo-500",
-    "이번 주": "text-violet-500",
-    "이번 달": "text-slate-500",
-    "다음 달 이후": "text-slate-400",
+  const labelAccents: Record<string, string> = {
+    "오늘": "var(--accent)",
+    "내일": "#6366F1",
+    "이번 주": "#8B5CF6",
+    "이번 달": "var(--text-secondary)",
+    "다음 달 이후": "var(--text-tertiary)",
   };
 
   for (const label of labelOrder) {
     grouped.push({
       label,
-      color: labelColors[label] ?? "text-slate-400",
+      accent: labelAccents[label] ?? "var(--text-tertiary)",
       events: labelMap.get(label)!,
     });
   }
@@ -131,44 +130,136 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
   };
 
   return (
-    <div className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+    <div
+      style={{
+        width: 280,
+        flexShrink: 0,
+        background: "var(--surface)",
+        borderRight: "1px solid var(--border)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+      <div
+        style={{
+          padding: "12px 16px",
+          borderBottom: "1px solid var(--border-subtle)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+        }}
+      >
         <div>
-          <h3 className="text-sm font-bold text-slate-700">일정 요약</h3>
-          <p className="text-xs text-slate-400 mt-0.5">향후 365일</p>
+          <h3
+            style={{
+              fontSize: "0.825rem",
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            일정 요약
+          </h3>
+          <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 1 }}>
+            향후 365일
+          </p>
         </div>
-        <button
-          onClick={fetchEvents}
-          disabled={loading}
-          className="text-slate-400 hover:text-slate-600 transition-colors"
-          title="새로고침"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            onClick={fetchEvents}
+            disabled={loading}
+            title="새로고침"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+              borderRadius: 4,
+              color: "var(--text-tertiary)",
+              display: "flex",
+            }}
+          >
+            <RefreshCw
+              style={{
+                width: 13,
+                height: 13,
+                ...(loading ? { animation: "spin 1s linear infinite" } : {}),
+              }}
+            />
+          </button>
+          {/* 닫기 버튼 */}
+          <button
+            onClick={onClose}
+            title="일정 요약 닫기"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+              borderRadius: 4,
+              color: "var(--text-tertiary)",
+              display: "flex",
+            }}
+          >
+            <PanelLeftClose style={{ width: 15, height: 15 }} />
+          </button>
+        </div>
       </div>
 
       {/* 일정 목록 */}
-      <div className="flex-1 overflow-y-auto">
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {events.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-            <Clock className="w-8 h-8 mb-2 opacity-40" />
-            <p className="text-sm">예정된 일정이 없습니다</p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 160,
+              color: "var(--text-tertiary)",
+            }}
+          >
+            <Clock style={{ width: 32, height: 32, marginBottom: 8, opacity: 0.4 }} />
+            <p style={{ fontSize: "0.825rem" }}>예정된 일정이 없습니다</p>
           </div>
         )}
 
-        {grouped.map((group) => (
-          <div key={group.label}>
+        {grouped.map((grp) => (
+          <div key={grp.label}>
             {/* 날짜 그룹 헤더 */}
-            <div className="sticky top-0 bg-slate-50 px-4 py-2 border-b border-slate-100 z-10">
-              <span className={`text-xs font-bold uppercase tracking-wider ${group.color}`}>
-                {group.label}
+            <div
+              style={{
+                position: "sticky",
+                top: 0,
+                background: "var(--surface-raised)",
+                padding: "6px 16px",
+                borderBottom: "1px solid var(--border-subtle)",
+                zIndex: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.07em",
+                  color: grp.accent,
+                }}
+              >
+                {grp.label}
               </span>
-              <span className="text-xs text-slate-400 ml-2">({group.events.length})</span>
+              <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>
+                ({grp.events.length})
+              </span>
             </div>
 
-            {/* 해당 그룹 이벤트 */}
-            {group.events.map((event) => {
+            {grp.events.map((event) => {
               const isOwn = event.creatorId === userId;
               const isHidden = event.isPrivate && !isOwn && !isLeader;
               const creatorName = getCreatorName(event);
@@ -180,53 +271,93 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                 <button
                   key={event.id}
                   onClick={() => onEventClick(event)}
-                  className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors ${
-                    isPastEvent ? "opacity-50" : ""
-                  }`}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "10px 16px",
+                    borderBottom: "1px solid var(--border-subtle)",
+                    background: "none",
+                    border: "none",
+                    borderBottomWidth: 1,
+                    borderBottomStyle: "solid",
+                    borderBottomColor: "var(--border-subtle)",
+                    cursor: "pointer",
+                    opacity: isPastEvent ? 0.5 : 1,
+                    fontFamily: "inherit",
+                    transition: "background 0.1s ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* 색상 인디케이터 */}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                     <div
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1"
-                      style={{ backgroundColor: event.color }}
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        marginTop: 4,
+                        backgroundColor: event.color,
+                      }}
                     />
-
-                    <div className="flex-1 min-w-0">
-                      {/* 제목 */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-slate-800 truncate">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span
+                          style={{
+                            fontSize: "0.825rem",
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
                           {isHidden ? "비공개 일정" : event.title}
                         </span>
                         {event.isPrivate && (
-                          <Lock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                          <Lock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
                         )}
                       </div>
 
-                      {/* 설명 (이름/장소) */}
                       {!isHidden && event.description && (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                          <span className="text-xs text-slate-500 truncate">
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                          <MapPin style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              color: "var(--text-secondary)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {event.description}
                           </span>
                         </div>
                       )}
 
-                      {/* 날짜/시간 */}
-                      <div className="flex items-center gap-1 mt-1">
-                        <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                        <span className="text-xs text-slate-400">
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+                        <Clock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
                           {event.allDay
                             ? format(start, "MM/dd (E)", { locale: ko })
-                            : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`
-                          }
+                            : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`}
                         </span>
                       </div>
 
-                      {/* 작성자 (그룹일 때) */}
                       {creatorName && (
-                        <div className="mt-1">
-                          <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                        <div style={{ marginTop: 4 }}>
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              background: "var(--surface-raised)",
+                              color: "var(--text-secondary)",
+                              padding: "1px 6px",
+                              borderRadius: 10,
+                              letterSpacing: "-0.01em",
+                            }}
+                          >
                             {creatorName}
                           </span>
                         </div>

@@ -18,7 +18,7 @@ export async function PATCH(
     return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
   }
   if (group.leaderId !== session.user.id) {
-    return Response.json({ error: "리더만 위임할 수 있습니다" }, { status: 403 });
+    return Response.json({ error: "관리자만 위임할 수 있습니다" }, { status: 403 });
   }
 
   const body = await request.json();

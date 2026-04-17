@@ -14,6 +14,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const [nickname, setNickname] = useState("");
   const [groupName, setGroupName] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [joinRole, setJoinRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,6 +44,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
 
       setGroupName(data.groupName);
       setGroupId(data.groupId);
+      setJoinRole(data.role ?? "MEMBER");
       setStep("nickname");
     } catch {
       setError("네트워크 오류가 발생했습니다");
@@ -139,6 +141,11 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
             <div className="bg-blue-50 rounded-xl p-4 text-center">
               <p className="text-xs text-blue-500 font-medium mb-1">참가할 그룹</p>
               <p className="text-lg font-bold text-blue-800">{groupName}</p>
+              {joinRole !== "MEMBER" && (
+                <p className="text-xs text-blue-600 mt-1">
+                  역할: <strong>{joinRole}</strong>
+                </p>
+              )}
             </div>
 
             <div>
@@ -155,7 +162,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
                 maxLength={20}
               />
               <p className="text-xs text-slate-400 mt-1.5">
-                비워두면 Google 계정 이름이 사용됩니다
+                비워두면 계정 이름이 사용됩니다
               </p>
             </div>
 

@@ -16,6 +16,7 @@ type Group = {
     id: string;
     userId: string;
     nickname: string | null;
+    role: string;
     user: { id: string; name: string | null; email: string | null; image: string | null };
   }>;
 };
@@ -121,7 +122,16 @@ export default function CalendarView({
   };
 
   return (
-    <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+    <div
+      style={{
+        height: "100%",
+        background: "var(--surface)",
+        borderRadius: 10,
+        border: "1px solid var(--border)",
+        padding: 16,
+        overflow: "hidden",
+      }}
+    >
       <FullCalendar
         ref={calendarRef}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -129,7 +139,7 @@ export default function CalendarView({
         headerToolbar={{
           left: "prev",
           center: "title",
-          right: "today dayGridMonth,timeGridWeek,timeGridDay next",
+          right: "today timeGridDay timeGridWeek dayGridMonth next",
         }}
         buttonText={{ today: "오늘", month: "월", week: "주", day: "일" }}
         locale="ko"

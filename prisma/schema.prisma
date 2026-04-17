@@ -39,6 +39,7 @@ model User {
   email         String?       @unique
   emailVerified DateTime?
   image         String?
+  employeeId    String?       @unique
   accounts      Account[]
   sessions      Session[]
   groupMembers  GroupMember[]
@@ -57,11 +58,11 @@ model VerificationToken {
 }
 
 model Group {
-  id          String        @id @default(cuid())
-  name        String
-  description String?
-  inviteCode  String        @unique @default(cuid())
-  leaderId    String
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  inviteCode      String        @unique @default(cuid())
+  leaderId        String
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]
   events      Event[]
@@ -74,6 +75,7 @@ model GroupMember {
   groupId  String
   userId   String
   nickname String?
+  role     String   @default("MEMBER")
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt DateTime @default(now())

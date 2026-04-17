@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full">
-      <body className="min-h-full flex flex-col bg-slate-50">
+      <body className="min-h-full flex flex-col">
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

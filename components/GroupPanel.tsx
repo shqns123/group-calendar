@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, Pencil, Trash2, UserMinus, RefreshCw, Crown, Save } from "lucide-react";
+import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck } from "lucide-react";
 
 type Member = {
   id: string;
   userId: string;
   nickname: string | null;
+  role: string;
   joinedAt: string;
   user: { id: string; name: string | null; email: string | null; image: string | null };
 };
@@ -28,36 +29,45 @@ type Props = {
   onUpdated: () => void;
 };
 
-export default function GroupPanel({ group, userId, onClose, onUpdated }: Props) {
-  const isLeader = group.leaderId === userId;
-  const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
+const ROLE_LABELS: Record<string, { label: string; bg: string; color: string }> = {
+  관리자: { label: "관리자", bg: "var(--text-primary)", color: "var(--surface)" },
+  그룹장: { label: "그룹장", bg: "var(--accent-light)", color: "var(--accent)" },
+  파트장: { label: "파트장", bg: "#F0FDF4", color: "#16A34A" },
+  MEMBER: { label: "멤버", bg: "var(--surface-raised)", color: "var(--text-tertiary)" },
+};
 
-  // 그룹 이름/설명 편집
+function RoleBadge({ role }: { role: string }) {
+  const config = ROLE_LABELS[role] ?? ROLE_LABELS.MEMBER;
+  return (
+    <span
+      style={{
+        fontSize: "0.65rem",
+        fontWeight: 600,
+        padding: "1px 6px",
+        borderRadius: 4,
+        background: config.bg,
+        color: config.color,
+        letterSpacing: "0.01em",
+        flexShrink: 0,
+      }}
+    >
+      {config.label}
+    </span>
+  );
+}
+
+export default function GroupPanel({ group, userId, onClose, onUpdated }: Props) {
+  const isAdmin = group.leaderId === userId;
+  const myMember = group.members.find((m) => m.userId === userId);
+  const isLeader = isAdmin || myMember?.role === "그룹장" || myMember?.role === "파트장";
+
+  const [loading, setLoading] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState(group.name);
   const [groupDescInput, setGroupDescInput] = useState(group.description ?? "");
-
-  // 닉네임 편집
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
-
-  const copyInviteCode = () => {
-    navigator.clipboard.writeText(group.inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const refreshInviteCode = async () => {
-    if (!confirm("초대 코드를 재생성하면 기존 코드는 사용할 수 없습니다. 계속하시겠습니까?")) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/groups/${group.id}/invite`, { method: "POST" });
-      if (res.ok) await onUpdated();
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
 
   const saveGroupInfo = async () => {
     if (!groupNameInput.trim()) return;
@@ -77,11 +87,6 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
     }
   };
 
-  const startEditNickname = (member: Member) => {
-    setEditingMemberId(member.id);
-    setNicknameInput(member.nickname ?? member.user.name ?? "");
-  };
-
   const saveNickname = async (memberId: string) => {
     setLoading(true);
     try {
@@ -99,30 +104,29 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
     }
   };
 
-  const removeMember = async (memberId: string, memberName: string) => {
-    if (!confirm(`${memberName}님을 그룹에서 제거하시겠습니까?`)) return;
+  const setMemberRole = async (member: Member, role: string, displayName: string) => {
+    const roleLabel = role === "그룹장" ? "그룹장" : role === "파트장" ? "파트장" : "일반 멤버";
+    if (!confirm(`"${displayName}"님을 ${roleLabel}로 변경하시겠습니까?`)) return;
+    setRoleMenuId(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/groups/${group.id}/members/${memberId}`, { method: "DELETE" });
+      const res = await fetch(`/api/groups/${group.id}/members/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
       if (res.ok) await onUpdated();
     } finally {
       setLoading(false);
     }
   };
 
-  const transferLeader = async (targetUserId: string, targetName: string) => {
-    if (!confirm(`"${targetName}"님에게 리더를 위임하시겠습니까?\n위임 후에는 리더 권한이 없어집니다.`)) return;
+  const removeMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`${memberName}님을 그룹에서 제거하시겠습니까?`)) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/groups/${group.id}/leader`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newLeaderUserId: targetUserId }),
-      });
-      if (res.ok) {
-        await onUpdated();
-        onClose();
-      }
+      const res = await fetch(`/api/groups/${group.id}/members/${memberId}`, { method: "DELETE" });
+      if (res.ok) await onUpdated();
     } finally {
       setLoading(false);
     }
@@ -142,163 +146,263 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
     }
   };
 
+  const sectionStyle: React.CSSProperties = {
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+  };
+
+  const sectionHeaderStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "8px 14px",
+    background: "var(--surface-raised)",
+    borderBottom: "1px solid var(--border-subtle)",
+    borderRadius: "10px 10px 0 0",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: "0.65rem",
+    fontWeight: 700,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase" as const,
+    color: "var(--text-tertiary)",
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: "var(--surface)",
+          borderRadius: "14px 14px 0 0",
+          boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+          width: "100%",
+          maxWidth: 480,
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 flex-shrink-0">
-          <h3 className="text-lg font-semibold text-slate-800">그룹 관리</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="w-5 h-5" />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 18px 14px",
+            borderBottom: "1px solid var(--border-subtle)",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: "0.9rem", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
+            그룹 관리
+          </span>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", display: "flex", padding: 2 }}
+          >
+            <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+        <div style={{ overflowY: "auto", flex: 1, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
 
-          {/* ── 그룹 이름/설명 ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">그룹 정보</span>
-              {isLeader && !editingGroupName && (
+          {/* ── 그룹 정보 ── */}
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <span style={labelStyle}>그룹 정보</span>
+              {isAdmin && !editingGroupName && (
                 <button
                   onClick={() => { setGroupNameInput(group.name); setGroupDescInput(group.description ?? ""); setEditingGroupName(true); }}
-                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--accent)", fontWeight: 500, fontFamily: "inherit" }}
                 >
-                  <Pencil className="w-3.5 h-3.5" /> 수정
+                  수정
                 </button>
               )}
             </div>
-            <div className="p-4">
+            <div style={{ padding: "12px 14px" }}>
               {editingGroupName ? (
-                <div className="space-y-2">
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <input
                     type="text"
                     value={groupNameInput}
                     onChange={(e) => setGroupNameInput(e.target.value)}
                     placeholder="그룹 이름"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
                     maxLength={30}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                   />
                   <input
                     type="text"
                     value={groupDescInput}
                     onChange={(e) => setGroupDescInput(e.target.value)}
                     placeholder="설명 (선택)"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     maxLength={60}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                   />
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => setEditingGroupName(false)} className="flex-1 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">취소</button>
-                    <button onClick={saveGroupInfo} disabled={loading || !groupNameInput.trim()} className="flex-1 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1">
-                      <Save className="w-3.5 h-3.5" /> 저장
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setEditingGroupName(false)} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "1px solid var(--border)", borderRadius: 6, background: "none", cursor: "pointer", fontFamily: "inherit", color: "var(--text-secondary)" }}>취소</button>
+                    <button onClick={saveGroupInfo} disabled={loading || !groupNameInput.trim()} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "none", borderRadius: 6, background: "var(--text-primary)", color: "white", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+                      <Save style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />저장
                     </button>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <p className="font-semibold text-slate-800">{group.name}</p>
-                  {group.description && <p className="text-sm text-slate-500 mt-0.5">{group.description}</p>}
+                  <p style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{group.name}</p>
+                  {group.description && <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 2 }}>{group.description}</p>}
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── 초대 코드 ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">초대 코드</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-3">
-              <code className="flex-1 font-mono text-slate-700 text-sm tracking-wider">{group.inviteCode}</code>
-              <button onClick={copyInviteCode} className="text-slate-400 hover:text-slate-600 p-1" title="복사">
-                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-              </button>
-              {isLeader && (
-                <button onClick={refreshInviteCode} disabled={loading} className="text-slate-400 hover:text-slate-600 p-1" title="재생성">
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* ── 멤버 목록 ── */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">멤버 ({group.members.length}명)</span>
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <span style={labelStyle}>멤버 ({group.members.length}명)</span>
             </div>
-            <div className="divide-y divide-slate-50">
-              {group.members.map((member) => {
+            <div>
+              {group.members.map((member, idx) => {
                 const isCurrentUser = member.userId === userId;
-                const isMemberLeader = member.userId === group.leaderId;
+                const isMemberAdmin = member.userId === group.leaderId;
                 const displayName = member.nickname || member.user.name || member.user.email?.split("@")[0] || "알 수 없음";
+                const memberRole = isMemberAdmin ? "관리자" : member.role || "MEMBER";
 
                 return (
-                  <div key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                  <div
+                    key={member.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      borderBottom: idx < group.members.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                      position: "relative",
+                    }}
+                  >
                     {member.user.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={member.user.image} alt={displayName} className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <img src={member.user.image} alt="" style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0 }} />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-blue-600 text-sm font-semibold">{displayName.charAt(0).toUpperCase()}</span>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--surface-raised)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)" }}>
+                        {displayName.charAt(0).toUpperCase()}
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       {editingMemberId === member.id ? (
-                        <div className="flex items-center gap-2">
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <input
                             type="text"
                             value={nicknameInput}
                             onChange={(e) => setNicknameInput(e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter") saveNickname(member.id); if (e.key === "Escape") setEditingMemberId(null); }}
-                            className="flex-1 px-2 py-1 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                             autoFocus
+                            style={{ flex: 1, padding: "4px 8px", border: "1px solid var(--accent)", borderRadius: 5, fontSize: "0.8rem", outline: "none", fontFamily: "inherit", background: "var(--surface)", color: "var(--text-primary)" }}
                           />
-                          <button onClick={() => saveNickname(member.id)} disabled={loading} className="text-blue-600 text-xs font-medium">저장</button>
-                          <button onClick={() => setEditingMemberId(null)} className="text-slate-400 text-xs">취소</button>
+                          <button onClick={() => saveNickname(member.id)} disabled={loading} style={{ fontSize: "0.75rem", color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>저장</button>
+                          <button onClick={() => setEditingMemberId(null)} style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>취소</button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-sm font-medium text-slate-700 truncate">{displayName}</span>
-                          {isMemberLeader && (
-                            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">리더</span>
-                          )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.825rem", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{displayName}</span>
+                          <RoleBadge role={memberRole} />
                           {isCurrentUser && (
-                            <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full flex-shrink-0">나</span>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: "#EFF6FF", color: "#3B82F6" }}>나</span>
                           )}
                           {member.nickname && (
-                            <span className="text-xs text-slate-400 truncate">({member.user.name || member.user.email})</span>
+                            <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>({member.user.name || member.user.email})</span>
                           )}
                         </div>
                       )}
                     </div>
 
-                    {/* 액션 버튼 */}
+                    {/* 액션 */}
                     {editingMemberId !== member.id && (
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
                         {(isLeader || isCurrentUser) && (
-                          <button onClick={() => startEditNickname(member)} className="text-slate-300 hover:text-slate-500 p-1.5 rounded-lg hover:bg-slate-100" title="닉네임 수정">
-                            <Pencil className="w-3.5 h-3.5" />
+                          <button
+                            onClick={() => { setEditingMemberId(member.id); setNicknameInput(member.nickname ?? member.user.name ?? ""); }}
+                            title="닉네임 수정"
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: 5, borderRadius: 4, color: "var(--text-tertiary)", display: "flex" }}
+                          >
+                            <Pencil style={{ width: 12, height: 12 }} />
                           </button>
                         )}
-                        {isLeader && !isMemberLeader && (
+                        {isAdmin && !isMemberAdmin && (
                           <>
-                            <button
-                              onClick={() => transferLeader(member.userId, displayName)}
-                              disabled={loading}
-                              className="text-slate-300 hover:text-amber-500 p-1.5 rounded-lg hover:bg-amber-50 transition-colors"
-                              title="리더 위임"
-                            >
-                              <Crown className="w-3.5 h-3.5" />
-                            </button>
+                            {/* 역할 변경 */}
+                            <div style={{ position: "relative" }}>
+                              <button
+                                onClick={() => setRoleMenuId(roleMenuId === member.id ? null : member.id)}
+                                title="역할 변경"
+                                style={{ background: "none", border: "none", cursor: "pointer", padding: 5, borderRadius: 4, color: "var(--text-tertiary)", display: "flex" }}
+                              >
+                                <ShieldCheck style={{ width: 12, height: 12 }} />
+                              </button>
+                              {roleMenuId === member.id && (
+                                <div style={{
+                                  position: "fixed",
+                                  background: "var(--surface)",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: 8,
+                                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                                  zIndex: 100,
+                                  minWidth: 110,
+                                  overflow: "hidden",
+                                  right: 20,
+                                }}>
+                                  {["그룹장", "파트장", "MEMBER"].map((r) => (
+                                    <button
+                                      key={r}
+                                      onClick={() => setMemberRole(member, r, displayName)}
+                                      style={{
+                                        width: "100%",
+                                        display: "block",
+                                        padding: "9px 14px",
+                                        textAlign: "left",
+                                        background: member.role === r ? "var(--surface-raised)" : "none",
+                                        border: "none",
+                                        borderBottom: r !== "MEMBER" ? "1px solid var(--border-subtle)" : "none",
+                                        cursor: "pointer",
+                                        fontSize: "0.82rem",
+                                        color: "var(--text-primary)",
+                                        fontFamily: "inherit",
+                                        letterSpacing: "-0.01em",
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = member.role === r ? "var(--surface-raised)" : "none")}
+                                    >
+                                      {r === "MEMBER" ? "일반 멤버" : r}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 멤버 제거 */}
                             <button
                               onClick={() => removeMember(member.id, displayName)}
                               disabled={loading}
-                              className="text-slate-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
                               title="멤버 제거"
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: 5, borderRadius: 4, color: "var(--text-tertiary)", display: "flex" }}
                             >
-                              <UserMinus className="w-3.5 h-3.5" />
+                              <UserMinus style={{ width: 12, height: 12 }} />
                             </button>
                           </>
                         )}
@@ -311,24 +415,32 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
           </div>
 
           {/* ── 위험 구역 ── */}
-          {isLeader && (
-            <div className="border border-red-100 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-red-50 border-b border-red-100">
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">위험 구역</span>
+          {isAdmin && (
+            <div style={{ border: "1px solid #FEE2E2", borderRadius: 10 }}>
+              <div style={{ padding: "8px 14px", background: "#FFF5F5", borderBottom: "1px solid #FEE2E2", borderRadius: "10px 10px 0 0" }}>
+                <span style={{ ...labelStyle, color: "#F87171" }}>위험 구역</span>
               </div>
-              <div className="p-4">
+              <div style={{ padding: "10px 14px" }}>
                 <button
                   onClick={deleteGroup}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: "0.8rem", color: "#DC2626", background: "none", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 style={{ width: 13, height: 13 }} />
                   그룹 삭제
                 </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* 드롭다운 닫기용 오버레이 */}
+        {roleMenuId && (
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 99 }}
+            onClick={() => setRoleMenuId(null)}
+          />
+        )}
       </div>
     </div>
   );

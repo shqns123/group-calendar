@@ -18,11 +18,14 @@ export async function PATCH(
     return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 리더 또는 작성자만 수정 가능
+  // 작성자, 관리자, 리더만 수정 가능
   let canEdit = event.creatorId === session.user.id;
   if (!canEdit && event.groupId) {
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
-    canEdit = group?.leaderId === session.user.id;
+    const member = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
+    });
+    canEdit = group?.leaderId === session.user.id || member?.role === "그룹장" || member?.role === "파트장";
   }
   if (!canEdit) {
     return Response.json({ error: "수정 권한이 없습니다" }, { status: 403 });
@@ -69,7 +72,10 @@ export async function DELETE(
   let canDelete = event.creatorId === session.user.id;
   if (!canDelete && event.groupId) {
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
-    canDelete = group?.leaderId === session.user.id;
+    const member = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
+    });
+    canDelete = group?.leaderId === session.user.id || member?.role === "그룹장" || member?.role === "파트장";
   }
   if (!canDelete) {
     return Response.json({ error: "삭제 권한이 없습니다" }, { status: 403 });
