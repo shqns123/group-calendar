@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import type { EventInput, DateSelectArg, EventClickArg, DateClickArg } from "@fullcalendar/core";
 import { format, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Clock, User } from "lucide-react";
@@ -324,6 +324,14 @@ export default function CalendarView({
     setShowModal(true);
   };
 
+  const handleDateClick = (info: DateClickArg) => {
+    const end = new Date(info.date);
+    end.setDate(end.getDate() + 1);
+    setSelectedDates({ start: info.date, end, allDay: true });
+    setSelectedEvent(null);
+    setShowModal(true);
+  };
+
   const handleEventClick = (info: EventClickArg) => {
     setSelectedEvent(info.event.extendedProps.event as CalEvent);
     setSelectedDates(null);
@@ -414,6 +422,7 @@ export default function CalendarView({
             selectMirror={true}
             dayMaxEvents={3}
             select={handleDateSelect}
+            dateClick={handleDateClick}
             eventClick={handleEventClick}
             height="100%"
             dayCellClassNames={(arg) => {
