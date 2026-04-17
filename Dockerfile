@@ -13,8 +13,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Prisma 클라이언트 생성
+# Prisma 클라이언트 생성 + 엔진 바이너리 다운로드
 RUN npx prisma generate
+RUN DATABASE_URL=file:/tmp/temp.db npx prisma db push && rm -f /tmp/temp.db
 
 # Next.js 빌드
 ENV NEXT_TELEMETRY_DISABLED=1
