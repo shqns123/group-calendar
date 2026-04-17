@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const isAdmin = group?.leaderId === session.user.id;
     const isLeader = isAdmin || member?.role === "그룹장" || member?.role === "파트장";
 
-    if (!member) {
+    if (!isAdmin && (!member || member.status !== "ACTIVE")) {
       return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
     }
 

@@ -34,6 +34,27 @@ export async function PATCH(
 
   const body = await request.json();
 
+  // 상태 변경 (승인/거절) - 관리자 또는 리더
+  if ("status" in body) {
+    if (!isAdmin && !isLeader) {
+      return Response.json({ error: "권한이 없습니다" }, { status: 403 });
+    }
+    const { status } = body;
+    if (status === "REJECTED") {
+      await prisma.groupMember.delete({ where: { id: memberId } });
+      return Response.json({ success: true });
+    }
+    if (status !== "ACTIVE") {
+      return Response.json({ error: "유효하지 않은 상태입니다" }, { status: 400 });
+    }
+    const updated = await prisma.groupMember.update({
+      where: { id: memberId },
+      data: { status: "ACTIVE" },
+      include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    });
+    return Response.json(updated);
+  }
+
   // 역할 변경 요청 (관리자만)
   if ("role" in body) {
     if (!isAdmin) {

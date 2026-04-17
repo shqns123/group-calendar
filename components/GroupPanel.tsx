@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck } from "lucide-react";
+import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX } from "lucide-react";
 
 type Member = {
   id: string;
   userId: string;
   nickname: string | null;
   role: string;
+  status: string;
   joinedAt: string;
   user: { id: string; name: string | null; email: string | null; image: string | null };
 };
@@ -60,6 +61,8 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
   const isAdmin = group.leaderId === userId;
   const myMember = group.members.find((m) => m.userId === userId);
   const isLeader = isAdmin || myMember?.role === "그룹장" || myMember?.role === "파트장";
+  const activeMembers = group.members.filter((m) => m.status === "ACTIVE" || m.status === undefined);
+  const pendingMembers = group.members.filter((m) => m.status === "PENDING");
 
   const [loading, setLoading] = useState(false);
   const [editingGroupName, setEditingGroupName] = useState(false);
@@ -126,6 +129,35 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
     setLoading(true);
     try {
       const res = await fetch(`/api/groups/${group.id}/members/${memberId}`, { method: "DELETE" });
+      if (res.ok) await onUpdated();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const approveMember = async (memberId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ACTIVE" }),
+      });
+      if (res.ok) await onUpdated();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`"${memberName}"의 가입을 거절하시겠습니까?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REJECTED" }),
+      });
       if (res.ok) await onUpdated();
     } finally {
       setLoading(false);
@@ -271,13 +303,66 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
             </div>
           </div>
 
+          {/* ── 가입 요청 (리더/관리자만) ── */}
+          {isLeader && pendingMembers.length > 0 && (
+            <div style={{ border: "1px solid #FDE68A", borderRadius: 10 }}>
+              <div style={{ padding: "8px 14px", background: "#FFFBEB", borderBottom: "1px solid #FDE68A", borderRadius: "10px 10px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ ...labelStyle, color: "#D97706" }}>가입 요청</span>
+                <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "#FEF3C7", color: "#D97706" }}>{pendingMembers.length}명</span>
+              </div>
+              <div>
+                {pendingMembers.map((member, idx) => {
+                  const displayName = member.nickname || member.user.name || member.user.email?.split("@")[0] || "알 수 없음";
+                  return (
+                    <div
+                      key={member.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 14px",
+                        borderBottom: idx < pendingMembers.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                      }}
+                    >
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#FEF3C7", border: "1px solid #FDE68A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "0.75rem", fontWeight: 600, color: "#D97706" }}>
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: "0.825rem", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</p>
+                        <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{member.user.email}</p>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        <button
+                          onClick={() => approveMember(member.id)}
+                          disabled={loading}
+                          title="수락"
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 8px", borderRadius: 5, border: "none", background: "#D1FAE5", color: "#065F46", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, fontFamily: "inherit" }}
+                        >
+                          <UserCheck style={{ width: 12, height: 12 }} />수락
+                        </button>
+                        <button
+                          onClick={() => rejectMember(member.id, displayName)}
+                          disabled={loading}
+                          title="거절"
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 8px", borderRadius: 5, border: "none", background: "#FEE2E2", color: "#991B1B", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, fontFamily: "inherit" }}
+                        >
+                          <UserX style={{ width: 12, height: 12 }} />거절
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── 멤버 목록 ── */}
           <div style={sectionStyle}>
             <div style={sectionHeaderStyle}>
-              <span style={labelStyle}>멤버 ({group.members.length}명)</span>
+              <span style={labelStyle}>멤버 ({activeMembers.length}명)</span>
             </div>
             <div>
-              {group.members.map((member, idx) => {
+              {activeMembers.map((member, idx) => {
                 const isCurrentUser = member.userId === userId;
                 const isMemberAdmin = member.userId === group.leaderId;
                 const displayName = member.nickname || member.user.name || member.user.email?.split("@")[0] || "알 수 없음";
@@ -291,7 +376,7 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
                       alignItems: "center",
                       gap: 10,
                       padding: "10px 14px",
-                      borderBottom: idx < group.members.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                      borderBottom: idx < activeMembers.length - 1 ? "1px solid var(--border-subtle)" : "none",
                       position: "relative",
                     }}
                   >

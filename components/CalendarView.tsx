@@ -10,6 +10,7 @@ import { format, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Clock, User } from "lucide-react";
 import EventModal from "./EventModal";
+import DayEventsModal from "./DayEventsModal";
 
 type Group = {
   id: string;
@@ -287,6 +288,7 @@ export default function CalendarView({
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
+  const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
 
   const fetchEvents = useCallback(async () => {
@@ -327,11 +329,29 @@ export default function CalendarView({
   };
 
   const handleDateClick = (info: DateClickArg) => {
-    const end = new Date(info.date);
-    end.setDate(end.getDate() + 1);
-    setSelectedDates({ start: info.date, end, allDay: true });
-    setSelectedEvent(null);
-    setShowModal(true);
+    const target = info.jsEvent.target as HTMLElement;
+    const isOnDayNumber = !!target.closest(".fc-daygrid-day-number");
+
+    if (isOnDayNumber) {
+      const end = new Date(info.date);
+      end.setDate(end.getDate() + 1);
+      setSelectedDates({ start: info.date, end, allDay: true });
+      setSelectedEvent(null);
+      setShowModal(true);
+    } else {
+      const s = new Date(info.date);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(info.date);
+      e.setHours(23, 59, 59, 999);
+      const dayEvents = events
+        .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+        .sort((a, b) => {
+          if (a.allDay && !b.allDay) return -1;
+          if (!a.allDay && b.allDay) return 1;
+          return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        });
+      setDayPopup({ date: info.date, events: dayEvents });
+    }
   };
 
   const handleEventClick = (info: EventClickArg) => {
@@ -422,10 +442,25 @@ export default function CalendarView({
             events={calendarEvents}
             selectable={true}
             selectMirror={true}
-            dayMaxEvents={3}
+            dayMaxEvents={1}
             select={handleDateSelect}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
+            moreLinkClick={(info) => {
+              const s = new Date(info.date);
+              s.setHours(0, 0, 0, 0);
+              const e = new Date(info.date);
+              e.setHours(23, 59, 59, 999);
+              const dayEvents = events
+                .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+                .sort((a, b) => {
+                  if (a.allDay && !b.allDay) return -1;
+                  if (!a.allDay && b.allDay) return 1;
+                  return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+                });
+              setDayPopup({ date: info.date, events: dayEvents });
+              return false as unknown as "popover";
+            }}
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
@@ -433,6 +468,35 @@ export default function CalendarView({
                 classes.push("fc-day-gray");
               }
               return classes;
+            }}
+            dayCellContent={(arg) => {
+              if (!isLeader) return <>{arg.dayNumberText}</>;
+              const ds = format(arg.date, "yyyy-MM-dd");
+              const hasOvertime = events.some((e) => {
+                if (!e.overtimeAvailable) return false;
+                const startStr = format(new Date(e.startDate), "yyyy-MM-dd");
+                const endStr = format(new Date(e.endDate), "yyyy-MM-dd");
+                return ds >= startStr && ds <= endStr;
+              });
+              return (
+                <div style={{ position: "relative", display: "inline-flex" }}>
+                  {arg.dayNumberText}
+                  {hasOvertime && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        right: -6,
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background: "#EF4444",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </div>
+              );
             }}
             eventContent={(info) => {
               const calEvent = info.event.extendedProps.event as CalEvent | undefined;
@@ -449,6 +513,31 @@ export default function CalendarView({
           />
         )}
       </div>
+
+      {dayPopup && (
+        <DayEventsModal
+          date={dayPopup.date}
+          events={dayPopup.events}
+          userId={userId}
+          group={group}
+          isLeader={isLeader}
+          onEventClick={(e) => {
+            setDayPopup(null);
+            setSelectedEvent(e);
+            setSelectedDates(null);
+            setShowModal(true);
+          }}
+          onAddClick={() => {
+            const end = new Date(dayPopup.date);
+            end.setDate(end.getDate() + 1);
+            setDayPopup(null);
+            setSelectedDates({ start: dayPopup.date, end, allDay: true });
+            setSelectedEvent(null);
+            setShowModal(true);
+          }}
+          onClose={() => setDayPopup(null)}
+        />
+      )}
 
       {showModal && (
         <EventModal

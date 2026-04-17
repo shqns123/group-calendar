@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       nickname: nickname?.trim() || null,
       role: "MEMBER",
+      status: "PENDING",
     },
   });
 
-  return Response.json({ success: true, groupId: group.id, groupName: group.name });
+  return Response.json({ success: true, groupId: group.id, groupName: group.name, pending: true });
 }

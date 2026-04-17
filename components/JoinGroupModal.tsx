@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Users, ArrowRight } from "lucide-react";
+import { X, Users, ArrowRight, Clock } from "lucide-react";
 
 type Props = {
   onClose: () => void;
@@ -9,7 +9,7 @@ type Props = {
 };
 
 export default function JoinGroupModal({ onClose, onJoined }: Props) {
-  const [step, setStep] = useState<"code" | "nickname">("code");
+  const [step, setStep] = useState<"code" | "nickname" | "pending">("code");
   const [inviteCode, setInviteCode] = useState("");
   const [nickname, setNickname] = useState("");
   const [groupName, setGroupName] = useState("");
@@ -76,6 +76,10 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
         return;
       }
 
+      if (data.pending) {
+        setStep("pending");
+        return;
+      }
       onJoined(data.groupId);
     } catch {
       setError("네트워크 오류가 발생했습니다");
@@ -94,7 +98,26 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
           </button>
         </div>
 
-        {step === "code" ? (
+        {step === "pending" ? (
+          <div className="p-6 space-y-4 text-center">
+            <div className="flex justify-center py-4">
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center">
+                <Clock className="w-8 h-8 text-amber-500" />
+              </div>
+            </div>
+            <div>
+              <p className="text-base font-semibold text-slate-800">{groupName}</p>
+              <p className="text-sm text-slate-500 mt-2">가입 요청이 전송되었습니다.</p>
+              <p className="text-sm text-slate-500">관리자의 수락을 기다려 주세요.</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-semibold"
+            >
+              확인
+            </button>
+          </div>
+        ) : step === "code" ? (
           <form onSubmit={handleCodeSubmit} className="p-6 space-y-4">
             <div className="flex justify-center py-4">
               <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center">

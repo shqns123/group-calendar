@@ -76,6 +76,7 @@ model GroupMember {
   userId   String
   nickname String?
   role     String   @default("MEMBER")
+  status   String   @default("ACTIVE")
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt DateTime @default(now())

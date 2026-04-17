@@ -305,8 +305,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 </span>
               }
               label={g.name}
-              badge={
-                myRole(g) === "admin" ? (
+              badge={(() => {
+                const pendingCnt = isElevated(g) ? g.members.filter(m => m.status === "PENDING").length : 0;
+                const roleBadge = myRole(g) === "admin" ? (
                   <span
                     style={{
                       marginLeft: "auto",
@@ -338,8 +339,18 @@ export function DashboardClient({ user, initialGroups }: Props) {
                   >
                     {g.members.find((m) => m.userId === user.id)?.role ?? "리더"}
                   </span>
-                ) : null
-              }
+                ) : null;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                    {pendingCnt > 0 && (
+                      <span style={{ minWidth: 16, height: 16, borderRadius: 8, background: "#F59E0B", color: "white", fontSize: "0.58rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
+                        {pendingCnt}
+                      </span>
+                    )}
+                    {roleBadge}
+                  </div>
+                );
+              })()}
             />
           ))}
 
@@ -582,7 +593,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </h2>
             {selectedGroup && (
               <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
-                멤버 {selectedGroup.members.length}명
+                멤버 {selectedGroup.members.filter(m => m.status === "ACTIVE" || !m.status).length}명
                 {selectedGroup.description && ` · ${selectedGroup.description}`}
               </p>
             )}

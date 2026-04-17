@@ -13,7 +13,7 @@ export async function GET() {
     where: {
       OR: [
         { leaderId: session.user.id },
-        { members: { some: { userId: session.user.id } } },
+        { members: { some: { userId: session.user.id, status: "ACTIVE" } } },
       ],
     },
     include: {

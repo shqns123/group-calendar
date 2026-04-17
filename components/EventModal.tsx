@@ -135,7 +135,8 @@ export default function EventModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
+    const finalTitle = title.trim() || (overtimeAvailable ? "특근 가능" : "");
+    if (!finalTitle) {
       setError("제목을 입력해주세요");
       return;
     }
@@ -147,7 +148,7 @@ export default function EventModal({
     setError("");
 
     const payload = {
-      title: title.trim(),
+      title: finalTitle,
       description: description.trim() || null,
       startDate: new Date(startDate).toISOString(),
       endDate: new Date(endDate).toISOString(),
@@ -355,8 +356,8 @@ export default function EventModal({
             </div>
           )}
 
-          {/* 특근 가능 여부 (그룹장/파트장만) */}
-          {group && isLeader && (
+          {/* 특근 가능 여부 (그룹 내 모든 멤버 표시, 결과는 리더만 확인) */}
+          {group && (
             <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
               <input
                 type="checkbox"
@@ -368,7 +369,7 @@ export default function EventModal({
               <label htmlFor="overtimeAvailable" className="text-sm font-medium text-orange-700 cursor-pointer select-none">
                 특근 가능
               </label>
-              <span className="text-xs text-orange-400 ml-auto">그룹장·파트장만 표시</span>
+              <span className="text-xs text-orange-400 ml-auto">그룹장·파트장에게 표시</span>
             </div>
           )}
 
