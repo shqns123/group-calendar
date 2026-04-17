@@ -40,7 +40,6 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 # DB 디렉토리 소유권 설정
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
@@ -52,4 +51,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # DB 마이그레이션 후 서버 시작
-CMD ["sh", "-c", "DATABASE_URL=file:/app/data/prod.db ./node_modules/.bin/prisma db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "DATABASE_URL=file:/app/data/prod.db node ./node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
