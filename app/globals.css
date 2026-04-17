@@ -224,6 +224,17 @@ body {
   color: var(--accent) !important;
 }
 
+/* 주말 · 공휴일 회색 처리 */
+.fc-day-gray .fc-daygrid-day-number {
+  color: var(--text-tertiary) !important;
+}
+.fc-day-gray {
+  background-color: var(--surface-raised) !important;
+}
+.fc-day-gray.fc-day-today {
+  background-color: #FFFBEB !important;
+}
+
 /* 모바일 캘린더 최적화 */
 @media (max-width: 767px) {
   .fc-toolbar.fc-header-toolbar {

@@ -24,6 +24,7 @@ export async function PATCH(
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
+      select: { role: true },
     });
     canEdit = group?.leaderId === session.user.id || member?.role === "그룹장" || member?.role === "파트장";
   }
