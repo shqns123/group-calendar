@@ -206,22 +206,23 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: "center",
         justifyContent: "center",
         zIndex: 50,
+        padding: 16,
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         style={{
           background: "var(--surface)",
-          borderRadius: "14px 14px 0 0",
-          boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+          borderRadius: 14,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
           width: "100%",
           maxWidth: 480,
-          maxHeight: "90vh",
+          maxHeight: "85vh",
           display: "flex",
           flexDirection: "column",
         }}
