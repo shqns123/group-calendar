@@ -131,7 +131,7 @@ function TodayView({
   };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* 날짜 헤더 */}
       <div
         style={{
@@ -149,7 +149,7 @@ function TodayView({
       </div>
 
       {/* 일정 목록 */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
         {todayEvents.length === 0 ? (
           <div
             style={{
@@ -468,7 +468,7 @@ export default function CalendarView({
       </div>
 
       {/* 뷰 영역 */}
-      <div style={{ flex: 1, overflow: "hidden", padding: viewMode === "today" ? 0 : 12 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: viewMode === "today" ? 0 : 12 }}>
         {viewMode === "today" ? (
           <TodayView
             events={events}
@@ -483,7 +483,7 @@ export default function CalendarView({
           />
         ) : (
           <div
-            style={{ height: "100%" }}
+            style={{ flex: 1, minHeight: 0 }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
