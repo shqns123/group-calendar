@@ -552,10 +552,8 @@ export default function CalendarView({
             setShowModal(true);
           }}
           onAddClick={() => {
-            const end = new Date(dayPopup.date);
-            end.setDate(end.getDate() + 1);
             setDayPopup(null);
-            setSelectedDates({ start: dayPopup.date, end, allDay: true });
+            setSelectedDates({ start: dayPopup.date, end: dayPopup.date, allDay: true });
             setSelectedEvent(null);
             setShowModal(true);
           }}

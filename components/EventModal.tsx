@@ -85,7 +85,7 @@ export default function EventModal({
   const now = new Date();
   const defaultStart = initialDates?.start ?? (event ? new Date(event.startDate) : now);
   const defaultEnd = initialDates?.end ?? (event ? new Date(event.endDate) : now);
-  const defaultAllDay = initialDates?.allDay ?? event?.allDay ?? false;
+  const defaultAllDay = initialDates?.allDay ?? event?.allDay ?? true;
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
