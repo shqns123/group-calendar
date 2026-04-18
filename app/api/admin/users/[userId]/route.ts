@@ -18,7 +18,11 @@ export async function DELETE(
     return Response.json({ error: "자신의 계정은 삭제할 수 없습니다" }, { status: 400 });
   }
 
-  await prisma.user.delete({ where: { id: userId } });
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+  } catch {
+    return Response.json({ error: "사용자 삭제 중 오류가 발생했습니다" }, { status: 500 });
+  }
 
   return Response.json({ success: true });
 }

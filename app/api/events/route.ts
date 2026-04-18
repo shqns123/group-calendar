@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
+import { rateLimit } from "@/lib/rateLimit";
 import { NextRequest } from "next/server";
 
 // 이벤트 목록 조회 (그룹 ID 또는 개인 일정)
@@ -90,6 +91,11 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 사용자당 1분에 30회 제한
+  if (!rateLimit(`events:${session.user.id}`, 30, 60_000)) {
+    return Response.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }, { status: 429 });
   }
 
   const body = await request.json();
