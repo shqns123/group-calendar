@@ -85,7 +85,7 @@ export default function LoginForm() {
           }}
           className="w-full flex items-center justify-center gap-3 transition-all"
           style={{
-            padding: "0.65rem 1rem",
+            padding: "0.75rem 1rem",
             border: "2px solid var(--border)",
             borderRadius: "8px",
             background: "var(--surface)",
@@ -136,7 +136,7 @@ export default function LoginForm() {
             disabled={loading}
             style={{
               marginTop: "0.25rem",
-              padding: "0.65rem 1rem",
+              padding: "0.75rem 1rem",
               background: loading ? "var(--text-tertiary)" : "var(--text-primary)",
               color: "var(--surface)",
               border: "none",
