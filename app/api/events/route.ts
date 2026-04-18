@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { eventBus } from "@/lib/eventBus";
 import { NextRequest } from "next/server";
 
 // 이벤트 목록 조회 (그룹 ID 또는 개인 일정)
@@ -129,5 +130,6 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  if (event.groupId) eventBus.notify(event.groupId);
   return Response.json(event, { status: 201 });
 }

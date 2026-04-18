@@ -326,16 +326,18 @@ export default function CalendarView({
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  // 30초 폴링 + 탭 포커스 시 새로고침
+  // SSE 실시간 업데이트 + 탭 포커스 새로고침
   useEffect(() => {
-    const interval = setInterval(fetchEvents, 30000);
+    if (!group) return;
+    const es = new EventSource(`/api/events/stream?groupId=${group.id}`);
+    es.onmessage = () => fetchEvents();
     const onFocus = () => fetchEvents();
     window.addEventListener("focus", onFocus);
     return () => {
-      clearInterval(interval);
+      es.close();
       window.removeEventListener("focus", onFocus);
     };
-  }, [fetchEvents]);
+  }, [group, fetchEvents]);
 
   useEffect(() => {
     if (pendingEvent) {
