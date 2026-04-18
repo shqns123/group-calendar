@@ -1,0 +1,11 @@
+services:
+  group-calendar-test:
+    build: .
+    container_name: group-calendar-test
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env.test
+    volumes:
+      - ./data:/app/data
