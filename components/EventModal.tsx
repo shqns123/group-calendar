@@ -359,22 +359,6 @@ export default function EventModal({
             </div>
           )}
 
-          {/* 특근 가능 여부 (그룹 내 모든 멤버 표시, 결과는 리더만 확인) */}
-          {group && (
-            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
-              <input
-                type="checkbox"
-                id="overtimeAvailable"
-                checked={overtimeAvailable}
-                onChange={(e) => setOvertimeAvailable(e.target.checked)}
-                className="w-4 h-4 rounded accent-orange-500"
-              />
-              <label htmlFor="overtimeAvailable" className="text-sm font-medium text-orange-700 cursor-pointer select-none">
-                특근 가능
-              </label>
-              <span className="text-xs text-orange-400 ml-auto">그룹장·파트장에게 표시</span>
-            </div>
-          )}
 
           {error && (
             <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
