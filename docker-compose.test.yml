@@ -8,5 +8,7 @@ services:
     network_mode: host
     env_file:
       - .env.test
+    environment:
+      - PORT=3001
     volumes:
       - ./data:/app/data
