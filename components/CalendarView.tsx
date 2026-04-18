@@ -109,7 +109,7 @@ function TodayView({
   const today = new Date();
   const todayEvents = events
     .filter((e) => {
-      if (e.isOvertimeOnly && !isLeader) return false;
+      if (e.isOvertimeOnly && !isLeader && e.creatorId !== userId) return false;
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
       const todayStart = new Date(today);
@@ -391,7 +391,7 @@ export default function CalendarView({
 
   const tabBtn = (mode: "month" | "today", label: string) => (
     <button
-      onClick={() => setViewMode(mode)}
+      onClick={() => setViewMode(viewMode === mode ? "month" : mode)}
       style={{
         padding: "5px 14px",
         borderRadius: 6,
@@ -484,16 +484,15 @@ export default function CalendarView({
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
               if (isWeekend(arg.date) || isHoliday(arg.date)) classes.push("fc-day-gray");
-              if (isLeader) {
-                const ds = format(arg.date, "yyyy-MM-dd");
-                const hasOvertime = events.some((e) => {
-                  if (!e.overtimeAvailable) return false;
-                  const s = format(new Date(e.startDate), "yyyy-MM-dd");
-                  const en = format(new Date(e.endDate), "yyyy-MM-dd");
-                  return ds >= s && ds <= en;
-                });
-                if (hasOvertime) classes.push("fc-day-overtime");
-              }
+              const ds = format(arg.date, "yyyy-MM-dd");
+              const hasOvertime = events.some((e) => {
+                if (!e.overtimeAvailable) return false;
+                if (!isLeader && e.creatorId !== userId) return false;
+                const s = format(new Date(e.startDate), "yyyy-MM-dd");
+                const en = format(new Date(e.endDate), "yyyy-MM-dd");
+                return ds >= s && ds <= en;
+              });
+              if (hasOvertime) classes.push("fc-day-overtime");
               return classes;
             }}
             eventContent={(info) => {
@@ -534,6 +533,10 @@ export default function CalendarView({
             setShowModal(true);
           }}
           onClose={() => setDayPopup(null)}
+          onRefresh={() => {
+            fetchEvents();
+            setDayPopup(null);
+          }}
         />
       )}
 

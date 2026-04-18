@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Clock, User, Plus, X } from "lucide-react";
@@ -42,16 +43,57 @@ type Props = {
   onEventClick: (event: CalEvent) => void;
   onAddClick: () => void;
   onClose: () => void;
+  onRefresh: () => void;
 };
 
-export default function DayEventsModal({ date, events, userId, group, isLeader, onEventClick, onAddClick, onClose }: Props) {
+export default function DayEventsModal({ date, events, userId, group, isLeader, onEventClick, onAddClick, onClose, onRefresh }: Props) {
+  const [overtimeLoading, setOvertimeLoading] = useState(false);
+
   const getMemberName = (event: CalEvent) => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
     const member = group.members.find((m) => m.userId === event.creatorId);
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
   };
 
-  const visibleEvents = events.filter(e => !e.isOvertimeOnly || isLeader);
+  // 현재 유저의 이 날 isOvertimeOnly 이벤트
+  const myOvertimeEvent = events.find(
+    (e) => e.isOvertimeOnly && e.creatorId === userId &&
+      format(new Date(e.startDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+  );
+  const overtimeOn = !!myOvertimeEvent;
+
+  const handleOvertimeToggle = async () => {
+    if (overtimeLoading) return;
+    setOvertimeLoading(true);
+    try {
+      if (overtimeOn && myOvertimeEvent) {
+        await fetch(`/api/events/${myOvertimeEvent.id}`, { method: "DELETE" });
+      } else {
+        const dateStr = format(date, "yyyy-MM-dd");
+        await fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "특근 가능",
+            description: null,
+            startDate: `${dateStr}T00:00:00`,
+            endDate: `${dateStr}T23:59:59`,
+            allDay: true,
+            color: "#F59E0B",
+            isPrivate: false,
+            overtimeAvailable: true,
+            isOvertimeOnly: true,
+            groupId: group?.id ?? null,
+          }),
+        });
+      }
+      onRefresh();
+    } finally {
+      setOvertimeLoading(false);
+    }
+  };
+
+  const visibleEvents = events.filter(e => !e.isOvertimeOnly || isLeader || e.creatorId === userId);
   const sorted = [...visibleEvents].sort((a, b) => {
     if (a.allDay && !b.allDay) return -1;
     if (!a.allDay && b.allDay) return 1;
@@ -141,6 +183,55 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             </button>
           </div>
         </div>
+
+        {/* 특근 가능 토글 (그룹 있을 때만) */}
+        {group && (
+          <div
+            style={{
+              padding: "10px 18px",
+              borderBottom: "1px solid var(--border-subtle)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+              background: overtimeOn ? "#FFFBEB" : "transparent",
+            }}
+          >
+            <span style={{ fontSize: "0.8rem", fontWeight: 500, color: overtimeOn ? "#92400E" : "var(--text-secondary)" }}>
+              특근 가능
+            </span>
+            <button
+              onClick={handleOvertimeToggle}
+              disabled={overtimeLoading}
+              style={{
+                width: 40,
+                height: 22,
+                borderRadius: 11,
+                border: "none",
+                background: overtimeOn ? "#F59E0B" : "var(--border)",
+                cursor: overtimeLoading ? "not-allowed" : "pointer",
+                position: "relative",
+                transition: "background 0.2s",
+                flexShrink: 0,
+                opacity: overtimeLoading ? 0.6 : 1,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  left: overtimeOn ? 21 : 3,
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: "white",
+                  transition: "left 0.2s",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }}
+              />
+            </button>
+          </div>
+        )}
 
         {/* 일정 목록 */}
         <div
@@ -239,7 +330,6 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
                 >
-                  {/* 색상 바 */}
                   <div style={{ width: 3, borderRadius: 3, flexShrink: 0, backgroundColor: event.color }} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -257,8 +347,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                       >
                         {isHidden ? "비공개 일정" : event.title}
                       </p>
-                      {/* 특근 가능 표시 (리더만) */}
-                      {isLeader && event.overtimeAvailable && !isHidden && (
+                      {(isLeader || isOwn) && event.overtimeAvailable && !isHidden && (
                         <span
                           style={{
                             fontSize: "0.6rem",
