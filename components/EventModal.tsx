@@ -27,6 +27,7 @@ type CalEvent = {
   color: string;
   isPrivate: boolean;
   overtimeAvailable: boolean;
+  isOvertimeOnly: boolean;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null };
@@ -147,6 +148,7 @@ export default function EventModal({
     setLoading(true);
     setError("");
 
+    const finalIsOvertimeOnly = overtimeAvailable && !title.trim();
     const payload = {
       title: finalTitle,
       description: description.trim() || null,
@@ -156,6 +158,7 @@ export default function EventModal({
       color,
       isPrivate,
       overtimeAvailable,
+      isOvertimeOnly: finalIsOvertimeOnly,
       groupId: group?.id ?? null,
     };
 

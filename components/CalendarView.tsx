@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { format, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -35,6 +35,7 @@ type CalEvent = {
   color: string;
   isPrivate: boolean;
   overtimeAvailable: boolean;
+  isOvertimeOnly: boolean;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
@@ -108,6 +109,7 @@ function TodayView({
   const today = new Date();
   const todayEvents = events
     .filter((e) => {
+      if (e.isOvertimeOnly && !isLeader) return false;
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
       const todayStart = new Date(today);
@@ -170,6 +172,31 @@ function TodayView({
             const start = new Date(event.startDate);
             const end = new Date(event.endDate);
             const memberName = getMemberName(event);
+
+            if (event.isOvertimeOnly) {
+              return (
+                <div
+                  key={event.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 14px",
+                    border: "1px solid #FDE68A",
+                    borderRadius: 10,
+                    background: "#FFFBEB",
+                  }}
+                >
+                  <div style={{ width: 4, borderRadius: 4, flexShrink: 0, backgroundColor: "#F59E0B", alignSelf: "stretch" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#92400E" }}>특근 가능</p>
+                    {group && (
+                      <p style={{ fontSize: "0.72rem", color: "#B45309", marginTop: 2 }}>{memberName}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <button
@@ -308,25 +335,21 @@ export default function CalendarView({
     }
   }, [pendingEvent, onPendingEventHandled]);
 
-  const calendarEvents: EventInput[] = events.map((e) => {
-    const isOwn = e.creatorId === userId;
-    return {
-      id: e.id,
-      title: e.isPrivate && !isOwn && !isLeader ? "비공개 일정" : e.title,
-      start: e.startDate,
-      end: e.endDate,
-      allDay: e.allDay,
-      backgroundColor: e.color,
-      borderColor: e.color,
-      extendedProps: { event: e },
-    };
-  });
-
-  const handleDateSelect = (info: DateSelectArg) => {
-    setSelectedDates({ start: info.start, end: info.end, allDay: info.allDay });
-    setSelectedEvent(null);
-    setShowModal(true);
-  };
+  const calendarEvents: EventInput[] = events
+    .filter((e) => !e.isOvertimeOnly)
+    .map((e) => {
+      const isOwn = e.creatorId === userId;
+      return {
+        id: e.id,
+        title: e.isPrivate && !isOwn && !isLeader ? "비공개 일정" : e.title,
+        start: e.startDate,
+        end: e.endDate,
+        allDay: e.allDay,
+        backgroundColor: e.color,
+        borderColor: e.color,
+        extendedProps: { event: e },
+      };
+    });
 
   const handleDateClick = (info: DateClickArg) => {
     const target = info.jsEvent.target as HTMLElement;
@@ -409,8 +432,7 @@ export default function CalendarView({
           flexShrink: 0,
         }}
       >
-        {tabBtn("month", "월")}
-        {tabBtn("today", "Today")}
+        {tabBtn("today", "Summary")}
       </div>
 
       {/* 뷰 영역 */}
@@ -437,13 +459,10 @@ export default function CalendarView({
               center: "title",
               right: "today next",
             }}
-            buttonText={{ today: "오늘" }}
+            buttonText={{ today: "Today" }}
             locale="ko"
             events={calendarEvents}
-            selectable={true}
-            selectMirror={true}
             dayMaxEvents={1}
-            select={handleDateSelect}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             moreLinkClick={(info) => {
@@ -464,39 +483,18 @@ export default function CalendarView({
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
-              if (isWeekend(arg.date) || isHoliday(arg.date)) {
-                classes.push("fc-day-gray");
+              if (isWeekend(arg.date) || isHoliday(arg.date)) classes.push("fc-day-gray");
+              if (isLeader) {
+                const ds = format(arg.date, "yyyy-MM-dd");
+                const hasOvertime = events.some((e) => {
+                  if (!e.overtimeAvailable) return false;
+                  const s = format(new Date(e.startDate), "yyyy-MM-dd");
+                  const en = format(new Date(e.endDate), "yyyy-MM-dd");
+                  return ds >= s && ds <= en;
+                });
+                if (hasOvertime) classes.push("fc-day-overtime");
               }
               return classes;
-            }}
-            dayCellContent={(arg) => {
-              if (!isLeader) return <>{arg.dayNumberText}</>;
-              const ds = format(arg.date, "yyyy-MM-dd");
-              const hasOvertime = events.some((e) => {
-                if (!e.overtimeAvailable) return false;
-                const startStr = format(new Date(e.startDate), "yyyy-MM-dd");
-                const endStr = format(new Date(e.endDate), "yyyy-MM-dd");
-                return ds >= startStr && ds <= endStr;
-              });
-              return (
-                <div style={{ position: "relative", display: "inline-flex" }}>
-                  {arg.dayNumberText}
-                  {hasOvertime && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        right: -6,
-                        width: 5,
-                        height: 5,
-                        borderRadius: "50%",
-                        background: "#EF4444",
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                </div>
-              );
             }}
             eventContent={(info) => {
               const calEvent = info.event.extendedProps.event as CalEvent | undefined;

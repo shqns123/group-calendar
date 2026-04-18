@@ -275,6 +275,23 @@ body {
   }
 }
 
+/* 특근 가능 빨간 점 - 날짜칸 우하단 */
+.fc-day-overtime .fc-daygrid-day-frame {
+  position: relative;
+}
+.fc-day-overtime .fc-daygrid-day-frame::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #EF4444;
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* spin 애니메이션 */
 @keyframes spin {
   from { transform: rotate(0deg); }

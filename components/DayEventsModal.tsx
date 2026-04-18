@@ -14,6 +14,7 @@ type CalEvent = {
   color: string;
   isPrivate: boolean;
   overtimeAvailable: boolean;
+  isOvertimeOnly: boolean;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -50,7 +51,8 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
   };
 
-  const sorted = [...events].sort((a, b) => {
+  const visibleEvents = events.filter(e => !e.isOvertimeOnly || isLeader);
+  const sorted = [...visibleEvents].sort((a, b) => {
     if (a.allDay && !b.allDay) return -1;
     if (!a.allDay && b.allDay) return 1;
     return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
@@ -151,6 +153,9 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             gap: 6,
           }}
         >
+          {sorted.filter(e => !e.isOvertimeOnly).length === 0 && sorted.some(e => e.isOvertimeOnly) && (
+            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", padding: "4px 2px" }}>특근 가능 표시만 있습니다</p>
+          )}
           {sorted.length === 0 ? (
             <div
               style={{
@@ -185,6 +190,30 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             sorted.map((event) => {
               const isOwn = event.creatorId === userId;
               const isHidden = event.isPrivate && !isOwn && !isLeader;
+              if (event.isOvertimeOnly) {
+                return (
+                  <div
+                    key={event.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 12px",
+                      border: "1px solid #FDE68A",
+                      borderRadius: 8,
+                      background: "#FFFBEB",
+                    }}
+                  >
+                    <div style={{ width: 3, borderRadius: 3, flexShrink: 0, backgroundColor: "#F59E0B" }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: "0.78rem", fontWeight: 600, color: "#92400E" }}>특근 가능</p>
+                      {event.groupId && (
+                        <p style={{ fontSize: "0.68rem", color: "#B45309", marginTop: 1 }}>{getMemberName(event)}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
               const start = new Date(event.startDate);
               const end = new Date(event.endDate);
               const memberName = getMemberName(event);
