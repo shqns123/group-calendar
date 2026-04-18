@@ -345,8 +345,12 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                         <Clock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
                         <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
                           {event.allDay
-                            ? format(start, "MM/dd (E)", { locale: ko })
-                            : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`}
+                            ? (format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                                ? format(start, "MM/dd (E)", { locale: ko })
+                                : `${format(start, "MM/dd", { locale: ko })} ~ ${format(end, "MM/dd", { locale: ko })}`)
+                            : (format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                                ? `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`
+                                : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "MM/dd HH:mm", { locale: ko })}`)}
                         </span>
                       </div>
 

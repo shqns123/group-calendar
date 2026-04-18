@@ -69,6 +69,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [pendingEvent, setPendingEvent] = useState<CalEvent | null>(null);
+  const [pendingDayDate, setPendingDayDate] = useState<Date | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [refreshingCode, setRefreshingCode] = useState(false);
@@ -481,7 +482,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           userId={user.id}
           group={selectedGroup}
           isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-          onEventClick={(event) => setPendingEvent(event)}
+          onEventClick={(event) => setPendingDayDate(new Date(event.startDate))}
           refreshKey={refreshKey}
           onClose={() => setSummaryOpen(false)}
         />
@@ -649,6 +650,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
             }
             pendingEvent={pendingEvent}
             onPendingEventHandled={() => setPendingEvent(null)}
+            pendingDayDate={pendingDayDate}
+            onPendingDayDateHandled={() => setPendingDayDate(null)}
             onEventSaved={handleEventSaved}
           />
         </div>
@@ -679,7 +682,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               userId={user.id}
               group={selectedGroup}
               isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-              onEventClick={(event) => { setPendingEvent(event); setSummaryOpen(false); }}
+              onEventClick={(event) => { setPendingDayDate(new Date(event.startDate)); setSummaryOpen(false); }}
               refreshKey={refreshKey}
               onClose={() => setSummaryOpen(false)}
             />

@@ -273,7 +273,7 @@ export default function EventModal({
               value={personnel}
               onChange={(e) => setPersonnel(e.target.value)}
               placeholder="인원"
-              className="w-24 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="flex-1 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
 

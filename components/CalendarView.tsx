@@ -50,6 +50,8 @@ type Props = {
   isLeader: boolean;
   pendingEvent?: CalEvent | null;
   onPendingEventHandled?: () => void;
+  pendingDayDate?: Date | null;
+  onPendingDayDateHandled?: () => void;
   onEventSaved?: () => void;
 };
 
@@ -311,6 +313,8 @@ export default function CalendarView({
   isLeader,
   pendingEvent,
   onPendingEventHandled,
+  pendingDayDate,
+  onPendingDayDateHandled,
   onEventSaved,
 }: Props) {
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -376,7 +380,7 @@ export default function CalendarView({
       };
     });
 
-  const openDayPopup = (date: Date) => {
+  const openDayPopup = useCallback((date: Date) => {
     const s = new Date(date);
     s.setHours(0, 0, 0, 0);
     const e = new Date(date);
@@ -389,7 +393,14 @@ export default function CalendarView({
         return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
       });
     setDayPopup({ date, events: dayEvents });
-  };
+  }, [events]);
+
+  useEffect(() => {
+    if (pendingDayDate) {
+      openDayPopup(pendingDayDate);
+      onPendingDayDateHandled?.();
+    }
+  }, [pendingDayDate, openDayPopup, onPendingDayDateHandled]);
 
   const handleDateClick = (info: DateClickArg) => {
     openDayPopup(info.date);

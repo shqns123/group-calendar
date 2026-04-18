@@ -385,6 +385,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                         </span>
                       )}
                     </div>
+                    {event.allDay && format(start, "yyyy-MM-dd") !== format(end, "yyyy-MM-dd") && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                        <Clock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                        <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                          {`${format(start, "MM/dd")} – ${format(end, "MM/dd")}`}
+                        </span>
+                      </div>
+                    )}
                     {!event.allDay && (
                       <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
                         <Clock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
