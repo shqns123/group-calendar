@@ -2,6 +2,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 // 초대 코드 재생성 (관리자, 그룹장, 파트장)
 export async function POST(
   _request: NextRequest,
@@ -29,10 +36,9 @@ export async function POST(
     return Response.json({ error: "초대 코드를 재생성할 권한이 없습니다" }, { status: 403 });
   }
 
-  const { nanoid } = await import("nanoid");
   const updated = await prisma.group.update({
     where: { id: groupId },
-    data: { inviteCode: nanoid(10) },
+    data: { inviteCode: generateInviteCode() },
   });
 
   return Response.json({ inviteCode: updated.inviteCode });

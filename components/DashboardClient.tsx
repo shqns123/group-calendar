@@ -73,6 +73,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [isMobile, setIsMobile] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [refreshingCode, setRefreshingCode] = useState(false);
+  const [inviteTimeLeft, setInviteTimeLeft] = useState(180);
   const [showAdminModal, setShowAdminModal] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
@@ -151,11 +152,32 @@ export function DashboardClient({ user, initialGroups }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
-      if (res.ok) await refreshGroups();
+      if (res.ok) { await refreshGroups(); setInviteTimeLeft(180); }
     } finally {
       setRefreshingCode(false);
     }
   };
+
+  useEffect(() => {
+    if (!showInviteSheet || !selectedGroup) return;
+    setInviteTimeLeft(180);
+    let t = 180;
+    const interval = setInterval(async () => {
+      t -= 1;
+      setInviteTimeLeft(t);
+      if (t <= 0) {
+        const res = await fetch(`/api/groups/${selectedGroup.id}/invite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.ok) await refreshGroups();
+        t = 180;
+        setInviteTimeLeft(180);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInviteSheet, selectedGroup?.id]);
 
   const sidebarStyle: React.CSSProperties = isMobile
     ? {
@@ -751,9 +773,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 <X style={{ width: 16, height: 16 }} />
               </button>
             </div>
-            <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: 0 }}>
-              코드를 공유하여 멤버를 초대하세요.
-            </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: 0 }}>
+                코드를 공유하여 멤버를 초대하세요.
+              </p>
+              <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                {`${Math.floor(inviteTimeLeft / 60)}:${String(inviteTimeLeft % 60).padStart(2, "0")} 후 갱신`}
+              </span>
+            </div>
             <div
               style={{
                 display: "flex",

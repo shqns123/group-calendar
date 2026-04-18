@@ -2,6 +2,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 // 내 그룹 목록 조회
 export async function GET() {
   const session = await auth();
@@ -55,6 +62,7 @@ export async function POST(request: NextRequest) {
     data: {
       name: name.trim(),
       description: description?.trim(),
+      inviteCode: generateInviteCode(),
       leaderId: session.user.id,
       members: {
         create: {
