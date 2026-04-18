@@ -149,7 +149,7 @@ function TodayView({
       </div>
 
       {/* 일정 목록 */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
         {todayEvents.length === 0 ? (
           <div
             style={{
@@ -317,6 +317,8 @@ export default function CalendarView({
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
   const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   const fetchEvents = useCallback(async () => {
     const params = group ? `?groupId=${group.id}` : "";
@@ -352,11 +354,18 @@ export default function CalendarView({
     .filter((e) => !e.isOvertimeOnly)
     .map((e) => {
       const isOwn = e.creatorId === userId;
+      // FullCalendar allDay 이벤트는 end가 exclusive → 표시 범위 맞추기 위해 +1일
+      let endValue: Date | string = e.endDate;
+      if (e.allDay) {
+        const d = new Date(e.endDate);
+        d.setDate(d.getDate() + 1);
+        endValue = d;
+      }
       return {
         id: e.id,
         title: e.isPrivate && !isOwn && !isLeader ? "비공개 일정" : e.title,
         start: e.startDate,
-        end: e.endDate,
+        end: endValue,
         allDay: e.allDay,
         backgroundColor: e.color,
         borderColor: e.color,
@@ -364,36 +373,46 @@ export default function CalendarView({
       };
     });
 
-  const handleDateClick = (info: DateClickArg) => {
-    const target = info.jsEvent.target as HTMLElement;
-    const isOnDayNumber = !!target.closest(".fc-daygrid-day-number");
+  const openDayPopup = (date: Date) => {
+    const s = new Date(date);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(date);
+    e.setHours(23, 59, 59, 999);
+    const dayEvents = events
+      .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+      .sort((a, b) => {
+        if (a.allDay && !b.allDay) return -1;
+        if (!a.allDay && b.allDay) return 1;
+        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      });
+    setDayPopup({ date, events: dayEvents });
+  };
 
-    if (isOnDayNumber) {
-      const end = new Date(info.date);
-      end.setDate(end.getDate() + 1);
-      setSelectedDates({ start: info.date, end, allDay: true });
-      setSelectedEvent(null);
-      setShowModal(true);
-    } else {
-      const s = new Date(info.date);
-      s.setHours(0, 0, 0, 0);
-      const e = new Date(info.date);
-      e.setHours(23, 59, 59, 999);
-      const dayEvents = events
-        .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
-        .sort((a, b) => {
-          if (a.allDay && !b.allDay) return -1;
-          if (!a.allDay && b.allDay) return 1;
-          return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-        });
-      setDayPopup({ date: info.date, events: dayEvents });
-    }
+  const handleDateClick = (info: DateClickArg) => {
+    openDayPopup(info.date);
   };
 
   const handleEventClick = (info: EventClickArg) => {
-    setSelectedEvent(info.event.extendedProps.event as CalEvent);
-    setSelectedDates(null);
-    setShowModal(true);
+    const date = info.event.start ?? new Date();
+    openDayPopup(date);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = touchStartX.current - e.changedTouches[0].clientX;
+    const dy = touchStartY.current - e.changedTouches[0].clientY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      const api = calendarRef.current?.getApi();
+      if (dx > 0) api?.next();
+      else api?.prev();
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
   };
 
   const handleEventSaved = () => {
@@ -463,6 +482,11 @@ export default function CalendarView({
             }}
           />
         ) : (
+          <div
+            style={{ height: "100%" }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -479,18 +503,7 @@ export default function CalendarView({
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             moreLinkClick={(info) => {
-              const s = new Date(info.date);
-              s.setHours(0, 0, 0, 0);
-              const e = new Date(info.date);
-              e.setHours(23, 59, 59, 999);
-              const dayEvents = events
-                .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
-                .sort((a, b) => {
-                  if (a.allDay && !b.allDay) return -1;
-                  if (!a.allDay && b.allDay) return 1;
-                  return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-                });
-              setDayPopup({ date: info.date, events: dayEvents });
+              openDayPopup(info.date);
               return false as unknown as "popover";
             }}
             height="100%"
@@ -521,6 +534,7 @@ export default function CalendarView({
               );
             }}
           />
+          </div>
         )}
       </div>
 
