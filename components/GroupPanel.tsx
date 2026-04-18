@@ -216,6 +216,7 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
+        className="modal-slide-up"
         style={{
           background: "var(--surface)",
           borderRadius: 14,
