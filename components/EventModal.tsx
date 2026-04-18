@@ -85,35 +85,17 @@ export default function EventModal({
   const now = new Date();
   const defaultStart = initialDates?.start ?? (event ? new Date(event.startDate) : now);
   const defaultEnd = initialDates?.end ?? (event ? new Date(event.endDate) : now);
-  const defaultAllDay = initialDates?.allDay ?? event?.allDay ?? true;
+  const allDay = true;
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
-  const [startDate, setStartDate] = useState(
-    defaultAllDay ? toDateLocal(defaultStart) : toDateTimeLocal(defaultStart)
-  );
-  const [endDate, setEndDate] = useState(
-    defaultAllDay ? toDateLocal(defaultEnd) : toDateTimeLocal(defaultEnd)
-  );
-  const [allDay, setAllDay] = useState(defaultAllDay);
+  const [startDate, setStartDate] = useState(toDateLocal(defaultStart));
+  const [endDate, setEndDate] = useState(toDateLocal(defaultEnd));
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
   const [overtimeAvailable, setOvertimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const handleAllDayChange = (checked: boolean) => {
-    setAllDay(checked);
-    if (checked) {
-      setStartDate(toDateLocal(new Date(startDate)));
-      setEndDate(toDateLocal(new Date(endDate)));
-    } else {
-      const s = new Date(startDate);
-      setStartDate(toDateTimeLocal(s));
-      const e = new Date(endDate);
-      setEndDate(toDateTimeLocal(e));
-    }
-  };
 
   // 시작 날짜 변경 → 종료가 시작보다 이전이면 종료도 같이 조정
   const handleStartDateChange = (value: string) => {
@@ -280,26 +262,12 @@ export default function EventModal({
             className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
           />
 
-          {/* 종일 여부 */}
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="allDay"
-              checked={allDay}
-              onChange={(e) => handleAllDayChange(e.target.checked)}
-              className="w-4 h-4 rounded accent-blue-600"
-            />
-            <label htmlFor="allDay" className="text-sm text-slate-600 font-medium">
-              종일
-            </label>
-          </div>
-
           {/* 날짜 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500 font-medium mb-1 block">시작</label>
               <input
-                type={allDay ? "date" : "datetime-local"}
+                type="date"
                 value={startDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -308,7 +276,7 @@ export default function EventModal({
             <div>
               <label className="text-xs text-slate-500 font-medium mb-1 block">종료</label>
               <input
-                type={allDay ? "date" : "datetime-local"}
+                type="date"
                 value={endDate}
                 min={startDate}
                 onChange={(e) => handleEndDateChange(e.target.value)}

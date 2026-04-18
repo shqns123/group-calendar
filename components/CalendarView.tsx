@@ -252,14 +252,14 @@ function TodayView({
                   </p>
 
                   {/* 시간 */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                    <Clock style={{ width: 11, height: 11, color: "var(--text-tertiary)", flexShrink: 0 }} />
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                      {event.allDay
-                        ? "종일"
-                        : `${format(start, "HH:mm")} – ${format(end, "HH:mm")}`}
-                    </span>
-                  </div>
+                  {!event.allDay && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                      <Clock style={{ width: 11, height: 11, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                        {`${format(start, "HH:mm")} – ${format(end, "HH:mm")}`}
+                      </span>
+                    </div>
+                  )}
 
                   {/* 설명 */}
                   {!isHidden && event.description && (
@@ -499,13 +499,10 @@ export default function CalendarView({
             buttonText={{ today: "Today" }}
             locale="ko"
             events={calendarEvents}
-            dayMaxEvents={1}
+            dayMaxEvents={5}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
-            moreLinkClick={(info) => {
-              openDayPopup(info.date);
-              return false as unknown as "popover";
-            }}
+            moreLinkClick={() => false as unknown as "popover"}
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
@@ -526,8 +523,8 @@ export default function CalendarView({
               const description = calEvent?.description;
               if (!info.isStart) return <div className="w-full h-full" />;
               return (
-                <div className="px-1.5 py-0.5 overflow-hidden w-full">
-                  <div className="font-semibold text-xs leading-tight truncate">
+                <div className="px-1 py-0.5 overflow-hidden w-full flex items-center justify-center">
+                  <div className="font-semibold text-xs leading-tight truncate text-center w-full">
                     {info.event.title}{description ? ` · ${description}` : ""}
                   </div>
                 </div>
