@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
   if (!name?.trim()) {
     return Response.json({ error: "그룹 이름은 필수입니다" }, { status: 400 });
   }
+  if (name.trim().length > 50) {
+    return Response.json({ error: "그룹 이름은 50자 이하여야 합니다" }, { status: 400 });
+  }
+  if (description && description.trim().length > 200) {
+    return Response.json({ error: "설명은 200자 이하여야 합니다" }, { status: 400 });
+  }
 
   const group = await prisma.group.create({
     data: {

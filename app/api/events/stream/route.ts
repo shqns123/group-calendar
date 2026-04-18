@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { NextRequest } from "next/server";
 
@@ -11,6 +12,17 @@ export async function GET(request: NextRequest) {
   }
 
   const groupId = new URL(request.url).searchParams.get("groupId") ?? "";
+
+  if (groupId) {
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
+    const member = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId: session.user.id } },
+    });
+    const isActive = group?.leaderId === session.user.id || member?.status === "ACTIVE";
+    if (!isActive) {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
 
   const stream = new ReadableStream({
     start(controller) {

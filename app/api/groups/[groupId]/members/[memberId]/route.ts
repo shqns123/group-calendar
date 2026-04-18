@@ -81,8 +81,14 @@ export async function PATCH(
   if (!isAdmin && !isLeader && !isSelf) {
     return Response.json({ error: "권한이 없습니다" }, { status: 403 });
   }
+  if (isSelf && !isAdmin && !isLeader && myMember?.status !== "ACTIVE") {
+    return Response.json({ error: "승인 대기 중에는 변경할 수 없습니다" }, { status: 403 });
+  }
 
   const { nickname } = body;
+  if (nickname && nickname.trim().length > 30) {
+    return Response.json({ error: "닉네임은 30자 이하여야 합니다" }, { status: 400 });
+  }
 
   const updated = await prisma.groupMember.update({
     where: { id: memberId },

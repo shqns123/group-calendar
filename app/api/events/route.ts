@@ -98,8 +98,17 @@ export async function POST(request: NextRequest) {
   if (!title?.trim()) {
     return Response.json({ error: "제목은 필수입니다" }, { status: 400 });
   }
+  if (title.trim().length > 100) {
+    return Response.json({ error: "제목은 100자 이하여야 합니다" }, { status: 400 });
+  }
+  if (description && description.trim().length > 500) {
+    return Response.json({ error: "설명은 500자 이하여야 합니다" }, { status: 400 });
+  }
   if (!startDate || !endDate) {
     return Response.json({ error: "날짜는 필수입니다" }, { status: 400 });
+  }
+  if (isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) {
+    return Response.json({ error: "유효하지 않은 날짜입니다" }, { status: 400 });
   }
 
   if (groupId) {
