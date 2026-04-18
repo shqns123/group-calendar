@@ -1,6 +1,8 @@
 services:
   group-calendar-test:
-    build: .
+    build:
+      context: .
+      network: host
     container_name: group-calendar-test
     restart: unless-stopped
     ports:
@@ -9,3 +11,6 @@ services:
       - .env.test
     volumes:
       - ./data:/app/data
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
