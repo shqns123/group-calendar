@@ -5,16 +5,8 @@ services:
       network: host
     container_name: group-calendar-test
     restart: unless-stopped
-    ports:
-      - "3001:3000"
+    network_mode: host
     env_file:
       - .env.test
     volumes:
       - ./data:/app/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    dns_search:
-      - .
