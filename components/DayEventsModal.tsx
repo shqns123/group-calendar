@@ -282,6 +282,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
               const isOwn = event.creatorId === userId;
               const isHidden = event.isPrivate && !isOwn && !isLeader;
               if (event.isOvertimeOnly) {
+                const canDelete = isLeader && event.creatorId !== userId;
                 return (
                   <div
                     key={event.id}
@@ -302,6 +303,26 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                         <p style={{ fontSize: "0.68rem", color: "#B45309", marginTop: 1 }}>{getMemberName(event)}</p>
                       )}
                     </div>
+                    {canDelete && (
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/events/${event.id}`, { method: "DELETE" });
+                          onRefresh();
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 4,
+                          borderRadius: 4,
+                          color: "#B45309",
+                          display: "flex",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <X style={{ width: 13, height: 13 }} />
+                      </button>
+                    )}
                   </div>
                 );
               }
