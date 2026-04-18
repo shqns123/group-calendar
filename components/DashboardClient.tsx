@@ -44,6 +44,7 @@ type CalEvent = {
   isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  personnel: string | null;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -640,6 +641,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
         <div style={{ flex: 1, overflow: "hidden", padding: isMobile ? 8 : 16 }}>
           <CalendarView
             userId={user.id}
+            userName={user.name || user.email?.split("@")[0] || ""}
             group={selectedGroup}
             isLeader={
               selectedGroup?.leaderId === user.id ||

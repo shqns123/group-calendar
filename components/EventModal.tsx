@@ -28,6 +28,7 @@ type CalEvent = {
   isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  personnel: string | null;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null };
@@ -35,6 +36,7 @@ type CalEvent = {
 
 type Props = {
   userId: string;
+  userName: string;
   group: Group | null;
   isLeader: boolean;
   event: CalEvent | null;
@@ -70,6 +72,7 @@ function toDateLocal(date: Date): string {
 
 export default function EventModal({
   userId,
+  userName,
   group,
   isLeader,
   event,
@@ -94,6 +97,8 @@ export default function EventModal({
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
   const [overtimeAvailable, setOvertimeAvailable] = useState(event?.overtimeAvailable ?? false);
+  const defaultPersonnel = event?.personnel ?? (group?.members.find(m => m.userId === userId)?.nickname ?? userName ?? "");
+  const [personnel, setPersonnel] = useState(defaultPersonnel);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -141,6 +146,7 @@ export default function EventModal({
       isPrivate,
       overtimeAvailable,
       isOvertimeOnly: finalIsOvertimeOnly,
+      personnel: personnel.trim() || null,
       groupId: group?.id ?? null,
     };
 
@@ -253,14 +259,23 @@ export default function EventModal({
             autoFocus
           />
 
-          {/* 설명 */}
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="설명 (선택)"
-            rows={2}
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-          />
+          {/* 설명 + 인원 */}
+          <div className="flex gap-2">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="설명 (선택)"
+              rows={2}
+              className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+            />
+            <input
+              type="text"
+              value={personnel}
+              onChange={(e) => setPersonnel(e.target.value)}
+              placeholder="인원"
+              className="w-24 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+          </div>
 
           {/* 날짜 */}
           <div className="grid grid-cols-2 gap-3">

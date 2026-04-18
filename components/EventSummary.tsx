@@ -16,6 +16,7 @@ type CalEvent = {
   isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  personnel: string | null;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
@@ -349,7 +350,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                         </span>
                       </div>
 
-                      {creatorName && (
+                      {(event.personnel || creatorName) && (
                         <div style={{ marginTop: 4 }}>
                           <span
                             style={{
@@ -361,7 +362,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                               letterSpacing: "-0.01em",
                             }}
                           >
-                            {creatorName}
+                            {event.personnel || creatorName}
                           </span>
                         </div>
                       )}

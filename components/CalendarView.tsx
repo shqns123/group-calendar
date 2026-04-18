@@ -36,6 +36,7 @@ type CalEvent = {
   isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  personnel: string | null;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
@@ -44,6 +45,7 @@ type CalEvent = {
 
 type Props = {
   userId: string;
+  userName: string;
   group: Group | null;
   isLeader: boolean;
   pendingEvent?: CalEvent | null;
@@ -278,7 +280,7 @@ function TodayView({
                   )}
                 </div>
 
-                {/* 작성자 */}
+                {/* 인원 */}
                 {group && (
                   <div
                     style={{
@@ -289,7 +291,7 @@ function TodayView({
                     }}
                   >
                     <User style={{ width: 11, height: 11, color: "var(--text-tertiary)" }} />
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>{memberName}</span>
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>{event.personnel || memberName}</span>
                   </div>
                 )}
               </button>
@@ -304,6 +306,7 @@ function TodayView({
 // ── 메인 컴포넌트 ──────────────────────────────────────
 export default function CalendarView({
   userId,
+  userName,
   group,
   isLeader,
   pendingEvent,
@@ -565,6 +568,7 @@ export default function CalendarView({
       {showModal && (
         <EventModal
           userId={userId}
+          userName={userName}
           group={group}
           isLeader={isLeader}
           event={selectedEvent}

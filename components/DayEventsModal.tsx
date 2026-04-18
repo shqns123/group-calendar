@@ -16,6 +16,7 @@ type CalEvent = {
   isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  personnel: string | null;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -411,7 +412,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   {group && (
                     <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                       <User style={{ width: 10, height: 10, color: "var(--text-tertiary)" }} />
-                      <span style={{ fontSize: "0.68rem", color: "var(--text-tertiary)" }}>{memberName}</span>
+                      <span style={{ fontSize: "0.68rem", color: "var(--text-tertiary)" }}>{event.personnel || memberName}</span>
                     </div>
                   )}
                 </button>
