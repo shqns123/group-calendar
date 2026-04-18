@@ -326,6 +326,17 @@ export default function CalendarView({
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+  // 30초 폴링 + 탭 포커스 시 새로고침
+  useEffect(() => {
+    const interval = setInterval(fetchEvents, 30000);
+    const onFocus = () => fetchEvents();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [fetchEvents]);
+
   useEffect(() => {
     if (pendingEvent) {
       setSelectedEvent(pendingEvent);
