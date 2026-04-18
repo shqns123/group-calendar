@@ -135,6 +135,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
     <div
       style={{
         width: 280,
+        height: "100%",
         flexShrink: 0,
         background: "var(--surface)",
         borderRight: "1px solid var(--border)",
@@ -212,7 +213,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
       </div>
 
       {/* 일정 목록 */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {events.length === 0 && !loading && (
           <div
             style={{

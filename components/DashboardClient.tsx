@@ -635,19 +635,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
           )}
         </header>
 
-        {/* 모바일 일정 요약 (슬라이드다운) */}
-        {isMobile && summaryOpen && (
-          <div style={{ flexShrink: 0, maxHeight: "40vh", overflow: "hidden", borderBottom: "1px solid var(--border)" }}>
-            <EventSummary
-              userId={user.id}
-              group={selectedGroup}
-              isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-              onEventClick={(event) => { setPendingEvent(event); setSummaryOpen(false); }}
-              refreshKey={refreshKey}
-              onClose={() => setSummaryOpen(false)}
-            />
-          </div>
-        )}
 
         {/* 캘린더 */}
         <div style={{ flex: 1, overflow: "hidden", padding: isMobile ? 8 : 16 }}>
@@ -664,6 +651,39 @@ export function DashboardClient({ user, initialGroups }: Props) {
           />
         </div>
       </main>
+
+      {/* ── 모바일 일정 요약 드로어 ── */}
+      {isMobile && (
+        <>
+          {summaryOpen && (
+            <div
+              onClick={() => setSummaryOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 44 }}
+            />
+          )}
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              height: "100%",
+              width: 280,
+              zIndex: 45,
+              transform: summaryOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+            }}
+          >
+            <EventSummary
+              userId={user.id}
+              group={selectedGroup}
+              isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
+              onEventClick={(event) => { setPendingEvent(event); setSummaryOpen(false); }}
+              refreshKey={refreshKey}
+              onClose={() => setSummaryOpen(false)}
+            />
+          </div>
+        </>
+      )}
 
       {/* ── 모달들 ── */}
       {showGroupModal && (
