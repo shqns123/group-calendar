@@ -260,20 +260,20 @@ export default function EventModal({
           />
 
           {/* 설명 + 인원 */}
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="설명 (선택)"
               rows={2}
-              className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+              className="w-full sm:flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
             />
             <input
               type="text"
               value={personnel}
               onChange={(e) => setPersonnel(e.target.value)}
               placeholder="인원"
-              className="flex-1 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full sm:flex-1 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
 
