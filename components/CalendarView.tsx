@@ -536,6 +536,23 @@ export default function CalendarView({
               const calEvent = info.event.extendedProps.event as CalEvent | undefined;
               const description = calEvent?.description;
               const personnel = calEvent?.personnel;
+
+              // 여러 주에 걸친 이벤트: 더 긴 구간에만 텍스트 표시
+              let showText: boolean;
+              if (info.isStart && info.isEnd) {
+                showText = true;
+              } else if (info.isStart || info.isEnd) {
+                const evStart = info.event.start!;
+                const evEnd = info.event.end ?? evStart;
+                const startSegLen = 7 - evStart.getDay();
+                const endSegLen = evEnd.getDay() || 7;
+                showText = info.isStart ? startSegLen >= endSegLen : endSegLen > startSegLen;
+              } else {
+                // 중간 구간 (3주 이상 이벤트)
+                showText = true;
+              }
+
+              if (!showText) return <div className="w-full h-full" />;
               return (
                 <div className="px-1 py-0.5 overflow-hidden w-full flex items-center justify-center">
                   <div className="font-semibold text-xs leading-tight truncate text-center w-full">
