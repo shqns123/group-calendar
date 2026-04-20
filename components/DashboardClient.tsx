@@ -17,6 +17,10 @@ import {
   RefreshCw,
   X,
   BookOpen,
+  Bell,
+  UserCheck,
+  UserX,
+  CalendarClock,
 } from "lucide-react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
@@ -24,6 +28,7 @@ import GroupModal, { type GroupFromApi } from "./GroupModal";
 import JoinGroupModal from "./JoinGroupModal";
 import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
+import ScheduleModal from "./ScheduleModal";
 
 type UserInfo = {
   id: string;
@@ -77,6 +82,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [refreshingCode, setRefreshingCode] = useState(false);
   const [inviteTimeLeft, setInviteTimeLeft] = useState(180);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
+  const [showPendingPanel, setShowPendingPanel] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
@@ -94,6 +102,29 @@ export function DashboardClient({ user, initialGroups }: Props) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // 관리자 대기 유저 폴링
+  const isLeaderOfAny = groups.some((g) => g.leaderId === user.id);
+  const fetchPendingUsers = useCallback(async () => {
+    if (!isLeaderOfAny) return;
+    const res = await fetch("/api/admin/pending");
+    if (res.ok) setPendingUsers(await res.json());
+  }, [isLeaderOfAny]);
+
+  useEffect(() => {
+    fetchPendingUsers();
+    const interval = setInterval(fetchPendingUsers, 30000);
+    return () => clearInterval(interval);
+  }, [fetchPendingUsers]);
+
+  const handleApprove = async (userId: string, action: "approve" | "reject") => {
+    await fetch("/api/admin/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, action }),
+    });
+    fetchPendingUsers();
+  };
 
   const refreshGroups = useCallback(async () => {
     const res = await fetch("/api/groups");
@@ -658,6 +689,71 @@ export function DashboardClient({ user, initialGroups }: Props) {
             {isMobile ? "" : "User Guide"}
           </button>
 
+          {/* 알림 스케줄 버튼 (그룹장 + 알림 권한 부여된 멤버) */}
+          {selectedGroup && (selectedGroup.leaderId === user.id || selectedGroup.members.some((m) => m.userId === user.id && (m as {canNotify?: boolean}).canNotify)) && (
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "5px 10px", borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text-secondary)",
+                fontSize: "0.75rem", fontWeight: 500,
+                cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
+            >
+              <CalendarClock style={{ width: 13, height: 13 }} />
+              {!isMobile && "알림 설정"}
+            </button>
+          )}
+
+          {/* 가입 대기 알림 버튼 (리더만) */}
+          {isLeaderOfAny && pendingUsers.length > 0 && (
+            <button
+              onClick={() => setShowPendingPanel(true)}
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "5px 10px",
+                borderRadius: 6,
+                border: "1px solid #FDE68A",
+                background: "#FFFBEB",
+                color: "#92400E",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                flexShrink: 0,
+              }}
+            >
+              <Bell style={{ width: 13, height: 13 }} />
+              {!isMobile && "가입 요청"}
+              <span
+                style={{
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: "#EF4444",
+                  color: "white",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 3px",
+                }}
+              >
+                {pendingUsers.length}
+              </span>
+            </button>
+          )}
+
           {selectedGroup && (
             <button
               onClick={() => setShowGroupPanel(true)}
@@ -906,6 +1002,107 @@ export function DashboardClient({ user, initialGroups }: Props) {
               style={{ width: "100%", flex: 1, border: "none" }}
               title="User Guide"
             />
+          </div>
+        </div>
+      )}
+
+      {/* 알림 스케줄 모달 */}
+      {showScheduleModal && selectedGroup && (
+        <ScheduleModal
+          groupId={selectedGroup.id}
+          groupName={selectedGroup.name}
+          onClose={() => setShowScheduleModal(false)}
+        />
+      )}
+
+      {/* 가입 대기 승인 패널 */}
+      {showPendingPanel && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPendingPanel(false); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div
+            className="modal-scale-in"
+            style={{
+              background: "var(--surface)",
+              borderRadius: 14,
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid var(--border)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>가입 승인 요청</p>
+                <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>{pendingUsers.length}명 대기 중</p>
+              </div>
+              <button onClick={() => setShowPendingPanel(false)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-tertiary)", display: "flex" }}>
+                <X style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {pendingUsers.map((u) => (
+                <div
+                  key={u.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    background: "var(--surface)",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)" }}>{u.name ?? "이름 없음"}</p>
+                    <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>
+                      {u.employeeId ? `사번: ${u.employeeId}` : u.email ?? ""}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => handleApprove(u.id, "approve")}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4,
+                        padding: "6px 12px", borderRadius: 6, border: "none",
+                        background: "#DCFCE7", color: "#166534",
+                        fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >
+                      <UserCheck style={{ width: 13, height: 13 }} />
+                      승인
+                    </button>
+                    <button
+                      onClick={() => handleApprove(u.id, "reject")}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4,
+                        padding: "6px 12px", borderRadius: 6, border: "none",
+                        background: "#FEE2E2", color: "#991B1B",
+                        fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >
+                      <UserX style={{ width: 13, height: 13 }} />
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

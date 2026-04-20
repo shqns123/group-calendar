@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX } from "lucide-react";
+import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff } from "lucide-react";
 
 type Member = {
   id: string;
@@ -9,6 +9,7 @@ type Member = {
   nickname: string | null;
   role: string;
   status: string;
+  canNotify: boolean;
   joinedAt: string;
   user: { id: string; name: string | null; email: string | null; image: string | null };
 };
@@ -71,6 +72,10 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
   const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
+  const [memberNotify, setMemberNotify] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(group.members.map((m) => [m.id, !!m.canNotify]))
+  );
+
 
   const saveGroupInfo = async () => {
     if (!groupNameInput.trim()) return;
@@ -161,6 +166,26 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
       if (res.ok) await onUpdated();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleNotifyPermission = async (member: Member) => {
+    const current = memberNotify[member.id] ?? false;
+    const next = !current;
+    setMemberNotify((prev) => ({ ...prev, [member.id]: next }));
+    try {
+      const res = await fetch("/api/admin/notify-permission", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: member.id, canNotify: next }),
+      });
+      if (res.ok) {
+        await onUpdated();
+      } else {
+        setMemberNotify((prev) => ({ ...prev, [member.id]: current }));
+      }
+    } catch {
+      setMemberNotify((prev) => ({ ...prev, [member.id]: current }));
     }
   };
 
@@ -481,6 +506,24 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
                                 </div>
                               )}
                             </div>
+
+                            {/* 알림 발송 권한 토글 */}
+                            <button
+                              onClick={() => toggleNotifyPermission(member)}
+                              title={memberNotify[member.id] ? "알림 발송 권한 회수" : "알림 발송 권한 부여"}
+                              style={{
+                                background: memberNotify[member.id] ? "#FFFBEB" : "none",
+                                border: memberNotify[member.id] ? "1px solid #FDE68A" : "none",
+                                cursor: "pointer", padding: 5, borderRadius: 4,
+                                color: memberNotify[member.id] ? "#D97706" : "var(--text-tertiary)",
+                                display: "flex",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              {memberNotify[member.id]
+                                ? <Bell style={{ width: 12, height: 12 }} />
+                                : <BellOff style={{ width: 12, height: 12 }} />}
+                            </button>
 
                             {/* 멤버 제거 */}
                             <button

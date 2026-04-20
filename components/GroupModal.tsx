@@ -17,6 +17,7 @@ export type GroupFromApi = {
     nickname: string | null;
     role: string;
     status: string;
+    canNotify: boolean;
     joinedAt: string;
     user: { id: string; name: string | null; email: string | null; image: string | null };
   }>;

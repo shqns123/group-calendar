@@ -602,7 +602,7 @@ export default function CalendarView({
               if (!showText) return <div className="w-full h-full" />;
               return (
                 <div className="px-1 py-0.5 overflow-hidden w-full flex items-center justify-center">
-                  <div className="font-semibold text-xs leading-tight truncate text-center w-full">
+                  <div className="font-semibold leading-tight truncate text-center w-full" style={{ fontSize: 10 }}>
                     {info.event.title}{description ? ` · ${description}` : ""}{personnel ? ` · ${personnel}` : ""}
                   </div>
                 </div>
