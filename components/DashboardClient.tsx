@@ -16,6 +16,7 @@ import {
   Check,
   RefreshCw,
   X,
+  BookOpen,
 } from "lucide-react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
@@ -623,6 +624,40 @@ export function DashboardClient({ user, initialGroups }: Props) {
               </p>
             )}
           </div>
+
+          <a
+            href="/guide.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text-secondary)",
+              fontSize: "0.78rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              letterSpacing: "-0.01em",
+              flexShrink: 0,
+              textDecoration: "none",
+              transition: "background 0.15s ease, border-color 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--surface-raised)";
+              e.currentTarget.style.borderColor = "var(--text-tertiary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--surface)";
+              e.currentTarget.style.borderColor = "var(--border)";
+            }}
+          >
+            <BookOpen style={{ width: 13, height: 13 }} />
+            {isMobile ? "" : "User Guide"}
+          </a>
 
           {selectedGroup && (
             <button

@@ -231,7 +231,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
           </div>
         )}
 
-        {grouped.map((grp) => (
+        {grouped.map((grp, grpIdx) => (
           <div key={grp.label}>
             {/* 날짜 그룹 헤더 */}
             <div
@@ -263,7 +263,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
               </span>
             </div>
 
-            {grp.events.map((event) => {
+            {grp.events.map((event, evIdx) => {
               const isOwn = event.creatorId === userId;
               const isHidden = event.isPrivate && !isOwn && !isLeader;
               const creatorName = getCreatorName(event);
@@ -274,8 +274,10 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
               return (
                 <button
                   key={event.id}
+                  className="stagger-item"
                   onClick={() => onEventClick(event)}
                   style={{
+                    animationDelay: `${(grpIdx * 3 + evIdx) * 30}ms`,
                     width: "100%",
                     textAlign: "left",
                     padding: "10px 16px",

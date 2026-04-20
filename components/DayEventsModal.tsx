@@ -116,6 +116,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
+        className="modal-slide-up"
         style={{
           background: "var(--surface)",
           borderRadius: 14,
@@ -200,6 +201,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           >
             <span style={{ fontSize: "0.8rem", fontWeight: 500, color: overtimeOn ? "#92400E" : "var(--text-secondary)" }}>
               특근 가능
+              <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "var(--text-tertiary)", marginLeft: 4 }}>(울산 근무만 체크)</span>
             </span>
             <button
               onClick={handleOvertimeToggle}
@@ -279,7 +281,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
               </button>
             </div>
           ) : (
-            sorted.map((event) => {
+            sorted.map((event, idx) => {
               const isOwn = event.creatorId === userId;
               const isHidden = event.isPrivate && !isOwn && !isLeader;
               if (event.isOvertimeOnly) {
@@ -287,7 +289,9 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                 return (
                   <div
                     key={event.id}
+                    className="stagger-item"
                     style={{
+                      animationDelay: `${idx * 28}ms`,
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
@@ -334,8 +338,10 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
               return (
                 <button
                   key={event.id}
+                  className="stagger-item"
                   onClick={() => onEventClick(event)}
                   style={{
+                    animationDelay: `${idx * 28}ms`,
                     display: "flex",
                     alignItems: "stretch",
                     gap: 10,

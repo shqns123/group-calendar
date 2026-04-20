@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>그룹 캘린더 사용 가이드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --border: #E7E5E4;
+    --text: #1C1917;
+    --muted: #78716C;
+    --light: #A8A29E;
+    --amber: #B45309;
+    --amber-bg: #FEF3C7;
+    --amber-bd: #FDE68A;
+    --green: #059669;
+    --green-bg: #ECFDF5;
+    --blue: #2563EB;
+    --blue-bg: #EFF6FF;
+  }
+
+  body {
+    font-family: "Pretendard", -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 40px 20px 80px;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* 헤더 */
+  .hero {
+    text-align: center;
+    padding: 48px 24px 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    margin-bottom: 32px;
+  }
+  .hero-icon {
+    width: 56px; height: 56px;
+    background: var(--text);
+    border-radius: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    font-size: 28px;
+  }
+  .hero h1 {
+    font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .hero p {
+    font-size: 0.95rem; color: var(--muted); line-height: 1.6; letter-spacing: -0.01em;
+  }
+  .hero-tags {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px;
+  }
+  .tag {
+    padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .tag-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-bd); }
+  .tag-green { background: var(--green-bg); color: var(--green); border: 1px solid #A7F3D0; }
+  .tag-blue  { background: var(--blue-bg);  color: var(--blue);  border: 1px solid #BFDBFE; }
+
+  /* 섹션 타이틀 */
+  .section-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--light); text-transform: uppercase; margin-bottom: 12px;
+  }
+
+  /* 카드 */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 1.1rem; font-weight: 800; letter-spacing: -0.03em;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  }
+  .step-badge {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--text); color: #fff;
+    font-size: 0.75rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* 스크린샷 */
+  .screenshot-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 20px 0;
+    background: #F0EFEB;
+  }
+  .screenshot-wrap img {
+    width: 100%; display: block;
+  }
+  .screenshot-caption {
+    padding: 8px 14px;
+    font-size: 0.72rem; color: var(--muted);
+    background: #F7F6F3;
+    border-top: 1px solid var(--border);
+    letter-spacing: -0.01em;
+  }
+
+  /* 설명 목록 */
+  .guide-list { display: flex; flex-direction: column; gap: 14px; }
+  .guide-item {
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .guide-num {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--amber-bg); color: var(--amber);
+    border: 1px solid var(--amber-bd);
+    font-size: 0.68rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .guide-text {
+    font-size: 0.88rem; line-height: 1.65; color: var(--text); letter-spacing: -0.01em;
+  }
+  .guide-text strong { font-weight: 700; color: var(--text); }
+  .guide-text .note {
+    display: block; font-size: 0.76rem; color: var(--muted); margin-top: 2px;
+  }
+
+  /* 2열 그리드 */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* 인라인 강조 */
+  .hl {
+    display: inline-block;
+    background: var(--amber-bg); color: var(--amber);
+    border-radius: 4px; padding: 0 5px;
+    font-size: 0.82rem; font-weight: 700;
+  }
+
+  /* 배너 */
+  .banner {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 18px; border-radius: 12px; margin-top: 20px;
+  }
+  .banner-amber { background: var(--amber-bg); border: 1px solid var(--amber-bd); }
+  .banner-green  { background: var(--green-bg);  border: 1px solid #A7F3D0; }
+  .banner-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+  .banner-body { font-size: 0.82rem; line-height: 1.6; letter-spacing: -0.01em; }
+  .banner-amber .banner-body { color: #92400E; }
+  .banner-green  .banner-body { color: #065F46; }
+  .banner-body strong { font-weight: 700; display: block; margin-bottom: 2px; }
+
+  /* 역할표 */
+  .role-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  @media (max-width: 540px) { .role-grid { grid-template-columns: 1fr; } }
+  .role-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .role-name {
+    font-size: 0.82rem; font-weight: 700; margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+  .role-name.amber { color: var(--amber); }
+  .role-item {
+    font-size: 0.75rem; color: var(--muted); line-height: 1.8;
+  }
+  .role-item::before { content: "· "; }
+
+  /* 필드 설명표 */
+  .field-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .field-table th, .field-table td {
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  .field-table th {
+    font-weight: 700; color: var(--muted); font-size: 0.72rem;
+    letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .field-table td:first-child { font-weight: 600; white-space: nowrap; }
+  .field-table tr:last-child td { border-bottom: none; }
+
+  /* 푸터 */
+  footer {
+    margin-top: 48px; text-align: center;
+    font-size: 0.72rem; color: var(--light); letter-spacing: -0.01em;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 히어로 -->
+  <div class="hero">
+    <div class="hero-icon">📅</div>
+    <h1>그룹 캘린더<br>사용 가이드</h1>
+    <p>팀원과 일정을 공유하고 실시간으로 확인하는<br>그룹 일정 관리 서비스입니다.</p>
+    <div class="hero-tags">
+      <span class="tag tag-amber">실시간 동기화</span>
+      <span class="tag tag-green">그룹 공유</span>
+      <span class="tag tag-blue">특근 가능 표시</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: 로그인 -->
+  <div class="section-label">시작하기</div>
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">1</div>
+      로그인
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">
+          <strong>Google 로그인</strong> — 구글 계정으로 바로 시작할 수 있습니다.
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">
+          <strong>게스트 로그인</strong> — 이름과 사번을 입력해 로그인합니다.
+          <span class="note">같은 기기에서는 자동으로 로그인됩니다.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: 그룹 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">2</div>
+      그룹 만들기 · 참여하기
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">
+          왼쪽 사이드바 하단의 <strong>+ 새 그룹 만들기</strong>를 눌러 새 그룹을 생성합니다.
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">
+          그룹에 참여하려면 그룹장에게 <strong>초대 코드</strong>를 받아 <strong>초대 코드 참가</strong>를 누르세요.
+          <span class="note">초대 코드는 대문자+숫자 6자리이며 3분마다 자동 갱신됩니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">③</div>
+        <div class="guide-text">
+          가입 요청 후 <strong>그룹장·파트장이 수락</strong>하면 그룹에 입장됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: 메인 화면 설명 -->
+  <div class="section-label">화면 구성</div>
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">3</div>
+      메인 화면 살펴보기
+    </div>
+    <div class="screenshot-wrap">
+      <img src="/전체화면.png" alt="메인 캘린더 전체 화면" />
+      <div class="screenshot-caption">메인 화면 — 왼쪽 일정 요약 패널 + 오른쪽 월간 캘린더</div>
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">
+          <strong>왼쪽 사이드바</strong> — 내 그룹 목록이 표시됩니다. 클릭해 그룹을 전환할 수 있습니다.
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">
+          <strong>일정 요약 패널</strong> — 향후 365일 일정을 날짜순으로 확인할 수 있습니다.
+          <span class="note">일정을 클릭하면 해당 날짜의 상세 팝업이 열립니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">③</div>
+        <div class="guide-text">
+          <strong>월간 캘린더</strong> — 이번 달 전체 일정을 한눈에 볼 수 있습니다.
+          <span class="note">날짜 칸을 클릭하면 그 날의 일정 팝업이 열립니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">④</div>
+        <div class="guide-text">
+          <strong>Summary 버튼</strong> — 오늘의 일정만 간략하게 보여주는 뷰로 전환합니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: 일정 추가 -->
+  <div class="section-label">일정 관리</div>
+  <div class="two-col">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">
+        <div class="step-badge">4</div>
+        일정 추가하기
+      </div>
+      <div class="screenshot-wrap">
+        <img src="/새일정.png" alt="새 일정 추가 화면" />
+        <div class="screenshot-caption">새 일정 추가 모달</div>
+      </div>
+      <div class="guide-list" style="margin-top:4px">
+        <div class="guide-item">
+          <div class="guide-num">①</div>
+          <div class="guide-text">달력의 <strong>날짜 칸</strong>을 클릭 → 팝업에서 <strong>+ 추가</strong> 버튼</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">②</div>
+          <div class="guide-text"><strong>제목</strong>을 입력합니다. (필수)</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">③</div>
+          <div class="guide-text"><strong>설명</strong>과 <strong>인원</strong>은 선택 입력입니다.
+            <span class="note">인원을 비워두면 작성자 이름이 자동 표시됩니다.</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">④</div>
+          <div class="guide-text"><strong>시작 · 종료 날짜</strong>를 설정합니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">⑤</div>
+          <div class="guide-text"><strong>색상</strong>을 선택하고 <strong>저장</strong>을 누릅니다.</div>
+        </div>
+      </div>
+
+      <div class="banner banner-amber" style="margin-top:16px">
+        <div class="banner-icon">🔒</div>
+        <div class="banner-body">
+          <strong>나만 보기</strong>
+          그룹 공개 버튼을 눌러 <em>나만 보기</em>로 전환하면 본인과 리더만 일정을 볼 수 있습니다.
+        </div>
+      </div>
+      <div class="banner banner-green" style="margin-top:10px">
+        <div class="banner-icon">📍</div>
+        <div class="banner-body">
+          <strong>울산 근무자가 아닌 경우</strong>
+          일정 추가 시 특근 가능 토글은 체크하지 않아도 됩니다. 울산 근무자 전용 기능입니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">
+        <div class="step-badge">5</div>
+        날짜별 일정 확인
+      </div>
+      <div class="screenshot-wrap">
+        <img src="/일정 요약.png" alt="날짜 팝업 화면" />
+        <div class="screenshot-caption">날짜 클릭 시 나타나는 일정 팝업</div>
+      </div>
+      <div class="guide-list" style="margin-top:4px">
+        <div class="guide-item">
+          <div class="guide-num">①</div>
+          <div class="guide-text">달력의 <strong>날짜 칸</strong>을 클릭하면 그 날의 일정 목록이 팝업으로 뜹니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">②</div>
+          <div class="guide-text">팝업 우상단 <strong>+ 추가</strong>를 눌러 빠르게 일정을 추가할 수 있습니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">③</div>
+          <div class="guide-text">일정 항목을 클릭하면 <strong>수정 및 삭제</strong>가 가능합니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">④</div>
+          <div class="guide-text"><strong>특근 가능 토글</strong>을 켜면 해당 날짜에 특근 가능 표시가 등록됩니다.
+            <span class="note">울산 근무자만 사용합니다. 달력에 빨간 점으로 표시됩니다.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="banner banner-green" style="margin-top:16px">
+        <div class="banner-icon">⚡</div>
+        <div class="banner-body">
+          <strong>실시간 동기화</strong>
+          누군가 일정을 추가하거나 수정하면 그룹 멤버 화면에 즉시 반영됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 6: 역할 -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">
+      <div class="step-badge">6</div>
+      역할별 권한 안내
+    </div>
+    <div class="role-grid">
+      <div class="role-card">
+        <div class="role-name amber">관리자 (서버 소유자)</div>
+        <div class="role-item">전체 사용자 관리</div>
+        <div class="role-item">모든 그룹 가입 요청 수락</div>
+        <div class="role-item">특근 가능 확인 · 삭제</div>
+        <div class="role-item">비공개 일정 열람</div>
+        <div class="role-item">초대 코드 생성</div>
+      </div>
+      <div class="role-card">
+        <div class="role-name amber">그룹장 · 파트장</div>
+        <div class="role-item">가입 요청 수락 · 거절</div>
+        <div class="role-item">멤버 특근 가능 확인 · 삭제</div>
+        <div class="role-item">비공개 일정 열람</div>
+        <div class="role-item">초대 코드 생성</div>
+        <div class="role-item">멤버 일정 수정 · 삭제</div>
+      </div>
+      <div class="role-card">
+        <div class="role-name">일반 멤버</div>
+        <div class="role-item">본인 일정 추가 · 수정 · 삭제</div>
+        <div class="role-item">특근 가능 토글</div>
+        <div class="role-item">그룹 일정 전체 조회</div>
+        <div class="role-item">Summary 탭으로 오늘 확인</div>
+        <div class="role-item">향후 365일 일정 요약 조회</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 공휴일 안내 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">+</div>
+      캘린더 보는 법
+    </div>
+    <table class="field-table">
+      <tr>
+        <th>표시</th>
+        <th>의미</th>
+      </tr>
+      <tr>
+        <td>🔴 빨간 점 (날짜 우하단)</td>
+        <td>해당 날짜에 특근 가능 표시가 있음 (본인 · 리더만 확인 가능)</td>
+      </tr>
+      <tr>
+        <td>회색 배경 날짜</td>
+        <td>주말 또는 공휴일</td>
+      </tr>
+      <tr>
+        <td>빨간 글씨 (날짜 아래)</td>
+        <td>공휴일 이름 (예: 어린이날, 추석 등)</td>
+      </tr>
+      <tr>
+        <td>노란 배경 날짜</td>
+        <td>오늘 날짜</td>
+      </tr>
+      <tr>
+        <td>일정 바 (제목 · 설명 · 인원)</td>
+        <td>달력에 표시되는 일정. 최대 3개까지 표시되며 이후엔 +N more</td>
+      </tr>
+    </table>
+  </div>
+
+  <footer>그룹 캘린더 · 팀 일정 관리 서비스</footer>
+
+</div>
+</body>
+</html>

@@ -236,7 +236,7 @@ export default function EventModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="modal-scale-in bg-white rounded-2xl shadow-2xl w-full max-w-md">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">

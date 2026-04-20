@@ -324,6 +324,7 @@ export default function CalendarView({
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
   const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
+  const calendarWrapRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -411,23 +412,32 @@ export default function CalendarView({
     openDayPopup(date);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = touchStartX.current - e.changedTouches[0].clientX;
-    const dy = touchStartY.current - e.changedTouches[0].clientY;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-      const api = calendarRef.current?.getApi();
-      if (dx > 0) api?.next();
-      else api?.prev();
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
+  useEffect(() => {
+    const el = calendarWrapRef.current;
+    if (!el) return;
+    const onStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      const dx = touchStartX.current - e.changedTouches[0].clientX;
+      const dy = touchStartY.current - e.changedTouches[0].clientY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        const api = calendarRef.current?.getApi();
+        if (dx > 0) api?.next();
+        else api?.prev();
+      }
+      touchStartX.current = null;
+      touchStartY.current = null;
+    };
+    el.addEventListener("touchstart", onStart, { passive: true, capture: true });
+    el.addEventListener("touchend", onEnd, { passive: true, capture: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart, { capture: true });
+      el.removeEventListener("touchend", onEnd, { capture: true });
+    };
+  }, []);
 
   const handleEventSaved = () => {
     setShowModal(false);
@@ -497,9 +507,8 @@ export default function CalendarView({
           />
         ) : (
           <div
+            ref={calendarWrapRef}
             style={{ flex: 1, minHeight: 0 }}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
           >
           <FullCalendar
             ref={calendarRef}
@@ -518,6 +527,21 @@ export default function CalendarView({
             eventClick={handleEventClick}
             moreLinkClick={() => false as unknown as "popover"}
             height="100%"
+            dayCellContent={(arg) => {
+              const mmdd = format(arg.date, "MM-dd");
+              const yyyymmdd = format(arg.date, "yyyy-MM-dd");
+              const holidayName = FIXED_HOLIDAYS[mmdd] || LUNAR_HOLIDAYS[yyyymmdd];
+              return (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", width: "100%" }}>
+                  <span className="fc-daygrid-day-number">{arg.dayNumberText}</span>
+                  {holidayName && (
+                    <span style={{ fontSize: "0.58rem", color: "#EF4444", lineHeight: 1.2, paddingRight: 4, paddingBottom: 2 }}>
+                      {holidayName}
+                    </span>
+                  )}
+                </div>
+              );
+            }}
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
               if (isWeekend(arg.date) || isHoliday(arg.date)) classes.push("fc-day-gray");
