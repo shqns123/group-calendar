@@ -3,6 +3,21 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+
+const FIXED_HOLIDAYS: Record<string, string> = {
+  "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
+  "06-06": "현충일", "08-15": "광복절", "10-03": "개천절",
+  "10-09": "한글날", "12-25": "크리스마스",
+};
+const LUNAR_HOLIDAYS: Record<string, string> = {
+  "2025-01-28": "설 연휴", "2025-01-29": "설날", "2025-01-30": "설 연휴",
+  "2025-05-05": "부처님오신날", "2025-10-05": "추석 연휴", "2025-10-06": "추석", "2025-10-07": "추석 연휴",
+  "2026-02-16": "설 연휴", "2026-02-17": "설날", "2026-02-18": "설 연휴",
+  "2026-05-24": "부처님오신날", "2026-09-23": "추석 연휴", "2026-09-24": "추석", "2026-09-25": "추석 연휴",
+};
+function getHolidayName(date: Date): string | null {
+  return FIXED_HOLIDAYS[format(date, "MM-dd")] || LUNAR_HOLIDAYS[format(date, "yyyy-MM-dd")] || null;
+}
 import { Clock, User, Plus, X } from "lucide-react";
 
 type CalEvent = {
@@ -141,9 +156,16 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           }}
         >
           <div>
-            <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-              {format(date, "M월 d일 (E)", { locale: ko })}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+                {format(date, "M월 d일 (E)", { locale: ko })}
+              </p>
+              {getHolidayName(date) && (
+                <span style={{ fontSize: "0.72rem", color: "#EF4444", fontWeight: 500 }}>
+                  {getHolidayName(date)}
+                </span>
+              )}
+            </div>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 1 }}>
               {sorted.length === 0 ? "일정 없음" : `${sorted.length}개 일정`}
             </p>

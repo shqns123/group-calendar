@@ -565,21 +565,6 @@ export default function CalendarView({
             eventClick={handleEventClick}
             moreLinkClick={() => false as unknown as "popover"}
             height="100%"
-            dayCellContent={(arg) => {
-              const mmdd = format(arg.date, "MM-dd");
-              const yyyymmdd = format(arg.date, "yyyy-MM-dd");
-              const holidayName = FIXED_HOLIDAYS[mmdd] || LUNAR_HOLIDAYS[yyyymmdd];
-              return (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", width: "100%" }}>
-                  <span className="fc-daygrid-day-number">{arg.dayNumberText}</span>
-                  {holidayName && (
-                    <span style={{ fontSize: "0.58rem", color: "#EF4444", lineHeight: 1.2, paddingRight: 4, paddingBottom: 2 }}>
-                      {holidayName}
-                    </span>
-                  )}
-                </div>
-              );
-            }}
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
               if (isWeekend(arg.date) || isHoliday(arg.date)) classes.push("fc-day-gray");
