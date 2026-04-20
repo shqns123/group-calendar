@@ -13,7 +13,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="h-full">
+    <html lang="ko" className="h-full" style={{ colorScheme: "light" }}>
+      <head>
+        <meta name="color-scheme" content="light" />
+      </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>{children}</SessionProvider>
       </body>

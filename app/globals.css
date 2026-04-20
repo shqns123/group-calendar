@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --bg: #FAFAF8;
   --surface: #FFFFFF;
   --surface-raised: #F5F4F1;
@@ -21,25 +22,6 @@
   --focus-ring: #B45309;
 }
 
-html.dark {
-  --bg: #18181B;
-  --surface: #27272A;
-  --surface-raised: #3F3F46;
-  --surface-hover: #52525B;
-  --border: #3F3F46;
-  --border-subtle: #3F3F46;
-
-  --text-primary: #F4F4F5;
-  --text-secondary: #A1A1AA;
-  --text-tertiary: #71717A;
-
-  --accent: #D97706;
-  --accent-hover: #B45309;
-  --accent-light: #27272A;
-  --accent-muted: #3F3F46;
-
-  --focus-ring: #D97706;
-}
 
 @theme inline {
   --color-background: var(--bg);
@@ -211,6 +193,23 @@ body {
 
 .fc-scrollgrid-section > td {
   border: none !important;
+}
+
+/* 요일 헤더 ↔ 날짜 셀 세로줄 정렬 */
+.fc-scrollgrid-section-header td,
+.fc-scrollgrid-section-body td {
+  padding: 0 !important;
+}
+
+.fc-scroller {
+  overflow: hidden !important;
+}
+
+.fc-col-header,
+.fc-daygrid-body,
+.fc-scrollgrid-sync-table {
+  width: 100% !important;
+  table-layout: fixed !important;
 }
 
 /* "더 보기" 링크 */
