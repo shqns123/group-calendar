@@ -109,7 +109,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
     if (!user.isOperator) return;
     const res = await fetch("/api/admin/pending");
     if (res.ok) setPendingUsers(await res.json());
-  }, [isLeaderOfAny]);
+  }, [fetchPendingUsers]);
 
   useEffect(() => {
     fetchPendingUsers();
