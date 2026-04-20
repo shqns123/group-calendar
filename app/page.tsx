@@ -7,7 +7,6 @@ export default async function Home() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isOperator = (session.user as any).isOperator ?? false;
 
   const groups = await prisma.group.findMany({
@@ -36,8 +35,7 @@ export default async function Home() {
         name: session.user.name ?? null,
         email: session.user.email ?? null,
         image: session.user.image ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        isOperator: (session.user as any).isOperator ?? false,
+        isOperator,
       }}
       initialGroups={JSON.parse(JSON.stringify(groups))}
     />
