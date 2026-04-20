@@ -513,7 +513,7 @@ export default function CalendarView({
             buttonText={{ today: "Today" }}
             locale="ko"
             events={calendarEvents}
-            dayMaxEvents={5}
+            dayMaxEvents={3}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             moreLinkClick={() => false as unknown as "popover"}
@@ -536,7 +536,6 @@ export default function CalendarView({
               const calEvent = info.event.extendedProps.event as CalEvent | undefined;
               const description = calEvent?.description;
               const personnel = calEvent?.personnel;
-              if (!info.isStart) return <div className="w-full h-full" />;
               return (
                 <div className="px-1 py-0.5 overflow-hidden w-full flex items-center justify-center">
                   <div className="font-semibold text-xs leading-tight truncate text-center w-full">

@@ -278,7 +278,7 @@ export default function EventModal({
           </div>
 
           {/* 날짜 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500 font-medium mb-1 block">시작</label>
               <input
