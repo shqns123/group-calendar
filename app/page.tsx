@@ -33,6 +33,8 @@ export default async function Home() {
         name: session.user.name ?? null,
         email: session.user.email ?? null,
         image: session.user.image ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        isOperator: (session.user as any).isOperator ?? false,
       }}
       initialGroups={JSON.parse(JSON.stringify(groups))}
     />

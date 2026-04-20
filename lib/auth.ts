@@ -34,14 +34,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   events: {
-    // 신규 OAuth(Google) 유저 생성 시 PENDING으로 변경 + 관리자 푸시
+    // 신규 OAuth(Google) 유저 생성 시 PENDING으로 변경 + 운영자 푸시
     async createUser({ user }) {
       await prisma.user.update({ where: { id: user.id }, data: { status: "PENDING" } });
 
-      const admins = await prisma.group.findMany({
-        select: { leader: { select: { pushSubscriptions: true } } },
+      const operators = await prisma.user.findMany({
+        where: { isOperator: true },
+        select: { pushSubscriptions: true },
       });
-      const allSubs = admins.flatMap((g) => g.leader.pushSubscriptions);
+      const allSubs = operators.flatMap((u) => u.pushSubscriptions);
       if (allSubs.length > 0) {
         const { sendPushToUser } = await import("./webpush");
         await sendPushToUser(allSubs, {
@@ -68,16 +69,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id;
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { status: true },
+          select: { status: true, isOperator: true },
         });
         token.status = dbUser?.status ?? "ACTIVE";
+        // OPERATOR_EMAIL 환경변수와 일치하면 자동 운영자 부여
+        if (!dbUser?.isOperator && user.email && user.email === process.env.OPERATOR_EMAIL) {
+          await prisma.user.update({ where: { id: user.id }, data: { isOperator: true } });
+          token.isOperator = true;
+        } else {
+          token.isOperator = dbUser?.isOperator ?? false;
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (token?.id) session.user.id = token.id as string;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (session.user as any).status = token.status ?? "ACTIVE";
+      const u = session.user as any;
+      u.status = token.status ?? "ACTIVE";
+      u.isOperator = token.isOperator ?? false;
       return session;
     },
   },

@@ -5,8 +5,8 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const adminGroup = await prisma.group.findFirst({ where: { leaderId: session.user.id } });
-  if (!adminGroup) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (!me?.isOperator) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const users = await prisma.user.findMany({
     select: {
@@ -15,11 +15,13 @@ export async function GET() {
       email: true,
       image: true,
       employeeId: true,
+      isOperator: true,
       createdAt: true,
       groupMembers: {
         select: {
+          id: true,
           role: true,
-          group: { select: { id: true, name: true } },
+          group: { select: { id: true, name: true, leaderId: true } },
         },
       },
     },

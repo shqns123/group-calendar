@@ -41,6 +41,7 @@ model User {
   image         String?
   employeeId    String?       @unique
   status        String        @default("ACTIVE")
+  isOperator    Boolean       @default(false)
   accounts      Account[]
   sessions      Session[]
   groupMembers  GroupMember[]

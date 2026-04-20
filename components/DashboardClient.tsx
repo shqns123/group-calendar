@@ -35,6 +35,7 @@ type UserInfo = {
   name: string | null;
   email: string | null;
   image: string | null;
+  isOperator: boolean;
 };
 
 type Group = GroupFromApi;
@@ -103,10 +104,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // 관리자 대기 유저 폴링
-  const isLeaderOfAny = groups.some((g) => g.leaderId === user.id);
+  // 운영자 대기 유저 폴링
   const fetchPendingUsers = useCallback(async () => {
-    if (!isLeaderOfAny) return;
+    if (!user.isOperator) return;
     const res = await fetch("/api/admin/pending");
     if (res.ok) setPendingUsers(await res.json());
   }, [isLeaderOfAny]);
@@ -168,7 +168,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
     return role === "admin" || role === "leader";
   };
 
-  const isGlobalAdmin = groups.some((g) => g.leaderId === user.id);
+  const isGlobalAdmin = user.isOperator;
 
   const copyInviteCode = (value: string) => {
     navigator.clipboard.writeText(value);
@@ -711,8 +711,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </button>
           )}
 
-          {/* 가입 대기 알림 버튼 (리더만) */}
-          {isLeaderOfAny && pendingUsers.length > 0 && (
+          {/* 가입 대기 알림 버튼 (운영자만) */}
+          {user.isOperator && pendingUsers.length > 0 && (
             <button
               onClick={() => setShowPendingPanel(true)}
               style={{

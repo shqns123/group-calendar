@@ -460,47 +460,24 @@
     </div>
   </div>
 
-  <!-- Today 요약 + Summary -->
-  <div class="two-col">
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">
-        <div class="step-badge">5</div>
-        Today 요약
-      </div>
-      <div class="screenshot-wrap">
-        <img src="/today 요약.png" alt="Today 요약" />
-        <div class="screenshot-caption">오늘 날짜 일정만 간결하게 표시</div>
-      </div>
-      <div class="guide-list">
-        <div class="guide-item">
-          <div class="guide-num">①</div>
-          <div class="guide-text">오늘 날짜에 등록된 일정과 특근 가능 멤버를 한눈에 확인합니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">②</div>
-          <div class="guide-text">헤더의 <strong>Today</strong> 버튼으로 전환합니다.</div>
-        </div>
-      </div>
+  <!-- Summary -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">5</div>
+      Summary 뷰
     </div>
-
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">
-        <div class="step-badge">6</div>
-        Summary 뷰
+    <div class="screenshot-wrap">
+      <img src="/summay.png" alt="Summary 뷰" />
+      <div class="screenshot-caption">전체 일정을 요약 목록으로 보기</div>
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">헤더의 <strong>Summary</strong> 버튼으로 전환합니다.</div>
       </div>
-      <div class="screenshot-wrap">
-        <img src="/summay.png" alt="Summary 뷰" />
-        <div class="screenshot-caption">전체 일정을 요약 목록으로 보기</div>
-      </div>
-      <div class="guide-list">
-        <div class="guide-item">
-          <div class="guide-num">①</div>
-          <div class="guide-text">헤더의 <strong>Summary</strong> 버튼으로 전환합니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">②</div>
-          <div class="guide-text">그룹 전체 일정을 날짜별 요약 리스트로 확인합니다.</div>
-        </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">그룹 전체 일정을 날짜별 요약 리스트로 확인합니다.</div>
       </div>
     </div>
   </div>
@@ -541,7 +518,7 @@
       <div class="guide-item">
         <div class="guide-num purple">③</div>
         <div class="guide-text">
-          <strong>알림 발송 권한</strong> — 관리자는 그룹 관리에서 그룹장 · 파트장에게 알림 발송 권한을 부여할 수 있습니다.
+          <strong>알림 발송 권한</strong> — 그룹 관리자는 그룹 관리에서 그룹장 · 파트장에게 알림 발송 권한을 부여할 수 있습니다.
           <span class="note">권한을 받은 멤버는 알림 스케줄을 직접 등록 · 관리할 수 있습니다.</span>
         </div>
       </div>
@@ -563,7 +540,7 @@
       </tr>
       <tr>
         <td>신규 가입 요청</td>
-        <td>관리자 (알림 허용한 기기)</td>
+        <td>운영자 (알림 허용한 기기)</td>
       </tr>
       <tr>
         <td>가입 승인 완료</td>
@@ -584,11 +561,18 @@
       <div class="step-badge">+</div>
       역할별 권한 안내
     </div>
-    <div class="role-grid">
+    <div class="role-grid" style="grid-template-columns: repeat(4,1fr);">
+      <div class="role-card" style="border-color:#DDD6FE; background:#F5F3FF;">
+        <div class="role-name" style="color:#7C3AED;">운영자</div>
+        <div class="role-item">신규 가입 승인 · 거절</div>
+        <div class="role-item">전체 사용자 관리 · 삭제</div>
+        <div class="role-item">운영자 지정 · 회수</div>
+        <div class="role-item">그룹 관리자 변경</div>
+        <div class="role-item">사용자 관리 메뉴 접근</div>
+      </div>
       <div class="role-card">
-        <div class="role-name amber">관리자 (서버 소유자)</div>
-        <div class="role-item">전체 사용자 가입 승인 · 거절</div>
-        <div class="role-item">모든 그룹 가입 요청 수락</div>
+        <div class="role-name amber">그룹 관리자</div>
+        <div class="role-item">그룹 멤버 가입 수락 · 거절</div>
         <div class="role-item">멤버 알림 발송 권한 부여</div>
         <div class="role-item">알림 스케줄 등록 · 관리</div>
         <div class="role-item">비공개 일정 열람</div>
@@ -597,7 +581,7 @@
       </div>
       <div class="role-card">
         <div class="role-name amber">그룹장 · 파트장</div>
-        <div class="role-item">가입 요청 수락 · 거절</div>
+        <div class="role-item">멤버 가입 수락 · 거절</div>
         <div class="role-item">비공개 일정 열람</div>
         <div class="role-item">멤버 일정 수정 · 삭제</div>
         <div class="role-item">초대 코드 생성</div>
@@ -610,7 +594,7 @@
         <div class="role-item">특근 가능 토글</div>
         <div class="role-item">그룹 일정 전체 조회</div>
         <div class="role-item">일정 요약 조회 (365일)</div>
-        <div class="role-item">Today · Summary 뷰 확인</div>
+        <div class="role-item">Summary 뷰 확인</div>
       </div>
     </div>
   </div>
