@@ -97,8 +97,7 @@ export default function EventModal({
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
   const [overtimeAvailable, setOvertimeAvailable] = useState(event?.overtimeAvailable ?? false);
-  const defaultPersonnel = event?.personnel ?? (group?.members.find(m => m.userId === userId)?.nickname ?? userName ?? "");
-  const [personnel, setPersonnel] = useState(defaultPersonnel);
+  const [personnel, setPersonnel] = useState(event?.personnel ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
