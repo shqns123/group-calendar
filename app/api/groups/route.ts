@@ -16,8 +16,10 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+
   const groups = await prisma.group.findMany({
-    where: {
+    where: me?.isOperator ? undefined : {
       OR: [
         { leaderId: session.user.id },
         { members: { some: { userId: session.user.id, status: "ACTIVE" } } },
@@ -43,6 +45,11 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const me2 = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (!me2?.isOperator) {
+    return Response.json({ error: "그룹 생성은 운영자만 가능합니다" }, { status: 403 });
   }
 
   const body = await request.json();

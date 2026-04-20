@@ -7,8 +7,11 @@ export default async function Home() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isOperator = (session.user as any).isOperator ?? false;
+
   const groups = await prisma.group.findMany({
-    where: {
+    where: isOperator ? undefined : {
       OR: [
         { leaderId: session.user.id },
         { members: { some: { userId: session.user.id } } },

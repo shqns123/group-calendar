@@ -31,7 +31,8 @@ export async function GET(
   }
 
   const myMember = group.members.find((m) => m.userId === session.user.id);
-  const isActiveMember = myMember?.status === "ACTIVE" || group.leaderId === session.user.id;
+  const meGet = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  const isActiveMember = myMember?.status === "ACTIVE" || group.leaderId === session.user.id || meGet?.isOperator;
   if (!isActiveMember) {
     return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
   }
@@ -54,7 +55,8 @@ export async function PATCH(
   if (!group) {
     return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
   }
-  if (group.leaderId !== session.user.id) {
+  const mePatch = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (group.leaderId !== session.user.id && !mePatch?.isOperator) {
     return Response.json({ error: "관리자만 수정할 수 있습니다" }, { status: 403 });
   }
 
@@ -87,7 +89,8 @@ export async function DELETE(
   if (!group) {
     return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
   }
-  if (group.leaderId !== session.user.id) {
+  const meDel = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (group.leaderId !== session.user.id && !meDel?.isOperator) {
     return Response.json({ error: "관리자만 삭제할 수 있습니다" }, { status: 403 });
   }
 

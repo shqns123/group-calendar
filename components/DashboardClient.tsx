@@ -165,8 +165,11 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   const isElevated = (g: Group) => {
     const role = myRole(g);
-    return role === "admin" || role === "leader";
+    return role === "admin" || role === "leader" || user.isOperator;
   };
+
+  const isOperatorManagedOnly = (g: Group | null): boolean =>
+    !!g && user.isOperator && g.leaderId !== user.id && !g.members.some((m) => m.userId === user.id);
 
   const isGlobalAdmin = user.isOperator;
 
@@ -324,7 +327,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               marginBottom: 6,
             }}
           >
-            내 그룹
+            {user.isOperator ? "그룹 목록" : "내 그룹"}
           </p>
 
           <NavItem
@@ -364,8 +367,11 @@ export function DashboardClient({ user, initialGroups }: Props) {
               }
               label={g.name}
               badge={(() => {
+                const isMgmtOnly = isOperatorManagedOnly(g);
                 const pendingCnt = isElevated(g) ? g.members.filter(m => m.status === "PENDING").length : 0;
-                const roleBadge = myRole(g) === "admin" ? (
+                const roleBadge = isMgmtOnly ? (
+                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: "#EDE9FE", color: "#7C3AED", letterSpacing: "0.02em", flexShrink: 0 }}>관리</span>
+                ) : myRole(g) === "admin" ? (
                   <span
                     style={{
                       marginLeft: "auto",
@@ -436,12 +442,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
             gap: 2,
           }}
         >
-          <SideAction
-            icon={<Plus style={{ width: 13, height: 13 }} />}
-            label="새 그룹 만들기"
-            onClick={() => setShowGroupModal(true)}
-            accent
-          />
+          {user.isOperator && (
+            <SideAction
+              icon={<Plus style={{ width: 13, height: 13 }} />}
+              label="새 그룹 만들기"
+              onClick={() => setShowGroupModal(true)}
+              accent
+            />
+          )}
           {selectedGroup && isElevated(selectedGroup) && (
             <SideAction
               icon={<Share2 style={{ width: 13, height: 13 }} />}
@@ -792,20 +800,30 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
         {/* 캘린더 */}
         <div style={{ flex: 1, overflow: "hidden", padding: isMobile ? 8 : 16 }}>
-          <CalendarView
-            userId={user.id}
-            userName={user.name || user.email?.split("@")[0] || ""}
-            group={selectedGroup}
-            isLeader={
-              selectedGroup?.leaderId === user.id ||
-              ["그룹장", "파트장"].includes(selectedGroup?.members.find((m) => m.userId === user.id)?.role ?? "")
-            }
-            pendingEvent={pendingEvent}
-            onPendingEventHandled={() => setPendingEvent(null)}
-            pendingDayDate={pendingDayDate}
-            onPendingDayDateHandled={() => setPendingDayDate(null)}
-            onEventSaved={handleEventSaved}
-          />
+          {isOperatorManagedOnly(selectedGroup) ? (
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <Settings style={{ width: 36, height: 36, color: "var(--text-tertiary)", opacity: 0.3 }} />
+              <p style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "-0.02em" }}>관리 전용 모드</p>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", textAlign: "center", lineHeight: 1.6 }}>
+                이 그룹의 멤버가 아닙니다.<br />우상단 <strong>그룹 관리</strong> 버튼으로 관리만 가능합니다.
+              </p>
+            </div>
+          ) : (
+            <CalendarView
+              userId={user.id}
+              userName={user.name || user.email?.split("@")[0] || ""}
+              group={selectedGroup}
+              isLeader={
+                selectedGroup?.leaderId === user.id ||
+                ["그룹장", "파트장"].includes(selectedGroup?.members.find((m) => m.userId === user.id)?.role ?? "")
+              }
+              pendingEvent={pendingEvent}
+              onPendingEventHandled={() => setPendingEvent(null)}
+              pendingDayDate={pendingDayDate}
+              onPendingDayDateHandled={() => setPendingDayDate(null)}
+              onEventSaved={handleEventSaved}
+            />
+          )}
         </div>
       </main>
 
@@ -853,6 +871,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
         <GroupPanel
           group={selectedGroup}
           userId={user.id}
+          isOperator={user.isOperator}
           onClose={() => setShowGroupPanel(false)}
           onUpdated={refreshGroups}
         />

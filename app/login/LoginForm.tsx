@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const router = useRouter();
 
   const reset = () => { setName(""); setEmployeeId(""); setError(""); setPending(false); };
@@ -82,7 +83,7 @@ export default function LoginForm() {
         </div>
         <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>가입 요청 완료</p>
         <p style={{ fontSize: "0.825rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          관리자의 승인을 기다려 주세요.<br />승인 후 로그인하실 수 있습니다.
+          운영자의 승인을 기다려 주세요.<br />승인 후 로그인하실 수 있습니다.
         </p>
         <button
           onClick={() => { setGuestMode("login"); setPending(false); setName(""); setEmployeeId(""); }}
@@ -96,6 +97,49 @@ export default function LoginForm() {
 
   return (
     <div>
+      {/* 이용 안내 팝업 */}
+      {showInfo && (
+        <div
+          onClick={() => setShowInfo(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--surface)", borderRadius: 14, width: "100%", maxWidth: 400, padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={{ fontWeight: 800, fontSize: "0.95rem", letterSpacing: "-0.03em", color: "var(--text-primary)" }}>이용 안내</p>
+              <button onClick={() => setShowInfo(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: "var(--text-tertiary)", lineHeight: 1 }}>✕</button>
+            </div>
+            <div style={{ padding: "12px 14px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, fontSize: "0.825rem", color: "#92400E", lineHeight: 1.6 }}>
+              <strong style={{ fontWeight: 800 }}>신규 가입은 운영자 승인 후 이용 가능합니다</strong>
+              <br />처음 접속하는 계정은 운영자가 승인할 때까지 대기 화면이 표시됩니다.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                { label: "Google 로그인", desc: "처음 사용하는 계정이면 운영자에게 승인 요청이 발송됩니다. 이미 승인된 계정은 바로 입장됩니다." },
+                { label: "Guest 회원가입", desc: "이름과 사번을 입력 후 가입 신청을 합니다. 운영자 승인 후 로그인 가능합니다." },
+                { label: "Guest 로그인", desc: "승인된 계정은 이름 + 사번으로 바로 로그인합니다. 이름 또는 사번이 틀리면 로그인 불가합니다." },
+              ].map((item) => (
+                <div key={item.label} style={{ display: "flex", gap: 10 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-primary)", marginTop: 7, flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontSize: "0.825rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 1 }}>{item.label}</p>
+                    <p style={{ fontSize: "0.775rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowInfo(false)}
+              style={{ marginTop: 4, padding: "8px 0", background: "var(--text-primary)", color: "var(--surface)", border: "none", borderRadius: 8, fontSize: "0.875rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 탭 */}
       <div className="flex rounded-lg p-0.5 mb-6" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
         {(["google", "guest"] as const).map((t) => (
@@ -148,7 +192,7 @@ export default function LoginForm() {
             Google로 계속하기
           </button>
           <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
-            등록된 Google 계정만 로그인됩니다.<br />신규 계정은 관리자 승인 후 사용 가능합니다.
+            등록된 Google 계정만 로그인됩니다.<br />신규 계정은 운영자 승인 후 사용 가능합니다.
           </p>
         </div>
       ) : (
@@ -227,11 +271,21 @@ export default function LoginForm() {
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
               {guestMode === "login"
                 ? "이름과 사번이 정확히 일치해야 합니다"
-                : "관리자 승인 후 로그인하실 수 있습니다"}
+                : "운영자 승인 후 로그인하실 수 있습니다"}
             </p>
           </form>
         </div>
       )}
+
+      {/* 이용 안내 버튼 */}
+      <div style={{ marginTop: 18, textAlign: "center" }}>
+        <button
+          onClick={() => setShowInfo(true)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
+        >
+          이용 안내 보기
+        </button>
+      </div>
     </div>
   );
 }

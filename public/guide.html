@@ -232,6 +232,16 @@
   .flow-box.ok     { background: var(--green-bg); color: var(--green); border: 1px solid #A7F3D0; }
   .flow-arrow { color: var(--light); font-size: 0.9rem; }
 
+  /* 구분선 */
+  .sub-divider {
+    border: none; border-top: 1px solid var(--border);
+    margin: 20px 0;
+  }
+  .sub-label {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+
   /* 푸터 */
   footer {
     margin-top: 48px; text-align: center;
@@ -252,238 +262,12 @@
       <span class="tag tag-green">그룹 공유</span>
       <span class="tag tag-blue">특근 가능 표시</span>
       <span class="tag tag-purple">푸시 알림</span>
-      <span class="tag tag-red">관리자 승인제</span>
+      <span class="tag tag-red">운영자 승인제</span>
     </div>
   </div>
 
   <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-  <div class="section-label">⚠ 반드시 읽어주세요 — 로그인</div>
-
-  <div class="card highlight-login">
-    <div class="card-title">
-      <div class="step-badge amber">!</div>
-      로그인 안내 — 관리자 승인 필요
-    </div>
-
-    <div class="alert-box amber">
-      <div class="alert-icon">🔐</div>
-      <div class="alert-body">
-        <strong>신규 가입은 관리자 승인 후 이용 가능합니다</strong>
-        처음 접속하는 계정은 바로 사용되지 않습니다. 관리자가 승인할 때까지 대기 화면이 표시되며,
-        승인 완료 시 자동으로 입장됩니다.
-      </div>
-    </div>
-
-    <div class="guide-list">
-      <div class="guide-item">
-        <div class="guide-num">①</div>
-        <div class="guide-text">
-          <strong>Google 로그인</strong> — 구글 계정으로 로그인 시도 시, 처음 사용하는 계정이면 관리자에게 승인 요청이 발송됩니다.
-          <span class="note">이미 승인된 계정은 바로 입장됩니다.</span>
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">②</div>
-        <div class="guide-text">
-          <strong>Guest 회원가입</strong> — 이름과 사번을 입력 후 회원가입 신청을 합니다. 관리자 승인 후 로그인 가능합니다.
-          <span class="note">이름 또는 사번이 틀리면 로그인 불가합니다. 정확히 입력하세요.</span>
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">③</div>
-        <div class="guide-text">
-          <strong>Guest 로그인</strong> — 이미 승인된 계정은 이름 + 사번으로 바로 로그인합니다.
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-top: 20px;">
-      <p style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px;">신규 가입 처리 흐름</p>
-      <div class="flow">
-        <div class="flow-row">
-          <div class="flow-box start">로그인 시도</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box action">승인 대기 화면</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box wait">관리자 알림 수신</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box ok">승인 완료 → 자동 입장</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="banner banner-amber" style="margin-top: 20px;">
-      <div class="banner-icon">📱</div>
-      <div class="banner-body">
-        <strong>관리자 알림</strong>
-        신규 가입 요청이 오면 관리자 기기에 푸시 알림이 발송됩니다. 헤더의 <em>가입 요청</em> 버튼에서 승인 · 거절할 수 있습니다.
-      </div>
-    </div>
-  </div>
-
-  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-  <div class="section-label">화면 구성</div>
-
-  <!-- 그룹 목록 -->
-  <div class="card">
-    <div class="card-title">
-      <div class="step-badge">1</div>
-      그룹 목록 · 사이드바
-    </div>
-    <div class="screenshot-wrap">
-      <img src="/그룹 목록.png" alt="그룹 목록" />
-      <div class="screenshot-caption">왼쪽 사이드바 — 내 그룹 목록과 전환 버튼</div>
-    </div>
-    <div class="guide-list">
-      <div class="guide-item">
-        <div class="guide-num">①</div>
-        <div class="guide-text">
-          그룹 이름을 클릭하면 해당 그룹의 캘린더로 전환됩니다.
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">②</div>
-        <div class="guide-text">
-          <strong>+ 새 그룹 만들기</strong> — 새 그룹을 생성합니다. 생성한 사람이 관리자가 됩니다.
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">③</div>
-        <div class="guide-text">
-          <strong>초대 코드로 참가</strong> — 그룹장에게 초대 코드를 받아 입력하면 가입 요청이 됩니다.
-          <span class="note">초대 코드는 3분마다 자동 갱신됩니다.</span>
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">④</div>
-        <div class="guide-text">
-          가입 대기 중인 멤버가 있으면 그룹 이름 옆에 <strong>노란 숫자 뱃지</strong>가 표시됩니다.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 일정 요약 + 월간 캘린더 -->
-  <div class="two-col">
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">
-        <div class="step-badge">2</div>
-        일정 요약 패널
-      </div>
-      <div class="screenshot-wrap">
-        <img src="/일정요약.png" alt="일정 요약 패널" />
-        <div class="screenshot-caption">향후 365일 일정을 날짜순 목록으로 확인</div>
-      </div>
-      <div class="guide-list">
-        <div class="guide-item">
-          <div class="guide-num">①</div>
-          <div class="guide-text">향후 365일간의 일정을 날짜순으로 표시합니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">②</div>
-          <div class="guide-text">일정 항목 클릭 시 해당 날짜 팝업이 열립니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">③</div>
-          <div class="guide-text">특근 가능 표시가 있는 날은 별도로 강조됩니다.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">
-        <div class="step-badge">3</div>
-        월간 캘린더
-      </div>
-      <div class="screenshot-wrap">
-        <img src="/월간 캘린더.png" alt="월간 캘린더" />
-        <div class="screenshot-caption">이번 달 전체 일정을 한눈에 확인</div>
-      </div>
-      <div class="guide-list">
-        <div class="guide-item">
-          <div class="guide-num">①</div>
-          <div class="guide-text">날짜 칸 클릭 시 그날의 일정 팝업이 열립니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">②</div>
-          <div class="guide-text">공휴일은 날짜 옆에 빨간 글씨로 표시됩니다.</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-num">③</div>
-          <div class="guide-text">좌우 스와이프 또는 화살표로 월 전환이 가능합니다.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 일정 추가 및 수정 -->
-  <div class="card" style="margin-top: 16px;">
-    <div class="card-title">
-      <div class="step-badge">4</div>
-      일정 추가 및 수정
-    </div>
-    <div class="screenshot-wrap">
-      <img src="/일정 추가 및 수정.png" alt="일정 추가 및 수정" />
-      <div class="screenshot-caption">날짜 클릭 → + 추가 버튼으로 일정 등록</div>
-    </div>
-    <div class="guide-list">
-      <div class="guide-item">
-        <div class="guide-num">①</div>
-        <div class="guide-text">달력 날짜 칸 클릭 → 팝업에서 <strong>+ 추가</strong> 버튼을 누릅니다.</div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">②</div>
-        <div class="guide-text"><strong>제목</strong>은 필수, 설명 · 인원은 선택 입력입니다.
-          <span class="note">인원을 비워두면 작성자 이름이 자동 표시됩니다.</span>
-        </div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">③</div>
-        <div class="guide-text"><strong>시작 · 종료 날짜</strong>를 설정하고 색상을 선택합니다.</div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">④</div>
-        <div class="guide-text"><strong>나만 보기</strong> 토글을 켜면 본인과 리더만 볼 수 있는 비공개 일정이 됩니다.</div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">⑤</div>
-        <div class="guide-text"><strong>특근 가능</strong> 토글을 켜면 달력에 빨간 점으로 표시되어 특근 가능 여부를 공유합니다.
-          <span class="note">울근 특근 파악용 기능입니다. 출장자는 체크하지 않아도 됩니다.</span>
-        </div>
-      </div>
-    </div>
-    <div class="banner banner-green" style="margin-top: 16px;">
-      <div class="banner-icon">📍</div>
-      <div class="banner-body">
-        <strong>울산 근무 시 일정 추가를 안 해도 됩니다.</strong>
-      </div>
-    </div>
-  </div>
-
-  <!-- Summary -->
-  <div class="card">
-    <div class="card-title">
-      <div class="step-badge">5</div>
-      Summary 뷰
-    </div>
-    <div class="screenshot-wrap">
-      <img src="/summay.png" alt="Summary 뷰" />
-      <div class="screenshot-caption">전체 일정을 요약 목록으로 보기</div>
-    </div>
-    <div class="guide-list">
-      <div class="guide-item">
-        <div class="guide-num">①</div>
-        <div class="guide-text">헤더의 <strong>Summary</strong> 버튼으로 전환합니다.</div>
-      </div>
-      <div class="guide-item">
-        <div class="guide-num">②</div>
-        <div class="guide-text">그룹 전체 일정을 날짜별 요약 리스트로 확인합니다.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
-  <div class="section-label" style="margin-top: 32px;">⚠ 반드시 읽어주세요 — 알림 설정</div>
+  <div class="section-label">⚠ 반드시 읽어주세요 — 알림 설정</div>
 
   <div class="card highlight-notify">
     <div class="card-title">
@@ -554,6 +338,216 @@
   </div>
 
   <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <div class="section-label">⚠ 반드시 읽어주세요 — 로그인</div>
+
+  <div class="card highlight-login">
+    <div class="card-title">
+      <div class="step-badge amber">!</div>
+      로그인 안내 — 운영자 승인 필요
+    </div>
+
+    <div class="alert-box amber">
+      <div class="alert-icon">🔐</div>
+      <div class="alert-body">
+        <strong>신규 가입은 운영자 승인 후 이용 가능합니다</strong>
+        처음 접속하는 계정은 바로 사용되지 않습니다. 운영자가 승인할 때까지 대기 화면이 표시되며,
+        승인 완료 시 자동으로 입장됩니다.
+      </div>
+    </div>
+
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">
+          <strong>Google 로그인</strong> — 구글 계정으로 로그인 시도 시, 처음 사용하는 계정이면 운영자에게 승인 요청이 발송됩니다.
+          <span class="note">이미 승인된 계정은 바로 입장됩니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">
+          <strong>Guest 회원가입</strong> — 이름과 사번을 입력 후 회원가입 신청을 합니다. 운영자 승인 후 로그인 가능합니다.
+          <span class="note">이름 또는 사번이 틀리면 로그인 불가합니다. 정확히 입력하세요.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">③</div>
+        <div class="guide-text">
+          <strong>Guest 로그인</strong> — 이미 승인된 계정은 이름 + 사번으로 바로 로그인합니다.
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <p style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px;">신규 가입 처리 흐름</p>
+      <div class="flow">
+        <div class="flow-row">
+          <div class="flow-box start">로그인 시도</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box action">승인 대기 화면</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box wait">운영자 알림 수신</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box ok">승인 완료 → 자동 입장</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner banner-amber" style="margin-top: 20px;">
+      <div class="banner-icon">📱</div>
+      <div class="banner-body">
+        <strong>운영자 알림</strong>
+        신규 가입 요청이 오면 운영자 기기에 푸시 알림이 발송됩니다. 헤더의 <em>가입 요청</em> 버튼에서 승인 · 거절할 수 있습니다.
+      </div>
+    </div>
+
+    <div class="banner banner-purple" style="margin-top: 10px;">
+      <div class="banner-icon">ℹ️</div>
+      <div class="banner-body">
+        <strong>이용 안내 팝업</strong>
+        로그인 화면 하단의 <em>이용 안내 보기</em> 버튼을 누르면 승인 절차를 확인할 수 있습니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <div class="section-label">화면 구성</div>
+
+  <!-- 그룹 목록 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-badge">1</div>
+      그룹 목록 · 사이드바
+    </div>
+    <div class="screenshot-wrap">
+      <img src="/그룹 목록.png" alt="그룹 목록" />
+      <div class="screenshot-caption">왼쪽 사이드바 — 내 그룹 목록과 전환 버튼</div>
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">
+          <strong>초대 코드로 참가</strong> — 그룹장에게 초대 코드를 받아 입력하면 가입 요청이 됩니다.
+          <span class="note">초대 코드는 3분마다 자동 갱신됩니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text">
+          가입 대기 중인 멤버가 있으면 그룹 이름 옆에 <strong>노란 숫자 뱃지</strong>가 표시됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일정 요약 + 월간 캘린더 -->
+  <div class="two-col">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">
+        <div class="step-badge">2</div>
+        일정 요약 패널
+      </div>
+      <div class="screenshot-wrap">
+        <img src="/일정요약.png" alt="일정 요약 패널" />
+        <div class="screenshot-caption">향후 365일 일정을 날짜순 목록으로 확인</div>
+      </div>
+      <div class="guide-list">
+        <div class="guide-item">
+          <div class="guide-num">①</div>
+          <div class="guide-text">향후 365일간의 일정을 날짜순으로 표시합니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">②</div>
+          <div class="guide-text">일정 항목 클릭 시 해당 날짜 팝업이 열립니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">
+        <div class="step-badge">3</div>
+        월간 캘린더
+      </div>
+      <div class="screenshot-wrap">
+        <img src="/월간 캘린더.png" alt="월간 캘린더" />
+        <div class="screenshot-caption">이번 달 전체 일정을 한눈에 확인</div>
+      </div>
+      <div class="guide-list">
+        <div class="guide-item">
+          <div class="guide-num">①</div>
+          <div class="guide-text">날짜 칸 클릭 시 그날의 일정 팝업이 열립니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">②</div>
+          <div class="guide-text">좌우 스와이프 또는 화살표로 월 전환이 가능합니다.</div>
+        </div>
+      </div>
+
+      <hr class="sub-divider" />
+      <p class="sub-label">Summary 뷰</p>
+
+      <div class="screenshot-wrap" style="margin-top: 0;">
+        <img src="/summay.png" alt="Summary 뷰" />
+        <div class="screenshot-caption">전체 일정을 요약 목록으로 보기</div>
+      </div>
+      <div class="guide-list">
+        <div class="guide-item">
+          <div class="guide-num">③</div>
+          <div class="guide-text">헤더의 <strong>Summary</strong> 버튼으로 전환합니다.</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-num">④</div>
+          <div class="guide-text">그룹 전체 일정을 날짜별 요약 리스트로 확인합니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일정 추가 및 수정 -->
+  <div class="card" style="margin-top: 16px;">
+    <div class="card-title">
+      <div class="step-badge">4</div>
+      일정 추가 및 수정
+    </div>
+    <div class="screenshot-wrap">
+      <img src="/일정 추가 및 수정.png" alt="일정 추가 및 수정" />
+      <div class="screenshot-caption">날짜 클릭 → + 추가 버튼으로 일정 등록</div>
+    </div>
+    <div class="guide-list">
+      <div class="guide-item">
+        <div class="guide-num">①</div>
+        <div class="guide-text">달력 날짜 칸 클릭 → 팝업에서 <strong>+ 추가</strong> 버튼을 누릅니다.</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">②</div>
+        <div class="guide-text"><strong>제목</strong>은 필수, 설명 · 인원은 선택 입력입니다.
+          <span class="note">인원을 비워두면 작성자 이름이 자동 표시됩니다.</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">③</div>
+        <div class="guide-text"><strong>시작 · 종료 날짜</strong>를 설정하고 색상을 선택합니다.</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">④</div>
+        <div class="guide-text"><strong>나만 보기</strong> 토글을 켜면 본인과 리더만 볼 수 있는 비공개 일정이 됩니다.</div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-num">⑤</div>
+        <div class="guide-text"><strong>특근 가능</strong> 토글을 켜면 달력에 빨간 점으로 표시되어 특근 가능 여부를 공유합니다.
+          <span class="note">울근 특근 파악용 기능입니다. 출장자는 체크하지 않아도 됩니다.</span>
+        </div>
+      </div>
+    </div>
+    <div class="banner banner-green" style="margin-top: 16px;">
+      <div class="banner-icon">📍</div>
+      <div class="banner-body">
+        <strong>울산 근무 시 일정 추가를 안 해도 됩니다.</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
   <div class="section-label">역할 및 권한</div>
 
   <div class="card">
@@ -567,6 +561,7 @@
         <div class="role-item">신규 가입 승인 · 거절</div>
         <div class="role-item">전체 사용자 관리 · 삭제</div>
         <div class="role-item">운영자 지정 · 회수</div>
+        <div class="role-item">그룹 생성 · 삭제</div>
         <div class="role-item">그룹 관리자 변경</div>
         <div class="role-item">사용자 관리 메뉴 접근</div>
       </div>
@@ -595,6 +590,7 @@
         <div class="role-item">그룹 일정 전체 조회</div>
         <div class="role-item">일정 요약 조회 (365일)</div>
         <div class="role-item">Summary 뷰 확인</div>
+        <div class="role-item">그룹 나가기</div>
       </div>
     </div>
   </div>

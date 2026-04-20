@@ -101,7 +101,7 @@ export async function PATCH(
   return Response.json(updated);
 }
 
-// 멤버 추방 (관리자만, 자기 자신 불가)
+// 멤버 추방 (관리자/운영자) 또는 자기 자신 나가기
 export async function DELETE(
   _req: NextRequest,
   ctx: RouteContext<"/api/groups/[groupId]/members/[memberId]">
@@ -116,13 +116,24 @@ export async function DELETE(
   if (!group) {
     return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
   }
-  if (group.leaderId !== session.user.id) {
-    return Response.json({ error: "관리자만 멤버를 제거할 수 있습니다" }, { status: 403 });
-  }
 
   const member = await prisma.groupMember.findUnique({ where: { id: memberId } });
   if (!member || member.groupId !== groupId) {
     return Response.json({ error: "멤버를 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  const isSelfLeave = member.userId === session.user.id;
+  if (isSelfLeave) {
+    if (member.userId === group.leaderId) {
+      return Response.json({ error: "그룹 관리자는 나갈 수 없습니다. 그룹 삭제를 이용하세요." }, { status: 400 });
+    }
+    await prisma.groupMember.delete({ where: { id: memberId } });
+    return Response.json({ success: true });
+  }
+
+  const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (group.leaderId !== session.user.id && !me?.isOperator) {
+    return Response.json({ error: "관리자만 멤버를 제거할 수 있습니다" }, { status: 403 });
   }
   if (member.userId === session.user.id) {
     return Response.json({ error: "관리자는 스스로를 제거할 수 없습니다" }, { status: 400 });

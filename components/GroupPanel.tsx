@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff } from "lucide-react";
+import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut } from "lucide-react";
 
 type Member = {
   id: string;
@@ -27,6 +27,7 @@ type Group = {
 type Props = {
   group: Group;
   userId: string;
+  isOperator?: boolean;
   onClose: () => void;
   onUpdated: () => void;
 };
@@ -58,8 +59,8 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-export default function GroupPanel({ group, userId, onClose, onUpdated }: Props) {
-  const isAdmin = group.leaderId === userId;
+export default function GroupPanel({ group, userId, isOperator, onClose, onUpdated }: Props) {
+  const isAdmin = group.leaderId === userId || !!isOperator;
   const myMember = group.members.find((m) => m.userId === userId);
   const isLeader = isAdmin || myMember?.role === "그룹장" || myMember?.role === "파트장";
   const activeMembers = group.members.filter((m) => m.status === "ACTIVE" || m.status === undefined);
@@ -186,6 +187,21 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
       }
     } catch {
       setMemberNotify((prev) => ({ ...prev, [member.id]: current }));
+    }
+  };
+
+  const leaveGroup = async () => {
+    if (!myMember) return;
+    if (!confirm(`"${group.name}" 그룹에서 나가시겠습니까?`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}/members/${myMember.id}`, { method: "DELETE" });
+      if (res.ok) {
+        await onUpdated();
+        onClose();
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -545,20 +561,32 @@ export default function GroupPanel({ group, userId, onClose, onUpdated }: Props)
           </div>
 
           {/* ── 위험 구역 ── */}
-          {isAdmin && (
+          {(isAdmin || (myMember && group.leaderId !== userId)) && (
             <div style={{ border: "1px solid #FEE2E2", borderRadius: 10 }}>
               <div style={{ padding: "8px 14px", background: "#FFF5F5", borderBottom: "1px solid #FEE2E2", borderRadius: "10px 10px 0 0" }}>
                 <span style={{ ...labelStyle, color: "#F87171" }}>위험 구역</span>
               </div>
-              <div style={{ padding: "10px 14px" }}>
-                <button
-                  onClick={deleteGroup}
-                  disabled={loading}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: "0.8rem", color: "#DC2626", background: "none", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}
-                >
-                  <Trash2 style={{ width: 13, height: 13 }} />
-                  그룹 삭제
-                </button>
+              <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+                {isAdmin && (
+                  <button
+                    onClick={deleteGroup}
+                    disabled={loading}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: "0.8rem", color: "#DC2626", background: "none", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}
+                  >
+                    <Trash2 style={{ width: 13, height: 13 }} />
+                    그룹 삭제
+                  </button>
+                )}
+                {myMember && group.leaderId !== userId && (
+                  <button
+                    onClick={leaveGroup}
+                    disabled={loading}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: "0.8rem", color: "#92400E", background: "none", border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}
+                  >
+                    <LogOut style={{ width: 13, height: 13 }} />
+                    그룹 나가기
+                  </button>
+                )}
               </div>
             </div>
           )}
