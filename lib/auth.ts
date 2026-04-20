@@ -56,6 +56,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
+        // 운영자 이메일이면 즉시 ACTIVE + isOperator 보장
+        if (process.env.OPERATOR_EMAIL && user.email === process.env.OPERATOR_EMAIL) {
+          await prisma.user.update({
+            where: { email: user.email },
+            data: { status: "ACTIVE", isOperator: true },
+          });
+          return true;
+        }
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
           select: { status: true },
