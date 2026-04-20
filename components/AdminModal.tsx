@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Trash2, User, Users, Crown, CrownOff, ChevronDown } from "lucide-react";
+import { X, Trash2, User, Users, Crown, ChevronDown } from "lucide-react";
 
 type GroupMembership = {
   id: string;
@@ -187,7 +187,7 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
                         onMouseEnter={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "var(--surface-raised)"; } }}
                         onMouseLeave={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "none"; } }}
                       >
-                        {u.isOperator ? <CrownOff style={{ width: 13, height: 13 }} /> : <Crown style={{ width: 13, height: 13 }} />}
+                        <Crown style={{ width: 13, height: 13 }} />
                       </button>
                     )}
                     {!isSelf && (
