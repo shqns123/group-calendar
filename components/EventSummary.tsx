@@ -101,7 +101,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
   const labelMap = new Map<string, CalEvent[]>();
   const labelOrder: string[] = [];
 
-  for (const event of events) {
+  for (const event of events.filter(e => !e.isOvertimeOnly)) {
     const label = getDateLabel(new Date(event.startDate));
     if (!labelMap.has(label)) {
       labelMap.set(label, []);

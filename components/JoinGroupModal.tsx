@@ -134,7 +134,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               placeholder="초대 코드 입력"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono text-lg tracking-wider"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono text-lg tracking-wider placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400"
               autoFocus
             />
 

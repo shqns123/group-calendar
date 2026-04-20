@@ -166,8 +166,14 @@ body {
 .fc-daygrid-day-number {
   font-size: 0.8rem !important;
   font-weight: 700 !important;
-  color: var(--text-secondary) !important;
+  color: var(--text-primary) !important;
   padding: 6px 8px !important;
+}
+
+/* 이전/다음 달 overflow 날짜 — 흐리게 */
+.fc-day-other .fc-daygrid-day-number {
+  color: var(--text-tertiary) !important;
+  font-weight: 400 !important;
 }
 
 /* 요일 헤더 */
@@ -356,6 +362,23 @@ body {
 /* 날짜 셀 호버 */
 .fc-daygrid-day {
   transition: background 0.12s ease !important;
+}
+
+/* ── 캘린더 월 스와이프 애니메이션 ── */
+@keyframes swipeInLeft {
+  from { opacity: 0.6; transform: translateX(20px); }
+  to   { opacity: 1;   transform: translateX(0); }
+}
+@keyframes swipeInRight {
+  from { opacity: 0.6; transform: translateX(-20px); }
+  to   { opacity: 1;   transform: translateX(0); }
+}
+
+.fc-swipe-next .fc-view-harness {
+  animation: swipeInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.fc-swipe-prev .fc-view-harness {
+  animation: swipeInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ── reduced motion ── */

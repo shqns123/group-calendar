@@ -66,6 +66,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showGroupPanel, setShowGroupPanel] = useState(false);
   const [showInviteSheet, setShowInviteSheet] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -160,7 +161,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   };
 
   useEffect(() => {
-    if (!showInviteSheet || !selectedGroup) return;
+    if (!selectedGroup) return;
     setInviteTimeLeft(180);
     let t = 180;
     const interval = setInterval(async () => {
@@ -178,7 +179,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
     }, 1000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showInviteSheet, selectedGroup?.id]);
+  }, [selectedGroup?.id]);
 
   const sidebarStyle: React.CSSProperties = isMobile
     ? {
@@ -625,10 +626,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
             )}
           </div>
 
-          <a
-            href="/guide.html"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setShowGuide(true)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -643,7 +642,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               cursor: "pointer",
               letterSpacing: "-0.01em",
               flexShrink: 0,
-              textDecoration: "none",
+              fontFamily: "inherit",
               transition: "background 0.15s ease, border-color 0.15s ease",
             }}
             onMouseEnter={(e) => {
@@ -657,7 +656,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           >
             <BookOpen style={{ width: 13, height: 13 }} />
             {isMobile ? "" : "User Guide"}
-          </a>
+          </button>
 
           {selectedGroup && (
             <button
@@ -779,19 +778,21 @@ export function DashboardClient({ user, initialGroups }: Props) {
             inset: 0,
             background: "rgba(0,0,0,0.55)",
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "center",
             justifyContent: "center",
             zIndex: 50,
+            padding: 24,
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowInviteSheet(false); }}
         >
           <div
+            className="modal-scale-in"
             style={{
               background: "var(--surface)",
-              borderRadius: "14px 14px 0 0",
+              borderRadius: 14,
               width: "100%",
               maxWidth: 420,
-              padding: "20px 20px 32px",
+              padding: "20px 20px 24px",
               display: "flex",
               flexDirection: "column",
               gap: 14,
@@ -846,6 +847,65 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 <RefreshCw style={{ width: 15, height: 15, ...(refreshingCode ? { animation: "spin 1s linear infinite" } : {}) }} />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Guide 모달 */}
+      {showGuide && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowGuide(false); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: isMobile ? 0 : 24,
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 900,
+              height: isMobile ? "100%" : "88vh",
+              background: "#fff",
+              borderRadius: isMobile ? 0 : 16,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* 닫기 버튼 - 우상단 고정 */}
+            <button
+              onClick={() => setShowGuide(false)}
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                zIndex: 10,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              <X style={{ width: 15, height: 15, color: "var(--text-secondary)" }} />
+            </button>
+            <iframe
+              src="/guide.html"
+              style={{ width: "100%", flex: 1, border: "none" }}
+              title="User Guide"
+            />
           </div>
         </div>
       )}

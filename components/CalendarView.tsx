@@ -403,6 +403,23 @@ export default function CalendarView({
     }
   }, [pendingDayDate, openDayPopup, onPendingDayDateHandled]);
 
+  // 팝업이 열려있는 상태에서 events가 갱신되면 팝업 내용도 갱신 (닫지 않음)
+  useEffect(() => {
+    setDayPopup((prev) => {
+      if (!prev) return null;
+      const s = new Date(prev.date); s.setHours(0, 0, 0, 0);
+      const e = new Date(prev.date); e.setHours(23, 59, 59, 999);
+      const updated = events
+        .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+        .sort((a, b) => {
+          if (a.allDay && !b.allDay) return -1;
+          if (!a.allDay && b.allDay) return 1;
+          return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        });
+      return { ...prev, events: updated };
+    });
+  }, [events]);
+
   const handleDateClick = (info: DateClickArg) => {
     openDayPopup(info.date);
   };
@@ -425,8 +442,11 @@ export default function CalendarView({
       const dy = touchStartY.current - e.changedTouches[0].clientY;
       if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
         const api = calendarRef.current?.getApi();
+        const direction = dx > 0 ? "fc-swipe-next" : "fc-swipe-prev";
+        el.classList.add(direction);
         if (dx > 0) api?.next();
         else api?.prev();
+        setTimeout(() => el.classList.remove(direction), 350);
       }
       touchStartX.current = null;
       touchStartY.current = null;
@@ -521,6 +541,24 @@ export default function CalendarView({
             }}
             buttonText={{ today: "Today" }}
             locale="ko"
+            customButtons={{
+              prev: {
+                icon: "chevron-left",
+                click: () => {
+                  calendarWrapRef.current?.classList.add("fc-swipe-prev");
+                  calendarRef.current?.getApi().prev();
+                  setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-prev"), 350);
+                },
+              },
+              next: {
+                icon: "chevron-right",
+                click: () => {
+                  calendarWrapRef.current?.classList.add("fc-swipe-next");
+                  calendarRef.current?.getApi().next();
+                  setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-next"), 350);
+                },
+              },
+            }}
             events={calendarEvents}
             dayMaxEvents={3}
             dateClick={handleDateClick}
@@ -612,7 +650,6 @@ export default function CalendarView({
           onClose={() => setDayPopup(null)}
           onRefresh={() => {
             fetchEvents();
-            setDayPopup(null);
           }}
         />
       )}
