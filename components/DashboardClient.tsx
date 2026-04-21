@@ -10,7 +10,7 @@ import {
   Settings,
   User,
   PanelLeftClose,
-  PanelLeft,
+  Menu,
   Share2,
   Copy,
   Check,
@@ -224,20 +224,20 @@ export function DashboardClient({ user, initialGroups }: Props) {
         width: 260,
         zIndex: 50,
         transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-        transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border)",
+        transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+        background: "var(--sidebar-bg)",
+        borderRight: "1px solid var(--sidebar-border)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }
     : {
-        width: sidebarOpen ? 224 : 0,
+        width: sidebarOpen ? 240 : 0,
         overflow: "hidden",
         flexShrink: 0,
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border)",
-        transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+        background: "var(--sidebar-bg)",
+        borderRight: "1px solid var(--sidebar-border)",
+        transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)",
         display: "flex",
         flexDirection: "column",
       };
@@ -263,33 +263,33 @@ export function DashboardClient({ user, initialGroups }: Props) {
         {/* 로고 + 닫기 버튼 */}
         <div
           style={{
-            padding: "16px 16px 14px",
-            borderBottom: "1px solid var(--border-subtle)",
+            padding: "16px 14px 14px",
+            borderBottom: "1px solid var(--sidebar-border)",
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 9,
           }}
         >
           <div
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: "var(--text-primary)",
+              width: 32,
+              height: 32,
+              borderRadius: 9,
+              background: "var(--sidebar-accent)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <Calendar style={{ width: 14, height: 14, color: "var(--accent-muted)" }} />
+            <Calendar style={{ width: 15, height: 15, color: "#fff" }} />
           </div>
           <span
             style={{
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: "0.875rem",
-              letterSpacing: "-0.02em",
-              color: "var(--text-primary)",
+              letterSpacing: "-0.03em",
+              color: "var(--sidebar-text-active)",
               whiteSpace: "nowrap",
               flex: 1,
             }}
@@ -304,27 +304,31 @@ export function DashboardClient({ user, initialGroups }: Props) {
               border: "none",
               cursor: "pointer",
               padding: 4,
-              borderRadius: 4,
-              color: "var(--text-tertiary)",
+              borderRadius: 5,
+              color: "var(--sidebar-text)",
               display: "flex",
               alignItems: "center",
+              transition: "color 0.12s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--sidebar-text-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-text)")}
           >
-            <PanelLeftClose style={{ width: 15, height: 15 }} />
+            <PanelLeftClose style={{ width: 14, height: 14 }} />
           </button>
         </div>
 
         {/* 그룹 목록 */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 10px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
           <p
             style={{
-              fontSize: "0.65rem",
+              fontSize: "0.62rem",
               fontWeight: 700,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.09em",
               textTransform: "uppercase",
-              color: "var(--text-tertiary)",
+              color: "var(--sidebar-text)",
               padding: "0 8px",
               marginBottom: 6,
+              opacity: 0.7,
             }}
           >
             {user.isOperator ? "그룹 목록" : "내 그룹"}
@@ -333,7 +337,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           <NavItem
             selected={selectedGroupId === null}
             onClick={() => setSelectedGroupId(null)}
-            icon={<User style={{ width: 14, height: 14 }} />}
+            icon={<User style={{ width: 14, height: 14, color: "currentColor" }} />}
             label="개인 일정"
           />
 
@@ -345,20 +349,16 @@ export function DashboardClient({ user, initialGroups }: Props) {
               icon={
                 <span
                   style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 5,
-                    background:
-                      selectedGroupId === g.id
-                        ? "var(--accent)"
-                        : "var(--surface-raised)",
-                    border: `1px solid ${selectedGroupId === g.id ? "var(--accent)" : "var(--border)"}`,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: selectedGroupId === g.id ? ((g as {color?: string}).color || "var(--sidebar-accent)") : "var(--sidebar-border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "0.6rem",
-                    fontWeight: 700,
-                    color: selectedGroupId === g.id ? "white" : "var(--text-secondary)",
+                    fontSize: "0.62rem",
+                    fontWeight: 800,
+                    color: selectedGroupId === g.id ? "#fff" : "var(--sidebar-text)",
                     flexShrink: 0,
                   }}
                 >
@@ -370,44 +370,20 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 const isMgmtOnly = isOperatorManagedOnly(g);
                 const pendingCnt = isElevated(g) ? g.members.filter(m => m.status === "PENDING").length : 0;
                 const roleBadge = isMgmtOnly ? (
-                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: "#EDE9FE", color: "#7C3AED", letterSpacing: "0.02em", flexShrink: 0 }}>관리</span>
+                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "var(--sidebar-item-active)", color: "var(--sidebar-accent)", flexShrink: 0 }}>관리</span>
                 ) : myRole(g) === "admin" ? (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "0.6rem",
-                      fontWeight: 600,
-                      padding: "1px 5px",
-                      borderRadius: 4,
-                      background: "var(--text-primary)",
-                      color: "var(--surface)",
-                      letterSpacing: "0.02em",
-                      flexShrink: 0,
-                    }}
-                  >
+                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "var(--sidebar-item-active)", color: "var(--sidebar-accent)", flexShrink: 0 }}>
                     관리자
                   </span>
                 ) : myRole(g) === "leader" ? (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "0.6rem",
-                      fontWeight: 600,
-                      padding: "1px 5px",
-                      borderRadius: 4,
-                      background: "var(--accent-light)",
-                      color: "var(--accent)",
-                      letterSpacing: "0.02em",
-                      flexShrink: 0,
-                    }}
-                  >
+                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "var(--sidebar-text-hover)", flexShrink: 0 }}>
                     {g.members.find((m) => m.userId === user.id)?.role ?? "리더"}
                   </span>
                 ) : null;
                 return (
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                     {pendingCnt > 0 && (
-                      <span style={{ minWidth: 16, height: 16, borderRadius: 8, background: "#F59E0B", color: "white", fontSize: "0.58rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
+                      <span style={{ minWidth: 16, height: 16, borderRadius: 8, background: "#F59E0B", color: "#1E293B", fontSize: "0.58rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
                         {pendingCnt}
                       </span>
                     )}
@@ -422,7 +398,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             <p
               style={{
                 fontSize: "0.78rem",
-                color: "var(--text-tertiary)",
+                color: "var(--sidebar-text)",
                 textAlign: "center",
                 padding: "16px 8px",
               }}
@@ -435,11 +411,11 @@ export function DashboardClient({ user, initialGroups }: Props) {
         {/* 그룹 추가/참가/초대코드 */}
         <div
           style={{
-            padding: "10px",
-            borderTop: "1px solid var(--border-subtle)",
+            padding: "8px",
+            borderTop: "1px solid var(--sidebar-border)",
             display: "flex",
             flexDirection: "column",
-            gap: 2,
+            gap: 1,
           }}
         >
           {user.isOperator && (
@@ -467,13 +443,23 @@ export function DashboardClient({ user, initialGroups }: Props) {
         {/* 사용자 */}
         <div
           style={{
-            padding: "10px 12px",
-            borderTop: "1px solid var(--border-subtle)",
+            padding: "10px 14px",
+            borderTop: "1px solid var(--sidebar-border)",
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 9,
           }}
         >
+          <div style={{
+            width: 28, height: 28, borderRadius: "50%",
+            background: "rgba(99,102,241,0.2)",
+            border: "1px solid rgba(99,102,241,0.3)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--sidebar-accent)" }}>
+              {(user.name || user.email || "?").charAt(0).toUpperCase()}
+            </span>
+          </div>
           {isGlobalAdmin && (
             <button
               onClick={() => setShowAdminModal(true)}
@@ -484,17 +470,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 cursor: "pointer",
                 padding: 4,
                 borderRadius: 4,
-                color: "var(--text-tertiary)",
+                color: "var(--sidebar-text)",
                 display: "flex",
                 alignItems: "center",
                 flexShrink: 0,
+                transition: "color 0.12s",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = "var(--accent)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "var(--text-tertiary)")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--sidebar-accent)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-text)")}
             >
               <Settings style={{ width: 13, height: 13 }} />
             </button>
@@ -502,9 +485,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
               style={{
-                fontSize: "0.78rem",
+                fontSize: "0.8rem",
                 fontWeight: 600,
-                color: "var(--text-primary)",
+                color: "var(--sidebar-text-active)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -513,6 +496,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
             >
               {user.name || user.email}
             </p>
+            {user.isOperator && (
+              <p style={{ fontSize: "0.65rem", color: "var(--sidebar-text)", marginTop: 1 }}>운영자</p>
+            )}
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
@@ -523,16 +509,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
               cursor: "pointer",
               padding: 4,
               borderRadius: 4,
-              color: "var(--text-tertiary)",
+              color: "var(--sidebar-text)",
               display: "flex",
               alignItems: "center",
+              transition: "color 0.12s",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--text-secondary)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-tertiary)")
-            }
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--sidebar-text-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-text)")}
           >
             <LogOut style={{ width: 13, height: 13 }} />
           </button>
@@ -540,15 +523,17 @@ export function DashboardClient({ user, initialGroups }: Props) {
       </aside>
 
       {/* ── 일정 요약 패널 ── */}
-      {summaryOpen && !isMobile && (
-        <EventSummary
-          userId={user.id}
-          group={selectedGroup}
-          isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-          onEventClick={(event) => setPendingDayDate(new Date(event.startDate))}
-          refreshKey={refreshKey}
-          onClose={() => setSummaryOpen(false)}
-        />
+      {!isMobile && (
+        <div style={{ width: summaryOpen ? 280 : 0, flexShrink: 0, overflow: "hidden", transition: "width 0.28s cubic-bezier(0.4,0,0.2,1)" }}>
+          <EventSummary
+            userId={user.id}
+            group={selectedGroup}
+            isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
+            onEventClick={(event) => setPendingDayDate(new Date(event.startDate))}
+            refreshKey={refreshKey}
+            onClose={() => setSummaryOpen(false)}
+          />
+        </div>
       )}
 
       {/* ── 메인 콘텐츠 ── */}
@@ -574,65 +559,49 @@ export function DashboardClient({ user, initialGroups }: Props) {
             flexShrink: 0,
           }}
         >
-          {/* 사이드바 열기 버튼 (닫혀있을 때) */}
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              title="사이드바 열기"
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-                borderRadius: 4,
-                color: "var(--text-tertiary)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <PanelLeft style={{ width: 16, height: 16 }} />
-            </button>
-          )}
+          {/* 사이드바 토글 — 항상 표시 */}
+          <button
+            onClick={() => setSidebarOpen(v => !v)}
+            title={sidebarOpen ? "사이드바 닫기" : "사이드바 열기"}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 5,
+              borderRadius: 6,
+              color: sidebarOpen ? "var(--text-secondary)" : "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              transition: "color 0.12s",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = sidebarOpen ? "var(--text-secondary)" : "var(--accent)")}
+          >
+            <Menu style={{ width: 16, height: 16 }} />
+          </button>
 
-          {/* 일정 요약 열기 버튼 (닫혀있을 때, 데스크톱만) */}
-          {!summaryOpen && !isMobile && (
-            <button
-              onClick={() => setSummaryOpen(true)}
-              title="일정 요약 열기"
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-                borderRadius: 4,
-                color: "var(--text-tertiary)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Calendar style={{ width: 15, height: 15 }} />
-            </button>
-          )}
-
-          {/* 모바일: 일정 요약 버튼 */}
-          {isMobile && (
-            <button
-              onClick={() => setSummaryOpen(!summaryOpen)}
-              title="일정 요약"
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-                borderRadius: 4,
-                color: summaryOpen ? "var(--accent)" : "var(--text-tertiary)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Calendar style={{ width: 15, height: 15 }} />
-            </button>
-          )}
+          {/* 일정 요약 토글 — 항상 표시 */}
+          <button
+            onClick={() => setSummaryOpen(v => !v)}
+            title={summaryOpen ? "일정 요약 닫기" : "일정 요약 열기"}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 5,
+              borderRadius: 6,
+              color: summaryOpen ? "var(--text-secondary)" : "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              transition: "color 0.12s",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = summaryOpen ? "var(--text-secondary)" : "var(--accent)")}
+          >
+            <Calendar style={{ width: 15, height: 15 }} />
+          </button>
 
           <div
             style={{
@@ -1151,26 +1120,31 @@ function NavItem({
         width: "100%",
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "6px 8px",
-        borderRadius: 6,
+        gap: 9,
+        padding: "7px 10px",
+        borderRadius: 8,
         border: "none",
-        background: selected ? "var(--accent-light)" : "transparent",
-        color: selected ? "var(--accent)" : "var(--text-secondary)",
+        background: selected ? "var(--sidebar-item-active)" : "transparent",
+        color: selected ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
         fontSize: "0.825rem",
         fontWeight: selected ? 600 : 400,
         cursor: "pointer",
-        letterSpacing: "-0.01em",
         textAlign: "left",
         marginBottom: 1,
         fontFamily: "inherit",
-        transition: "background 0.1s ease, color 0.1s ease",
+        transition: "all 0.15s ease",
       }}
       onMouseEnter={(e) => {
-        if (!selected) e.currentTarget.style.background = "var(--surface-hover)";
+        if (!selected) {
+          e.currentTarget.style.background = "var(--sidebar-item-hover)";
+          e.currentTarget.style.color = "var(--sidebar-text-hover)";
+        }
       }}
       onMouseLeave={(e) => {
-        if (!selected) e.currentTarget.style.background = "transparent";
+        if (!selected) {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "var(--sidebar-text)";
+        }
       }}
     >
       <span style={{ flexShrink: 0 }}>{icon}</span>
@@ -1200,24 +1174,20 @@ function SideAction({
         width: "100%",
         display: "flex",
         alignItems: "center",
-        gap: 6,
-        padding: "5px 8px",
-        borderRadius: 5,
+        gap: 7,
+        padding: "6px 10px",
+        borderRadius: 7,
         border: "none",
         background: "transparent",
-        color: accent ? "var(--accent)" : "var(--text-tertiary)",
+        color: accent ? "var(--sidebar-accent)" : "var(--sidebar-text)",
         fontSize: "0.78rem",
         fontWeight: accent ? 600 : 400,
         cursor: "pointer",
-        letterSpacing: "-0.01em",
         fontFamily: "inherit",
+        transition: "all 0.12s ease",
       }}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.background = "var(--surface-hover)")
-      }
-      onMouseLeave={(e) =>
-        (e.currentTarget.style.background = "transparent")
-      }
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--sidebar-item-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
       {icon}
       {label}

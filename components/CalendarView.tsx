@@ -362,7 +362,6 @@ export default function CalendarView({
     .filter((e) => !e.isOvertimeOnly)
     .map((e) => {
       const isOwn = e.creatorId === userId;
-      // FullCalendar allDay 이벤트는 end가 exclusive → 표시 범위 맞추기 위해 +1일
       let endValue: Date | string = e.endDate;
       if (e.allDay) {
         const d = new Date(e.endDate);
@@ -375,8 +374,9 @@ export default function CalendarView({
         start: e.startDate,
         end: endValue,
         allDay: e.allDay,
-        backgroundColor: e.color,
-        borderColor: e.color,
+        backgroundColor: e.color + "28",
+        borderColor: "transparent",
+        textColor: e.color,
         extendedProps: { event: e },
       };
     });
@@ -469,14 +469,14 @@ export default function CalendarView({
     <button
       onClick={() => setViewMode(viewMode === mode ? "month" : mode)}
       style={{
-        padding: "5px 14px",
+        padding: "5px 12px",
         borderRadius: 6,
         border: "1px solid",
-        borderColor: viewMode === mode ? "var(--text-primary)" : "var(--border)",
-        background: viewMode === mode ? "var(--text-primary)" : "transparent",
-        color: viewMode === mode ? "var(--surface)" : "var(--text-secondary)",
-        fontSize: "0.78rem",
-        fontWeight: viewMode === mode ? 600 : 400,
+        borderColor: viewMode === mode ? "var(--accent)" : "var(--border)",
+        background: viewMode === mode ? "var(--accent-light)" : "transparent",
+        color: viewMode === mode ? "var(--accent)" : "var(--text-secondary)",
+        fontSize: "0.75rem",
+        fontWeight: viewMode === mode ? 700 : 400,
         cursor: "pointer",
         fontFamily: "inherit",
         letterSpacing: "-0.01em",
@@ -492,11 +492,12 @@ export default function CalendarView({
       style={{
         height: "100%",
         background: "var(--surface)",
-        borderRadius: 10,
+        borderRadius: 12,
         border: "1px solid var(--border)",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        boxShadow: "0 1px 3px rgba(30,41,59,0.08), 0 1px 2px rgba(30,41,59,0.04)",
       }}
     >
       {/* 뷰 탭 */}
@@ -537,7 +538,7 @@ export default function CalendarView({
             headerToolbar={{
               left: "prev",
               center: "title",
-              right: "today next",
+              right: "next sep today",
             }}
             buttonText={{ today: "Today" }}
             locale="ko"
@@ -558,9 +559,18 @@ export default function CalendarView({
                   setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-next"), 350);
                 },
               },
+              sep: {
+                text: "",
+                click: () => {},
+              },
+            }}
+            dayHeaderContent={(arg) => {
+              const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+              return DAYS[arg.date.getDay()];
             }}
             events={calendarEvents}
             dayMaxEvents={3}
+            dayCellContent={(arg) => arg.date.getDate()}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             moreLinkClick={() => false as unknown as "popover"}
@@ -584,7 +594,6 @@ export default function CalendarView({
               const description = calEvent?.description;
               const personnel = calEvent?.personnel;
 
-              // 여러 주에 걸친 이벤트: 더 긴 구간에만 텍스트 표시
               let showText: boolean;
               if (info.isStart && info.isEnd) {
                 showText = true;
@@ -595,15 +604,19 @@ export default function CalendarView({
                 const endSegLen = evEnd.getDay() || 7;
                 showText = info.isStart ? startSegLen >= endSegLen : endSegLen > startSegLen;
               } else {
-                // 중간 구간 (3주 이상 이벤트)
                 showText = true;
               }
 
-              if (!showText) return <div className="w-full h-full" />;
+              if (!showText) return <div style={{ width: "100%", height: "100%" }} />;
+              const label = [
+                info.event.title,
+                description ? `· ${description}` : "",
+                personnel ? `· ${personnel}` : "",
+              ].filter(Boolean).join(" ");
               return (
-                <div className="px-1 py-0.5 overflow-hidden w-full flex items-center justify-center">
-                  <div className="font-semibold leading-tight truncate text-center w-full" style={{ fontSize: 10 }}>
-                    {info.event.title}{description ? ` · ${description}` : ""}{personnel ? ` · ${personnel}` : ""}
+                <div style={{ overflow: "hidden", width: "100%", paddingLeft: 2 }}>
+                  <div style={{ fontSize: "0.62rem", fontWeight: 600, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {label}
                   </div>
                 </div>
               );
