@@ -569,11 +569,11 @@ export default function CalendarView({
               return DAYS[arg.date.getDay()];
             }}
             events={calendarEvents}
-            dayMaxEvents={3}
+            dayMaxEvents={true}
             dayCellContent={(arg) => arg.date.getDate()}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
-            moreLinkClick={() => false as unknown as "popover"}
+            moreLinkClick={(arg) => { openDayPopup(arg.date); return false as unknown as "popover"; }}
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
