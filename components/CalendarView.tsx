@@ -617,7 +617,6 @@ export default function CalendarView({
                 <div style={{
                   overflow: "hidden",
                   width: "100%",
-                  minHeight: "16px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: showText ? "center" : "flex-start",

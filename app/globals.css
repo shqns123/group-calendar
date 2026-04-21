@@ -223,6 +223,9 @@ body {
 .fc-daygrid-event .fc-event-main {
   padding: 0 !important;
 }
+.fc-daygrid-event-harness {
+  min-height: 18px;
+}
 
 /* ── 그리드 선 ── */
 .fc-scrollgrid {
