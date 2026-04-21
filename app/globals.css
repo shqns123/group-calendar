@@ -220,11 +220,11 @@ body {
   padding: 0 !important;
   cursor: pointer !important;
 }
+.fc-daygrid-event {
+  min-height: 1.5em !important;
+}
 .fc-daygrid-event .fc-event-main {
   padding: 0 !important;
-}
-.fc-daygrid-event-harness {
-  min-height: 18px;
 }
 
 /* ── 그리드 선 ── */
@@ -249,9 +249,13 @@ body {
   table-layout: fixed !important;
 }
 
-/* ── "더보기" 링크 숨김 (4번째+ 이벤트 표시 안 함) ── */
-.fc-daygrid-day-bottom {
-  display: none !important;
+/* ── "더보기" 링크 ── */
+.fc-daygrid-more-link {
+  font-size: 0.65rem !important;
+  color: var(--text-tertiary) !important;
+  font-weight: 600 !important;
+  pointer-events: none !important;
+  cursor: default !important;
 }
 
 /* ── 모바일 ── */
