@@ -246,13 +246,9 @@ body {
   table-layout: fixed !important;
 }
 
-/* ── "더보기" 링크 ── */
-.fc-more-link {
-  font-size: 0.65rem !important;
-  color: var(--text-tertiary) !important;
-  font-weight: 600 !important;
-  pointer-events: none !important;
-  cursor: default !important;
+/* ── "더보기" 링크 숨김 (4번째+ 이벤트 표시 안 함) ── */
+.fc-daygrid-day-bottom {
+  display: none !important;
 }
 
 /* ── 모바일 ── */
