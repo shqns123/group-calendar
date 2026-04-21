@@ -135,9 +135,8 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
   return (
     <div
       style={{
-        width: 280,
+        width: "100%",
         height: "100%",
-        flexShrink: 0,
         background: "var(--surface)",
         borderRight: "1px solid var(--border)",
         display: "flex",
@@ -149,7 +148,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid var(--border-subtle)",
+          borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -159,56 +158,45 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
         <div>
           <h3
             style={{
-              fontSize: "0.825rem",
+              fontSize: "0.8rem",
               fontWeight: 700,
               color: "var(--text-primary)",
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
             }}
           >
             일정 요약
           </h3>
-          <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 1 }}>
-            향후 365일
+          <p style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 1 }}>
+            향후 일정 · {events.filter(e => !e.isOvertimeOnly).length}건
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <button
             onClick={fetchEvents}
             disabled={loading}
             title="새로고침"
             style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              borderRadius: 4,
-              color: "var(--text-tertiary)",
-              display: "flex",
+              background: "none", border: "none", cursor: "pointer",
+              padding: 4, borderRadius: 4, color: "var(--text-tertiary)", display: "flex",
+              transition: "color 0.12s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
           >
-            <RefreshCw
-              style={{
-                width: 13,
-                height: 13,
-                ...(loading ? { animation: "spin 1s linear infinite" } : {}),
-              }}
-            />
+            <RefreshCw style={{ width: 13, height: 13, ...(loading ? { animation: "spin 1s linear infinite" } : {}) }} />
           </button>
-          {/* 닫기 버튼 */}
           <button
             onClick={onClose}
             title="일정 요약 닫기"
             style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              borderRadius: 4,
-              color: "var(--text-tertiary)",
-              display: "flex",
+              background: "none", border: "none", cursor: "pointer",
+              padding: 4, borderRadius: 4, color: "var(--text-tertiary)", display: "flex",
+              transition: "color 0.12s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
           >
-            <PanelLeftClose style={{ width: 15, height: 15 }} />
+            <PanelLeftClose style={{ width: 14, height: 14 }} />
           </button>
         </div>
       </div>
@@ -249,16 +237,16 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
             >
               <span
                 style={{
-                  fontSize: "0.65rem",
+                  fontSize: "0.62rem",
                   fontWeight: 700,
                   textTransform: "uppercase",
-                  letterSpacing: "0.07em",
+                  letterSpacing: "0.08em",
                   color: grp.accent,
                 }}
               >
                 {grp.label}
               </span>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>
+              <span style={{ fontSize: "0.62rem", color: "var(--text-tertiary)" }}>
                 ({grp.events.length})
               </span>
             </div>

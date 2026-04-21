@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
+import { Plus_Jakarta_Sans } from "next/font/google";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-plus-jakarta",
+});
 
 export const metadata: Metadata = {
   title: "그룹 캘린더",
@@ -13,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="h-full" style={{ colorScheme: "light" }}>
+    <html lang="ko" className={`h-full ${plusJakarta.variable}`} style={{ colorScheme: "light" }}>
       <head>
         <meta name="color-scheme" content="light" />
       </head>
