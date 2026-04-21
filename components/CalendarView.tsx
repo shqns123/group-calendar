@@ -617,10 +617,9 @@ export default function CalendarView({
                 <div style={{
                   overflow: "hidden",
                   width: "100%",
-                  paddingLeft: (showText && !isMultiWeek) ? 2 : 0,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: (showText && isMultiWeek) ? "center" : "flex-start",
+                  justifyContent: showText ? "center" : "flex-start",
                 }}>
                   <div style={{
                     fontSize: "0.62rem",
