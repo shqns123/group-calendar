@@ -593,14 +593,44 @@ export default function CalendarView({
               const calEvent = info.event.extendedProps.event as CalEvent | undefined;
               const description = calEvent?.description;
               const personnel = calEvent?.personnel;
+
+              let showText: boolean;
+              if (info.isStart && info.isEnd) {
+                showText = true;
+              } else if (info.isStart || info.isEnd) {
+                const evStart = info.event.start!;
+                const evEnd = info.event.end ?? evStart;
+                const startSegLen = 7 - evStart.getDay();
+                const endSegLen = evEnd.getDay() || 7;
+                showText = info.isStart ? startSegLen >= endSegLen : endSegLen > startSegLen;
+              } else {
+                showText = true;
+              }
+
+              const isMultiWeek = !(info.isStart && info.isEnd);
               const label = [
                 info.event.title,
                 description ? `· ${description}` : "",
                 personnel ? `· ${personnel}` : "",
               ].filter(Boolean).join(" ");
               return (
-                <div style={{ overflow: "hidden", width: "100%", paddingLeft: 2 }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 600, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{
+                  overflow: "hidden",
+                  width: "100%",
+                  paddingLeft: (showText && !isMultiWeek) ? 2 : 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: (showText && isMultiWeek) ? "center" : "flex-start",
+                }}>
+                  <div style={{
+                    fontSize: "0.62rem",
+                    fontWeight: 600,
+                    lineHeight: 1.5,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    visibility: showText ? "visible" : "hidden",
+                  }}>
                     {label}
                   </div>
                 </div>
