@@ -220,6 +220,9 @@ body {
   padding: 0 !important;
   cursor: pointer !important;
 }
+.fc-daygrid-event {
+  min-height: 1.5em !important;
+}
 .fc-daygrid-event .fc-event-main {
   padding: 0 !important;
 }
@@ -247,7 +250,7 @@ body {
 }
 
 /* ── "더보기" 링크 ── */
-.fc-more-link {
+.fc-daygrid-more-link {
   font-size: 0.65rem !important;
   color: var(--text-tertiary) !important;
   font-weight: 600 !important;

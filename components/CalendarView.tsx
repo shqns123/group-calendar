@@ -573,7 +573,7 @@ export default function CalendarView({
             dayCellContent={(arg) => arg.date.getDate()}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
-            moreLinkClick={() => false as unknown as "popover"}
+            moreLinkClick={(arg) => { openDayPopup(arg.date); return false as unknown as "popover"; }}
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
@@ -608,14 +608,31 @@ export default function CalendarView({
               }
 
               if (!showText) return <div style={{ width: "100%", height: "100%" }} />;
+
               const label = [
                 info.event.title,
                 description ? `· ${description}` : "",
                 personnel ? `· ${personnel}` : "",
               ].filter(Boolean).join(" ");
               return (
-                <div style={{ overflow: "hidden", width: "100%", paddingLeft: 2 }}>
-                  <div style={{ fontSize: "0.62rem", fontWeight: 600, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{
+                  padding: "2px 4px",
+                  overflow: "hidden",
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <div style={{
+                    fontSize: "0.62rem",
+                    fontWeight: 600,
+                    lineHeight: 1.25,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    width: "100%",
+                    textAlign: "center",
+                  }}>
                     {label}
                   </div>
                 </div>
