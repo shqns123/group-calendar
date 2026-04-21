@@ -607,7 +607,8 @@ export default function CalendarView({
                 showText = true;
               }
 
-              const isMultiWeek = !(info.isStart && info.isEnd);
+              if (!showText) return <div style={{ width: "100%", height: "100%" }} />;
+
               const label = [
                 info.event.title,
                 description ? `· ${description}` : "",
@@ -615,20 +616,22 @@ export default function CalendarView({
               ].filter(Boolean).join(" ");
               return (
                 <div style={{
+                  padding: "2px 4px",
                   overflow: "hidden",
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: showText ? "center" : "flex-start",
+                  justifyContent: "center",
                 }}>
                   <div style={{
                     fontSize: "0.62rem",
                     fontWeight: 600,
-                    lineHeight: 1.5,
+                    lineHeight: 1.25,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
-                    visibility: showText ? "visible" : "hidden",
+                    width: "100%",
+                    textAlign: "center",
                   }}>
                     {label}
                   </div>
