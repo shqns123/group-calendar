@@ -569,7 +569,7 @@ export default function CalendarView({
               return DAYS[arg.date.getDay()];
             }}
             events={calendarEvents}
-            dayMaxEvents={true}
+            dayMaxEvents={3}
             dayCellContent={(arg) => arg.date.getDate()}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
@@ -617,6 +617,7 @@ export default function CalendarView({
                 <div style={{
                   overflow: "hidden",
                   width: "100%",
+                  minHeight: "16px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: showText ? "center" : "flex-start",
