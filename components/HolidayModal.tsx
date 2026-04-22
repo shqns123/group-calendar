@@ -7,22 +7,17 @@ import { ko } from "date-fns/locale";
 
 export type CustomHoliday = {
   id: string;
-  groupId: string;
   date: string;
   name: string;
   type: "holiday" | "workday";
 };
 
-type Group = { id: string; name: string };
-
 type Props = {
-  groups: Group[];
   onClose: () => void;
   onChanged: () => void;
 };
 
-export default function HolidayModal({ groups, onClose, onChanged }: Props) {
-  const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id ?? "");
+export default function HolidayModal({ onClose, onChanged }: Props) {
   const [holidays, setHolidays] = useState<CustomHoliday[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -31,15 +26,14 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
   const [type, setType] = useState<"holiday" | "workday">("holiday");
   const [adding, setAdding] = useState(false);
 
-  const fetchHolidays = async (gid: string) => {
-    if (!gid) return;
+  const fetchHolidays = async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/holidays?groupId=${gid}`);
+    const res = await fetch("/api/admin/holidays");
     if (res.ok) setHolidays(await res.json());
     setLoading(false);
   };
 
-  useEffect(() => { fetchHolidays(selectedGroupId); }, [selectedGroupId]);
+  useEffect(() => { fetchHolidays(); }, []);
 
   const handleAdd = async () => {
     if (!date) return;
@@ -48,11 +42,11 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
     await fetch("/api/admin/holidays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId: selectedGroupId, date, name: finalName, type }),
+      body: JSON.stringify({ date, name: finalName, type }),
     });
     setAdding(false);
     setName("");
-    await fetchHolidays(selectedGroupId);
+    await fetchHolidays();
     onChanged();
   };
 
@@ -62,7 +56,7 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    await fetchHolidays(selectedGroupId);
+    await fetchHolidays();
     onChanged();
   };
 
@@ -93,7 +87,7 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
           background: "var(--surface)",
           borderRadius: 14,
           width: "100%",
-          maxWidth: 480,
+          maxWidth: 460,
           maxHeight: "85vh",
           display: "flex",
           flexDirection: "column",
@@ -104,41 +98,19 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
       >
         {/* 헤더 */}
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <p style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>회사 휴일 설정</p>
+          <div>
+            <p style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>회사 휴일 설정</p>
+            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>전체 그룹에 공통 적용됩니다</p>
+          </div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-tertiary)", display: "flex" }}>
             <X style={{ width: 16, height: 16 }} />
           </button>
-        </div>
-
-        {/* 그룹 선택 */}
-        <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {groups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGroupId(g.id)}
-                style={{
-                  padding: "5px 12px", borderRadius: 20,
-                  border: "1px solid",
-                  borderColor: selectedGroupId === g.id ? "var(--accent)" : "var(--border)",
-                  background: selectedGroupId === g.id ? "var(--accent-light)" : "transparent",
-                  color: selectedGroupId === g.id ? "var(--accent)" : "var(--text-secondary)",
-                  fontSize: "0.78rem", fontWeight: selectedGroupId === g.id ? 700 : 400,
-                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                }}
-              >
-                {g.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 20 }}>
 
           {/* 추가 폼 */}
           <div style={{ background: "var(--surface-raised)", borderRadius: 10, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>날짜 추가</p>
-
             {/* 날짜 */}
             <div>
               <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginBottom: 6 }}>날짜</p>
@@ -187,7 +159,7 @@ export default function HolidayModal({ groups, onClose, onChanged }: Props) {
             {/* 이름 (선택) */}
             <div>
               <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginBottom: 6 }}>
-                이름 <span style={{ opacity: 0.6 }}>(선택 — 비워두면 자동 지정)</span>
+                이름 <span style={{ opacity: 0.6 }}>(선택)</span>
               </p>
               <input
                 type="text"

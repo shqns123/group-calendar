@@ -117,10 +117,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
   }, []);
 
   const fetchCustomHolidays = useCallback(async () => {
-    if (!selectedGroupId) { setCustomHolidays([]); return; }
-    const res = await fetch(`/api/admin/holidays?groupId=${selectedGroupId}`);
+    const res = await fetch("/api/admin/holidays");
     if (res.ok) setCustomHolidays(await res.json());
-  }, [selectedGroupId]);
+  }, []);
 
   useEffect(() => { fetchCustomHolidays(); }, [fetchCustomHolidays]);
 
@@ -1088,7 +1087,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
       {/* 회사 휴일 설정 모달 */}
       {showHolidayModal && (
         <HolidayModal
-          groups={groups}
           onClose={() => setShowHolidayModal(false)}
           onChanged={fetchCustomHolidays}
         />

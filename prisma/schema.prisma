@@ -91,22 +91,17 @@ model Group {
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]
   events      Event[]
-  schedules      NotificationSchedule[]
-  customHolidays CustomHoliday[]
+  schedules   NotificationSchedule[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }
 
 model CustomHoliday {
   id        String   @id @default(cuid())
-  groupId   String
-  date      String   // "yyyy-MM-dd"
+  date      String   @unique // "yyyy-MM-dd" — 전체 그룹에 공통 적용
   name      String
   type      String   // "holiday" (평일→휴일) | "workday" (휴일→평일)
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-
-  @@unique([groupId, date], name: "groupId_date")
 }
 
 model GroupMember {
