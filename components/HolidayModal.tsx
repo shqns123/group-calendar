@@ -13,14 +13,16 @@ export type CustomHoliday = {
   type: "holiday" | "workday";
 };
 
+type Group = { id: string; name: string };
+
 type Props = {
-  groupId: string;
-  groupName: string;
+  groups: Group[];
   onClose: () => void;
   onChanged: () => void;
 };
 
-export default function HolidayModal({ groupId, groupName, onClose, onChanged }: Props) {
+export default function HolidayModal({ groups, onClose, onChanged }: Props) {
+  const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id ?? "");
   const [holidays, setHolidays] = useState<CustomHoliday[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -29,14 +31,15 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
   const [type, setType] = useState<"holiday" | "workday">("holiday");
   const [adding, setAdding] = useState(false);
 
-  const fetchHolidays = async () => {
+  const fetchHolidays = async (gid: string) => {
+    if (!gid) return;
     setLoading(true);
-    const res = await fetch(`/api/admin/holidays?groupId=${groupId}`);
+    const res = await fetch(`/api/admin/holidays?groupId=${gid}`);
     if (res.ok) setHolidays(await res.json());
     setLoading(false);
   };
 
-  useEffect(() => { fetchHolidays(); }, [groupId]);
+  useEffect(() => { fetchHolidays(selectedGroupId); }, [selectedGroupId]);
 
   const handleAdd = async () => {
     if (!date) return;
@@ -45,11 +48,11 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
     await fetch("/api/admin/holidays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId, date, name: finalName, type }),
+      body: JSON.stringify({ groupId: selectedGroupId, date, name: finalName, type }),
     });
     setAdding(false);
     setName("");
-    await fetchHolidays();
+    await fetchHolidays(selectedGroupId);
     onChanged();
   };
 
@@ -59,7 +62,7 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    await fetchHolidays();
+    await fetchHolidays(selectedGroupId);
     onChanged();
   };
 
@@ -101,13 +104,33 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
       >
         {/* 헤더 */}
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div>
-            <p style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>회사 휴일 설정</p>
-            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>{groupName}</p>
-          </div>
+          <p style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)" }}>회사 휴일 설정</p>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-tertiary)", display: "flex" }}>
             <X style={{ width: 16, height: 16 }} />
           </button>
+        </div>
+
+        {/* 그룹 선택 */}
+        <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGroupId(g.id)}
+                style={{
+                  padding: "5px 12px", borderRadius: 20,
+                  border: "1px solid",
+                  borderColor: selectedGroupId === g.id ? "var(--accent)" : "var(--border)",
+                  background: selectedGroupId === g.id ? "var(--accent-light)" : "transparent",
+                  color: selectedGroupId === g.id ? "var(--accent)" : "var(--text-secondary)",
+                  fontSize: "0.78rem", fontWeight: selectedGroupId === g.id ? 700 : 400,
+                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                }}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 20 }}>

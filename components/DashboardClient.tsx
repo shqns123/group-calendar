@@ -499,6 +499,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
               onClick={() => setShowInviteSheet(true)}
             />
           )}
+          {groups.some((g) => g.leaderId === user.id || user.isOperator) && (
+            <SideAction
+              icon={<CalendarX2 style={{ width: 13, height: 13 }} />}
+              label="휴일 설정"
+              onClick={() => setShowHolidayModal(true)}
+            />
+          )}
           <SideAction
             icon={<Users style={{ width: 13, height: 13 }} />}
             label="초대 코드로 참가"
@@ -752,28 +759,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
             >
               <CalendarClock style={{ width: 13, height: 13 }} />
               {!isMobile && "알림 설정"}
-            </button>
-          )}
-
-          {/* 회사 휴일 설정 버튼 (그룹장 + 운영자) */}
-          {selectedGroup && (selectedGroup.leaderId === user.id || user.isOperator) && (
-            <button
-              onClick={() => setShowHolidayModal(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: 4,
-                padding: "5px 10px", borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text-secondary)",
-                fontSize: "0.75rem", fontWeight: 500,
-                cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
-                transition: "background 0.15s ease",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
-            >
-              <CalendarX2 style={{ width: 13, height: 13 }} />
-              {!isMobile && "휴일 설정"}
             </button>
           )}
 
@@ -1094,10 +1079,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
       )}
 
       {/* 회사 휴일 설정 모달 */}
-      {showHolidayModal && selectedGroup && (
+      {showHolidayModal && (
         <HolidayModal
-          groupId={selectedGroup.id}
-          groupName={selectedGroup.name}
+          groups={groups.filter((g) => g.leaderId === user.id || user.isOperator)}
           onClose={() => setShowHolidayModal(false)}
           onChanged={fetchCustomHolidays}
         />
