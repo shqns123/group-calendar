@@ -665,6 +665,18 @@ export function DashboardClient({ user, initialGroups }: Props) {
             }}
           />
 
+          {/* 임시 디버그 버튼 */}
+          <button
+            onClick={async () => {
+              const check = await fetch("/api/push/test");
+              const data = await check.json();
+              alert(JSON.stringify(data, null, 2));
+            }}
+            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
+          >
+            구독확인
+          </button>
+
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2
               style={{
