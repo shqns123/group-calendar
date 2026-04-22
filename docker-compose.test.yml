@@ -10,5 +10,6 @@ services:
       - .env.test
     environment:
       - PORT=3001
+      - TZ=Asia/Seoul
     volumes:
       - ./data:/app/data
