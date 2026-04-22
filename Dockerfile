@@ -12,11 +12,13 @@ FROM base AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-# Prisma 클라이언트 생성 + 엔진 바이너리 다운로드
+# schema.prisma가 바뀌면 이 이후 레이어 캐시 무효화됨
+COPY prisma ./prisma
 RUN npx prisma generate
 RUN DATABASE_URL=file:/tmp/temp.db npx prisma db push && rm -f /tmp/temp.db
+
+COPY . .
 
 # Next.js 빌드
 ENV NEXT_TELEMETRY_DISABLED=1
