@@ -666,49 +666,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
             }}
           />
 
-          {/* 임시 디버그 버튼 */}
-          <button
-            onClick={async () => {
-              const swSupport = "serviceWorker" in navigator;
-              const notifPermission = "Notification" in window ? Notification.permission : "미지원";
-              let swStatus = "없음";
-              let subEndpoint = "없음";
-              if (swSupport) {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                swStatus = regs.length > 0 ? regs.map(r => r.active ? "active" : r.installing ? "installing" : "waiting").join(", ") : "미등록";
-                if (regs.length > 0) {
-                  const sub = await regs[0].pushManager.getSubscription();
-                  subEndpoint = sub ? sub.endpoint.slice(0, 50) + "..." : "구독없음";
-                }
-              }
-              const server = await fetch("/api/push/test").then(r => r.json());
-              alert(`알림권한: ${notifPermission}\nSW상태: ${swStatus}\nSW구독: ${subEndpoint}\nDB구독수: ${server.subscriptionCount}`);
-            }}
-            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
-          >
-            구독확인
-          </button>
-          <button
-            onClick={async () => {
-              const res = await fetch("/api/push/test", { method: "POST" });
-              const data = await res.json();
-              alert(JSON.stringify(data, null, 2));
-            }}
-            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
-          >
-            테스트발송
-          </button>
-          <button
-            onClick={async () => {
-              if (!confirm("구독 초기화 후 재등록합니다.")) return;
-              await fetch("/api/push/test", { method: "DELETE" });
-              await registerPushSubscription();
-              alert("재등록 완료. 테스트발송 눌러봐.");
-            }}
-            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid #FEE2E2", background: "none", cursor: "pointer", color: "#DC2626", fontFamily: "inherit", flexShrink: 0 }}
-          >
-            구독초기화
-          </button>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2
