@@ -220,7 +220,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
               <Send style={{ width: 14, height: 14, color: "var(--accent)" }} />
               <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--accent)" }}>즉시 공지 발송</p>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <input
                 type="text"
                 value={notifyMessage}
@@ -229,23 +229,24 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
                 placeholder="전체 멤버에게 바로 발송할 메시지"
                 maxLength={200}
                 style={{
-                  flex: 1, padding: "8px 12px",
+                  width: "100%", padding: "8px 12px",
                   border: "1px solid var(--accent-muted)", borderRadius: 8,
                   background: "var(--surface)", color: "var(--text-primary)",
                   fontSize: "0.875rem", fontFamily: "inherit", outline: "none",
+                  boxSizing: "border-box",
                 }}
               />
               <button
                 onClick={handleInstantNotify}
                 disabled={notifySending || !notifyMessage.trim()}
                 style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "8px 14px", borderRadius: 8, border: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  padding: "9px 14px", borderRadius: 8, border: "none",
                   background: "var(--accent)", color: "#fff",
                   fontSize: "0.825rem", fontWeight: 600,
                   cursor: (notifySending || !notifyMessage.trim()) ? "not-allowed" : "pointer",
                   opacity: (notifySending || !notifyMessage.trim()) ? 0.5 : 1,
-                  fontFamily: "inherit", flexShrink: 0,
+                  fontFamily: "inherit", width: "100%",
                 }}
               >
                 <Send style={{ width: 13, height: 13 }} />
