@@ -668,9 +668,20 @@ export function DashboardClient({ user, initialGroups }: Props) {
           {/* 임시 디버그 버튼 */}
           <button
             onClick={async () => {
-              const check = await fetch("/api/push/test");
-              const data = await check.json();
-              alert(JSON.stringify(data, null, 2));
+              const swSupport = "serviceWorker" in navigator;
+              const notifPermission = "Notification" in window ? Notification.permission : "미지원";
+              let swStatus = "없음";
+              let subEndpoint = "없음";
+              if (swSupport) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                swStatus = regs.length > 0 ? regs.map(r => r.active ? "active" : r.installing ? "installing" : "waiting").join(", ") : "미등록";
+                if (regs.length > 0) {
+                  const sub = await regs[0].pushManager.getSubscription();
+                  subEndpoint = sub ? sub.endpoint.slice(0, 50) + "..." : "구독없음";
+                }
+              }
+              const server = await fetch("/api/push/test").then(r => r.json());
+              alert(`알림권한: ${notifPermission}\nSW상태: ${swStatus}\nSW구독: ${subEndpoint}\nDB구독수: ${server.subscriptionCount}`);
             }}
             style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
           >
