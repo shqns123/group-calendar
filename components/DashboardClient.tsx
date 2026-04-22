@@ -139,7 +139,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
     try {
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      const keyRes = await fetch("/api/push/vapid-key");
+      const { publicKey: vapidKey } = await keyRes.json();
       if (!vapidKey) return;
       const existing = await reg.pushManager.getSubscription();
       const sub = existing ?? await reg.pushManager.subscribe({
