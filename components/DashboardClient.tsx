@@ -165,9 +165,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
     }
   };
 
-  const shouldReceiveNotifications = groups.some(
-    (g) => g.leaderId === user.id || g.members.some((m) => m.userId === user.id && (m as { canNotify?: boolean }).canNotify)
-  );
+  const shouldReceiveNotifications = groups.length > 0;
 
   useEffect(() => {
     if (!shouldReceiveNotifications) return;
