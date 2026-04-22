@@ -1,8 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-async function getLeaderGroup(userId: string, groupId: string) {
-  return prisma.group.findFirst({ where: { id: groupId, leaderId: userId } });
+async function canManageSchedules(userId: string, groupId: string): Promise<boolean> {
+  const leader = await prisma.group.findFirst({ where: { id: groupId, leaderId: userId } });
+  if (leader) return true;
+  const member = await prisma.groupMember.findFirst({
+    where: { groupId, userId, canNotify: true, status: "ACTIVE" },
+  });
+  return !!member;
 }
 
 export async function GET(req: Request) {
@@ -13,7 +18,7 @@ export async function GET(req: Request) {
   const groupId = searchParams.get("groupId");
   if (!groupId) return Response.json({ error: "groupId required" }, { status: 400 });
 
-  if (!(await getLeaderGroup(session.user.id, groupId))) {
+  if (!(await canManageSchedules(session.user.id, groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -33,7 +38,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  if (!(await getLeaderGroup(session.user.id, groupId))) {
+  if (!(await canManageSchedules(session.user.id, groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -48,8 +53,8 @@ export async function PATCH(req: Request) {
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, active } = await req.json();
-  const schedule = await prisma.notificationSchedule.findUnique({ where: { id }, include: { group: true } });
-  if (!schedule || schedule.group.leaderId !== session.user.id) {
+  const schedule = await prisma.notificationSchedule.findUnique({ where: { id } });
+  if (!schedule || !(await canManageSchedules(session.user.id, schedule.groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -62,8 +67,8 @@ export async function DELETE(req: Request) {
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json();
-  const schedule = await prisma.notificationSchedule.findUnique({ where: { id }, include: { group: true } });
-  if (!schedule || schedule.group.leaderId !== session.user.id) {
+  const schedule = await prisma.notificationSchedule.findUnique({ where: { id } });
+  if (!schedule || !(await canManageSchedules(session.user.id, schedule.groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

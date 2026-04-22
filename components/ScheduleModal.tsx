@@ -184,7 +184,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
                     fontSize: "0.875rem", fontFamily: "inherit", cursor: "pointer",
                   }}
                 >
-                  {[0, 10, 20, 30, 40, 50].map((m) => (
+                  {Array.from({ length: 60 }, (_, i) => i).map((m) => (
                     <option key={m} value={m}>{String(m).padStart(2, "0")}분</option>
                   ))}
                 </select>

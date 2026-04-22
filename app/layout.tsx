@@ -23,6 +23,10 @@ export default function RootLayout({
     <html lang="ko" className={`h-full ${plusJakarta.variable}`} style={{ colorScheme: "light" }}>
       <head>
         <meta name="color-scheme" content="light" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="그룹 캘린더" />
       </head>
       <body className="min-h-full flex flex-col">
         <SessionProvider>{children}</SessionProvider>
