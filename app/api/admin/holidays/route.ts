@@ -28,9 +28,10 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { groupId, date, name, type } = await req.json();
-  if (!groupId || !date || !name?.trim() || !["holiday", "workday"].includes(type)) {
+  if (!groupId || !date || !["holiday", "workday"].includes(type)) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
+  const finalName = name?.trim() || (type === "holiday" ? "회사 휴일" : "대체 근무일");
 
   if (!(await canManageHolidays(session.user.id, groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -38,8 +39,8 @@ export async function POST(req: Request) {
 
   const holiday = await prisma.customHoliday.upsert({
     where: { groupId_date: { groupId, date } },
-    create: { groupId, date, name: name.trim(), type },
-    update: { name: name.trim(), type },
+    create: { groupId, date, name: finalName, type },
+    update: { name: finalName, type },
   });
   return Response.json(holiday);
 }

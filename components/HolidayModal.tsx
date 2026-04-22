@@ -39,12 +39,13 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
   useEffect(() => { fetchHolidays(); }, [groupId]);
 
   const handleAdd = async () => {
-    if (!date || !name.trim()) return;
+    if (!date) return;
+    const finalName = name.trim() || (type === "holiday" ? "회사 휴일" : "대체 근무일");
     setAdding(true);
     await fetch("/api/admin/holidays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId, date, name: name.trim(), type }),
+      body: JSON.stringify({ groupId, date, name: finalName, type }),
     });
     setAdding(false);
     setName("");
@@ -160,15 +161,17 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
               </div>
             </div>
 
-            {/* 이름 */}
+            {/* 이름 (선택) */}
             <div>
-              <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginBottom: 6 }}>이름</p>
+              <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginBottom: 6 }}>
+                이름 <span style={{ opacity: 0.6 }}>(선택 — 비워두면 자동 지정)</span>
+              </p>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-                placeholder={type === "holiday" ? "예: 창립기념일, 하계휴가" : "예: 대체근무일"}
+                placeholder={type === "holiday" ? "회사 휴일" : "대체 근무일"}
                 maxLength={30}
                 style={{
                   width: "100%", padding: "8px 12px",
@@ -182,19 +185,19 @@ export default function HolidayModal({ groupId, groupName, onClose, onChanged }:
 
             <button
               onClick={handleAdd}
-              disabled={adding || !date || !name.trim()}
+              disabled={adding || !date}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 padding: "9px 16px", borderRadius: 8, border: "none",
-                background: "var(--text-primary)", color: "var(--surface)",
+                background: "var(--accent)", color: "#fff",
                 fontSize: "0.825rem", fontWeight: 600,
-                cursor: (adding || !date || !name.trim()) ? "not-allowed" : "pointer",
-                opacity: (adding || !date || !name.trim()) ? 0.5 : 1,
+                cursor: (adding || !date) ? "not-allowed" : "pointer",
+                opacity: (adding || !date) ? 0.5 : 1,
                 fontFamily: "inherit",
               }}
             >
               <Plus style={{ width: 14, height: 14 }} />
-              {adding ? "추가 중..." : "추가"}
+              {adding ? "변경 중..." : "변경"}
             </button>
           </div>
 
