@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendPushToUser } from "@/lib/webpush";
+import webpush from "web-push";
 
 export async function GET() {
   const session = await auth();
@@ -25,14 +25,33 @@ export async function POST() {
   });
 
   if (subs.length === 0) {
-    return Response.json({ error: "구독 없음 — 앱에서 알림 허용 먼저 필요" });
+    return Response.json({ error: "구독 없음" });
   }
 
-  await sendPushToUser(subs, {
-    title: "테스트 알림",
-    body: "푸시 알림이 정상 작동합니다!",
-    url: "/",
-  });
+  const vapidEmail = process.env.VAPID_EMAIL;
+  const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
 
-  return Response.json({ ok: true, sentTo: subs.length });
+  if (!vapidEmail || !vapidPublic || !vapidPrivate) {
+    return Response.json({ error: "VAPID 키 미설정", vapidEmail: !!vapidEmail, vapidPublic: !!vapidPublic, vapidPrivate: !!vapidPrivate });
+  }
+
+  webpush.setVapidDetails(vapidEmail, vapidPublic, vapidPrivate);
+
+  const results = await Promise.allSettled(
+    subs.map((sub) =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify({ title: "테스트 알림", body: "푸시 알림 테스트입니다!", url: "/" })
+      )
+    )
+  );
+
+  return Response.json({
+    results: results.map((r, i) => ({
+      sub: subs[i].endpoint.slice(0, 50) + "...",
+      status: r.status,
+      ...(r.status === "rejected" ? { error: String(r.reason) } : { statusCode: (r.value as { statusCode: number }).statusCode }),
+    })),
+  });
 }
