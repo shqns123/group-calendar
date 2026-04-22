@@ -676,6 +676,16 @@ export function DashboardClient({ user, initialGroups }: Props) {
           >
             구독확인
           </button>
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/push/test", { method: "POST" });
+              const data = await res.json();
+              alert(JSON.stringify(data, null, 2));
+            }}
+            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
+          >
+            테스트발송
+          </button>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2
