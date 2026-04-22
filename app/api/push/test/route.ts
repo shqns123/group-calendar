@@ -2,6 +2,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import webpush from "web-push";
 
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  await prisma.pushSubscription.deleteMany({ where: { userId: session.user.id } });
+  return Response.json({ ok: true, message: "구독 삭제 완료. 앱 새로고침 후 다시 허용해줘." });
+}
+
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });

@@ -143,7 +143,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
       const { publicKey: vapidKey } = await keyRes.json();
       if (!vapidKey) return;
       const existing = await reg.pushManager.getSubscription();
-      const sub = existing ?? await reg.pushManager.subscribe({
+      if (existing) await existing.unsubscribe();
+      const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
@@ -696,6 +697,17 @@ export function DashboardClient({ user, initialGroups }: Props) {
             style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", flexShrink: 0 }}
           >
             테스트발송
+          </button>
+          <button
+            onClick={async () => {
+              if (!confirm("구독 초기화 후 재등록합니다.")) return;
+              await fetch("/api/push/test", { method: "DELETE" });
+              await registerPushSubscription();
+              alert("재등록 완료. 테스트발송 눌러봐.");
+            }}
+            style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, border: "1px solid #FEE2E2", background: "none", cursor: "pointer", color: "#DC2626", fontFamily: "inherit", flexShrink: 0 }}
+          >
+            구독초기화
           </button>
 
           <div style={{ flex: 1, minWidth: 0 }}>
