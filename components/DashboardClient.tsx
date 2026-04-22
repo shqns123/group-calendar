@@ -21,6 +21,7 @@ import {
   UserCheck,
   UserX,
   CalendarClock,
+  CalendarX2,
 } from "lucide-react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
@@ -29,6 +30,7 @@ import JoinGroupModal from "./JoinGroupModal";
 import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
+import HolidayModal, { type CustomHoliday } from "./HolidayModal";
 
 type UserInfo = {
   id: string;
@@ -93,6 +95,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [customHolidays, setCustomHolidays] = useState<CustomHoliday[]>([]);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
@@ -111,6 +115,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  const fetchCustomHolidays = useCallback(async () => {
+    if (!selectedGroupId) { setCustomHolidays([]); return; }
+    const res = await fetch(`/api/admin/holidays?groupId=${selectedGroupId}`);
+    if (res.ok) setCustomHolidays(await res.json());
+  }, [selectedGroupId]);
+
+  useEffect(() => { fetchCustomHolidays(); }, [fetchCustomHolidays]);
 
   // 운영자 대기 유저 폴링
   const fetchPendingUsers = useCallback(async () => {
@@ -743,6 +755,28 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </button>
           )}
 
+          {/* 회사 휴일 설정 버튼 (그룹장 + 운영자) */}
+          {selectedGroup && (selectedGroup.leaderId === user.id || user.isOperator) && (
+            <button
+              onClick={() => setShowHolidayModal(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "5px 10px", borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text-secondary)",
+                fontSize: "0.75rem", fontWeight: 500,
+                cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface)")}
+            >
+              <CalendarX2 style={{ width: 13, height: 13 }} />
+              {!isMobile && "휴일 설정"}
+            </button>
+          )}
+
           {/* 가입 대기 알림 버튼 (운영자만) */}
           {user.isOperator && pendingUsers.length > 0 && (
             <button
@@ -841,6 +875,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 selectedGroup?.leaderId === user.id ||
                 ["그룹장", "파트장"].includes(selectedGroup?.members.find((m) => m.userId === user.id)?.role ?? "")
               }
+              customHolidays={customHolidays}
               pendingEvent={pendingEvent}
               onPendingEventHandled={() => setPendingEvent(null)}
               pendingDayDate={pendingDayDate}
@@ -1055,6 +1090,16 @@ export function DashboardClient({ user, initialGroups }: Props) {
           groupId={selectedGroup.id}
           groupName={selectedGroup.name}
           onClose={() => setShowScheduleModal(false)}
+        />
+      )}
+
+      {/* 회사 휴일 설정 모달 */}
+      {showHolidayModal && selectedGroup && (
+        <HolidayModal
+          groupId={selectedGroup.id}
+          groupName={selectedGroup.name}
+          onClose={() => setShowHolidayModal(false)}
+          onChanged={fetchCustomHolidays}
         />
       )}
 
