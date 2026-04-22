@@ -50,19 +50,27 @@ type Group = {
   }>;
 };
 
+type CustomHoliday = {
+  id: string;
+  date: string;
+  name: string;
+  type: "holiday" | "workday";
+};
+
 type Props = {
   date: Date;
   events: CalEvent[];
   userId: string;
   group: Group | null;
   isLeader: boolean;
+  customHolidays?: CustomHoliday[];
   onEventClick: (event: CalEvent) => void;
   onAddClick: () => void;
   onClose: () => void;
   onRefresh: () => void;
 };
 
-export default function DayEventsModal({ date, events, userId, group, isLeader, onEventClick, onAddClick, onClose, onRefresh }: Props) {
+export default function DayEventsModal({ date, events, userId, group, isLeader, customHolidays = [], onEventClick, onAddClick, onClose, onRefresh }: Props) {
   const [overtimeLoading, setOvertimeLoading] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
@@ -120,7 +128,11 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
     return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
 
-  const holidayName = getHolidayName(date);
+  const dateStr = format(date, "yyyy-MM-dd");
+  const customEntry = customHolidays.find((h) => h.date === dateStr);
+  const holidayName = customEntry?.type === "workday"
+    ? "대체 근무일"
+    : (customEntry?.name ?? getHolidayName(date));
 
   return (
     <div
@@ -161,7 +173,10 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                 {format(date, "M월 d일 (E)", { locale: ko })}
               </p>
               {holidayName && (
-                <span style={{ fontSize: "0.72rem", color: "#EF4444", fontWeight: 600 }}>{holidayName}</span>
+                <span style={{
+                  fontSize: "0.72rem", fontWeight: 600,
+                  color: customEntry?.type === "workday" ? "var(--accent)" : "#EF4444",
+                }}>{holidayName}</span>
               )}
             </div>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>

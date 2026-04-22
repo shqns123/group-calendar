@@ -21,6 +21,7 @@ import {
   UserCheck,
   UserX,
   CalendarClock,
+  CalendarX2,
 } from "lucide-react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
@@ -29,6 +30,7 @@ import JoinGroupModal from "./JoinGroupModal";
 import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
+import HolidayModal, { type CustomHoliday } from "./HolidayModal";
 
 type UserInfo = {
   id: string;
@@ -93,6 +95,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [customHolidays, setCustomHolidays] = useState<CustomHoliday[]>([]);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
@@ -111,6 +115,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  const fetchCustomHolidays = useCallback(async () => {
+    const res = await fetch("/api/admin/holidays");
+    if (res.ok) setCustomHolidays(await res.json());
+  }, []);
+
+  useEffect(() => { fetchCustomHolidays(); }, [fetchCustomHolidays]);
 
   // 운영자 대기 유저 폴링
   const fetchPendingUsers = useCallback(async () => {
@@ -487,6 +498,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
               onClick={() => setShowInviteSheet(true)}
             />
           )}
+          {groups.length > 0 && (
+            <SideAction
+              icon={<CalendarX2 style={{ width: 13, height: 13 }} />}
+              label="휴일 설정"
+              onClick={() => setShowHolidayModal(true)}
+            />
+          )}
           <SideAction
             icon={<Users style={{ width: 13, height: 13 }} />}
             label="초대 코드로 참가"
@@ -841,6 +859,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 selectedGroup?.leaderId === user.id ||
                 ["그룹장", "파트장"].includes(selectedGroup?.members.find((m) => m.userId === user.id)?.role ?? "")
               }
+              customHolidays={customHolidays}
               pendingEvent={pendingEvent}
               onPendingEventHandled={() => setPendingEvent(null)}
               pendingDayDate={pendingDayDate}
@@ -1055,6 +1074,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
           groupId={selectedGroup.id}
           groupName={selectedGroup.name}
           onClose={() => setShowScheduleModal(false)}
+        />
+      )}
+
+      {/* 회사 휴일 설정 모달 */}
+      {showHolidayModal && (
+        <HolidayModal
+          onClose={() => setShowHolidayModal(false)}
+          onChanged={fetchCustomHolidays}
         />
       )}
 

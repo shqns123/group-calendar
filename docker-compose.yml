@@ -8,5 +8,7 @@ services:
     network_mode: host
     env_file:
       - .env
+    environment:
+      - TZ=Asia/Seoul
     volumes:
       - ./data:/app/data

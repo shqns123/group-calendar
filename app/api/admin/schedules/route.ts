@@ -52,13 +52,20 @@ export async function PATCH(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, active } = await req.json();
+  const { id, active, message, dayOfWeek, timeHour, timeMin } = await req.json();
   const schedule = await prisma.notificationSchedule.findUnique({ where: { id } });
   if (!schedule || !(await canManageSchedules(session.user.id, schedule.groupId))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const updated = await prisma.notificationSchedule.update({ where: { id }, data: { active } });
+  const data: Record<string, unknown> = {};
+  if (active !== undefined) data.active = active;
+  if (message !== undefined) data.message = message;
+  if (dayOfWeek !== undefined) data.dayOfWeek = dayOfWeek;
+  if (timeHour !== undefined) data.timeHour = timeHour;
+  if (timeMin !== undefined) data.timeMin = timeMin;
+
+  const updated = await prisma.notificationSchedule.update({ where: { id }, data });
   return Response.json(updated);
 }
 

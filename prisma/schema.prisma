@@ -96,6 +96,14 @@ model Group {
   updatedAt   DateTime      @updatedAt
 }
 
+model CustomHoliday {
+  id        String   @id @default(cuid())
+  date      String   @unique // "yyyy-MM-dd" — 전체 그룹에 공통 적용
+  name      String
+  type      String   // "holiday" (평일→휴일) | "workday" (휴일→평일)
+  createdAt DateTime @default(now())
+}
+
 model GroupMember {
   id       String   @id @default(cuid())
   groupId  String

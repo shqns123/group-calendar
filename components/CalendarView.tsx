@@ -43,11 +43,19 @@ type CalEvent = {
   creator: { id: string; name: string | null; email: string | null; image: string | null };
 };
 
+type CustomHoliday = {
+  id: string;
+  date: string;
+  name: string;
+  type: "holiday" | "workday";
+};
+
 type Props = {
   userId: string;
   userName: string;
   group: Group | null;
   isLeader: boolean;
+  customHolidays?: CustomHoliday[];
   pendingEvent?: CalEvent | null;
   onPendingEventHandled?: () => void;
   pendingDayDate?: Date | null;
@@ -311,6 +319,7 @@ export default function CalendarView({
   userName,
   group,
   isLeader,
+  customHolidays = [],
   pendingEvent,
   onPendingEventHandled,
   pendingDayDate,
@@ -577,8 +586,15 @@ export default function CalendarView({
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
-              if (isWeekend(arg.date) || isHoliday(arg.date)) classes.push("fc-day-gray");
               const ds = format(arg.date, "yyyy-MM-dd");
+              const custom = customHolidays.find((h) => h.date === ds);
+              if (custom?.type === "holiday") {
+                classes.push("fc-day-gray", "fc-day-custom-holiday");
+              } else if (custom?.type === "workday") {
+                classes.push("fc-day-custom-workday");
+              } else if (isWeekend(arg.date) || isHoliday(arg.date)) {
+                classes.push("fc-day-gray");
+              }
               const hasOvertime = events.some((e) => {
                 if (!e.overtimeAvailable) return false;
                 if (!isLeader && e.creatorId !== userId) return false;
@@ -650,6 +666,7 @@ export default function CalendarView({
           userId={userId}
           group={group}
           isLeader={isLeader}
+          customHolidays={customHolidays}
           onEventClick={(e) => {
             setDayPopup(null);
             setSelectedEvent(e);
