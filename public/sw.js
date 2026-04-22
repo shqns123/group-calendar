@@ -1,10 +1,14 @@
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {};
   const title = data.title || "그룹 캘린더";
   const options = {
     body: data.body || "",
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
     data: data.url || "/",
   };
   event.waitUntil(self.registration.showNotification(title, options));
