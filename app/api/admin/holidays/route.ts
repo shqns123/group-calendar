@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 async function canManageHolidays(userId: string, groupId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isOperator: true } });
   if (user?.isOperator) return true;
-  const group = await prisma.group.findFirst({ where: { id: groupId, leaderId: userId } });
-  return !!group;
+  const leader = await prisma.group.findFirst({ where: { id: groupId, leaderId: userId } });
+  if (leader) return true;
+  const member = await prisma.groupMember.findFirst({
+    where: { groupId, userId, canNotify: true, status: "ACTIVE" },
+  });
+  return !!member;
 }
 
 export async function GET(req: Request) {

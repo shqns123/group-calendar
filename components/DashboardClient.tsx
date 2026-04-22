@@ -181,6 +181,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   const shouldReceiveNotifications = groups.length > 0;
 
+  // SW는 PWA 설치 요건 충족을 위해 알림 허용 여부와 무관하게 무조건 등록
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     if (!shouldReceiveNotifications) return;
     if (typeof window === "undefined" || !("Notification" in window)) return;
@@ -499,7 +506,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               onClick={() => setShowInviteSheet(true)}
             />
           )}
-          {groups.some((g) => g.leaderId === user.id || user.isOperator) && (
+          {groups.length > 0 && (
             <SideAction
               icon={<CalendarX2 style={{ width: 13, height: 13 }} />}
               label="휴일 설정"
@@ -1081,7 +1088,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
       {/* 회사 휴일 설정 모달 */}
       {showHolidayModal && (
         <HolidayModal
-          groups={groups.filter((g) => g.leaderId === user.id || user.isOperator)}
+          groups={groups}
           onClose={() => setShowHolidayModal(false)}
           onChanged={fetchCustomHolidays}
         />
