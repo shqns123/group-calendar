@@ -63,6 +63,13 @@ type Props = {
 };
 
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 export function DashboardClient({ user, initialGroups }: Props) {
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
@@ -86,6 +93,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showNotifBanner, setShowNotifBanner] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
@@ -125,6 +133,52 @@ export function DashboardClient({ user, initialGroups }: Props) {
     });
     fetchPendingUsers();
   };
+
+  const registerPushSubscription = useCallback(async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) return;
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing ?? await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      const json = sub.toJSON();
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint, keys: json.keys }),
+      });
+    } catch {
+      // Push subscription failed silently
+    }
+  }, []);
+
+  const handleAllowNotification = async () => {
+    setShowNotifBanner(false);
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      await registerPushSubscription();
+    }
+  };
+
+  const shouldReceiveNotifications = groups.some(
+    (g) => g.leaderId === user.id || g.members.some((m) => m.userId === user.id && (m as { canNotify?: boolean }).canNotify)
+  );
+
+  useEffect(() => {
+    if (!shouldReceiveNotifications) return;
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      registerPushSubscription();
+    } else if (Notification.permission === "default") {
+      setShowNotifBanner(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldReceiveNotifications]);
 
   const refreshGroups = useCallback(async () => {
     const res = await fetch("/api/groups");
@@ -1001,6 +1055,47 @@ export function DashboardClient({ user, initialGroups }: Props) {
           groupName={selectedGroup.name}
           onClose={() => setShowScheduleModal(false)}
         />
+      )}
+
+      {/* 알림 권한 배너 */}
+      {showNotifBanner && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 400,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+            width: "min(400px, calc(100vw - 32px))",
+          }}
+        >
+          <Bell style={{ width: 18, height: 18, color: "var(--accent)", flexShrink: 0 }} />
+          <p style={{ flex: 1, fontSize: "0.8rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
+            스케줄 알림을 받으려면 알림을 허용해 주세요.
+          </p>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <button
+              onClick={() => setShowNotifBanner(false)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "5px 8px", borderRadius: 6, fontSize: "0.78rem", color: "var(--text-tertiary)", fontFamily: "inherit" }}
+            >
+              나중에
+            </button>
+            <button
+              onClick={handleAllowNotification}
+              style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              허용하기
+            </button>
+          </div>
+        </div>
       )}
 
       {/* 가입 대기 승인 패널 */}

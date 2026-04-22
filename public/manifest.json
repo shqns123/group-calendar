@@ -1,0 +1,16 @@
+{
+  "name": "그룹 캘린더",
+  "short_name": "그룹 캘린더",
+  "description": "팀 일정 관리 서비스",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
