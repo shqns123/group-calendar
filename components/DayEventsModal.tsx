@@ -183,24 +183,24 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           <div style={{
             padding: "12px 20px",
             borderBottom: "1px solid var(--border)",
-            background: overtimeOn ? "#FFFBEB" : "var(--surface-raised)",
+            background: overtimeOn ? "var(--accent-light)" : "var(--surface-raised)",
             transition: "background 0.2s",
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
-                  background: overtimeOn ? "#FEF3C7" : "var(--border)",
+                  background: overtimeOn ? "var(--accent-muted)" : "var(--border)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "background 0.2s", flexShrink: 0,
                 }}>
-                  <CalendarClock style={{ width: 14, height: 14, color: overtimeOn ? "#D97706" : "var(--text-tertiary)" }} />
+                  <CalendarClock style={{ width: 14, height: 14, color: overtimeOn ? "var(--accent)" : "var(--text-tertiary)" }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: "0.825rem", fontWeight: 700, color: overtimeOn ? "#92400E" : "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                  <p style={{ fontSize: "0.825rem", fontWeight: 700, color: overtimeOn ? "var(--accent-hover)" : "var(--text-primary)", letterSpacing: "-0.01em" }}>
                     특근 가능
                   </p>
-                  <p style={{ fontSize: "0.68rem", color: overtimeOn ? "#B45309" : "var(--text-tertiary)", marginTop: 1 }}>
+                  <p style={{ fontSize: "0.68rem", color: overtimeOn ? "var(--accent)" : "var(--text-tertiary)", marginTop: 1 }}>
                     {overtimeOn ? "이 날 특근 가능으로 표시됨" : "특근 가능 여부를 알려주세요"}
                   </p>
                 </div>
@@ -210,7 +210,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                 disabled={overtimeLoading}
                 style={{
                   width: 42, height: 24, borderRadius: 12, border: "none",
-                  background: overtimeOn ? "#F59E0B" : "var(--border)",
+                  background: overtimeOn ? "var(--accent)" : "var(--border)",
                   cursor: overtimeLoading ? "not-allowed" : "pointer",
                   position: "relative", transition: "background 0.22s",
                   flexShrink: 0, opacity: overtimeLoading ? 0.6 : 1,
@@ -227,16 +227,16 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             {/* 특근 가능자 태그 목록 */}
             {(overtimePeople.length > 0 || overtimeOn) && (
               <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.68rem", color: "#92400E", fontWeight: 600 }}>가능:</span>
+                <span style={{ fontSize: "0.68rem", color: "var(--accent)", fontWeight: 600 }}>가능:</span>
                 {overtimePeople.map((ev) => {
                   const name = getMemberName(ev);
                   const canDelete = isLeader;
                   return (
                     <span key={ev.id} style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: "0.68rem", background: "#FEF3C7", color: "#92400E",
+                      fontSize: "0.68rem", background: "var(--accent-light)", color: "var(--accent)",
                       padding: "2px 8px", borderRadius: 10, fontWeight: 600,
-                      border: "1px solid #FDE68A",
+                      border: "1px solid var(--accent-muted)",
                     }}>
                       {name}
                       {canDelete && (
@@ -246,7 +246,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                             await fetch(`/api/events/${ev.id}`, { method: "DELETE" });
                             onRefresh();
                           }}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "#B45309", lineHeight: 1 }}
+                          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "var(--accent)", lineHeight: 1 }}
                         >
                           <X style={{ width: 10, height: 10 }} />
                         </button>
@@ -255,7 +255,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   );
                 })}
                 {overtimeOn && (
-                  <span style={{ fontSize: "0.68rem", background: "#F59E0B", color: "#fff", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
+                  <span style={{ fontSize: "0.68rem", background: "var(--accent)", color: "#fff", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
                     나
                   </span>
                 )}
@@ -324,7 +324,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                         {isHidden ? "비공개 일정" : event.title}
                       </p>
                       {(isLeader || isOwn) && event.overtimeAvailable && !isHidden && (
-                        <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "#FEF3C7", color: "#D97706", flexShrink: 0 }}>
+                        <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "var(--accent-light)", color: "var(--accent)", flexShrink: 0 }}>
                           특근
                         </span>
                       )}
