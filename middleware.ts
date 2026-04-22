@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/pending", "/api/auth", "/sw.js"];
+const PUBLIC_PATHS = ["/login", "/pending", "/api/auth", "/sw.js", "/manifest.json", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
