@@ -180,13 +180,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   const shouldReceiveNotifications = groups.length > 0;
 
-  // SW는 PWA 설치 요건 충족을 위해 알림 허용 여부와 무관하게 무조건 등록
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
-  }, []);
-
   useEffect(() => {
     if (!shouldReceiveNotifications) return;
     if (typeof window === "undefined" || !("Notification" in window)) return;
