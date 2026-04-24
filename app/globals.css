@@ -167,6 +167,16 @@ body {
 }
 
 /* ── 날짜 숫자 ── */
+/* day-events를 독립 stacking context(z-index:1)로 격리,
+   day-top(z-index:2)이 항상 이벤트 바 위에 그려지도록 */
+.fc-daygrid-day-top {
+  position: relative !important;
+  z-index: 2 !important;
+}
+.fc-daygrid-day-events {
+  z-index: 1 !important;
+}
+
 .fc-daygrid-day-number {
   font-size: 0.72rem !important;
   font-weight: 400 !important;
@@ -180,22 +190,13 @@ body {
   opacity: 0.4 !important;
 }
 
-/* ── 오늘 날짜 — 인디고 원형 ── */
+/* ── 오늘 날짜 — 배경 강조 ── */
 .fc-day-today {
-  background-color: rgba(99,102,241,0.06) !important;
+  background-color: rgba(99,102,241,0.13) !important;
 }
 .fc-day-today .fc-daygrid-day-number {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 50% !important;
-  background: var(--accent) !important;
-  color: #fff !important;
+  color: var(--accent) !important;
   font-weight: 800 !important;
-  padding: 0 !important;
-  margin: 3px 4px !important;
 }
 
 /* ── 주말 / 공휴일 ── */
@@ -207,10 +208,11 @@ body {
   font-weight: 500 !important;
 }
 .fc-day-gray.fc-day-today {
-  background-color: rgba(99,102,241,0.06) !important;
+  background-color: rgba(99,102,241,0.13) !important;
 }
 .fc-day-gray.fc-day-today .fc-daygrid-day-number {
-  color: #fff !important;
+  color: var(--accent) !important;
+  font-weight: 800 !important;
 }
 
 /* ── 이벤트 칩 ── */
@@ -291,43 +293,16 @@ body {
   z-index: 1;
 }
 
-/* 회사 지정 휴일 (빨간 점) */
+/* 회사 지정 휴일 */
 .fc-day-custom-holiday .fc-daygrid-day-number {
   color: #EF4444;
   font-weight: 700;
 }
-.fc-day-custom-holiday .fc-daygrid-day-frame::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #EF4444;
-  pointer-events: none;
-  z-index: 1;
-}
 
-/* 대체 근무일 (인디고 점, 회색 제거) */
+/* 대체 근무일 */
 .fc-day-custom-workday .fc-daygrid-day-number {
   color: var(--accent) !important;
   font-weight: 700;
-}
-.fc-day-custom-workday .fc-daygrid-day-frame {
-  position: relative;
-}
-.fc-day-custom-workday .fc-daygrid-day-frame::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* ── 키프레임 ── */

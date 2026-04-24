@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { X, Users, ArrowRight, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Users, ArrowRight, Clock, Camera, Keyboard } from "lucide-react";
+import type { Html5Qrcode as Html5QrcodeType } from "html5-qrcode";
 
 type Props = {
   onClose: () => void;
@@ -17,31 +18,73 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const [joinRole, setJoinRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
+  const startedRef = useRef(false);
 
-  // 1단계: 초대 코드 확인
-  const handleCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteCode.trim()) {
+  useEffect(() => {
+    if (!scanning) return;
+    let cancelled = false;
+
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      if (cancelled) return;
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
+      startedRef.current = false;
+
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decoded) => {
+          setInviteCode(decoded.trim());
+          setScanning(false);
+          submitCode(decoded.trim());
+        },
+        () => {}
+      ).then(() => {
+        startedRef.current = true;
+      }).catch(() => {
+        if (!cancelled) {
+          setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
+          setScanning(false);
+        }
+        scannerRef.current = null;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      if (startedRef.current && scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+      }
+      scannerRef.current = null;
+      startedRef.current = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanning]);
+
+  const stopScan = () => {
+    setScanning(false);
+  };
+
+  const submitCode = async (code: string) => {
+    if (!code.trim()) {
       setError("초대 코드를 입력해주세요");
       return;
     }
     setLoading(true);
     setError("");
-
     try {
       const res = await fetch("/api/groups/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode: inviteCode.trim(), checkOnly: true }),
+        body: JSON.stringify({ inviteCode: code.trim(), checkOnly: true }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error || "유효하지 않은 초대 코드입니다");
         return;
       }
-
       setGroupName(data.groupName);
       setGroupId(data.groupId);
       setJoinRole(data.role ?? "MEMBER");
@@ -53,12 +96,15 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
     }
   };
 
-  // 2단계: 닉네임 설정 후 참가
+  const handleCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitCode(inviteCode);
+  };
+
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const res = await fetch("/api/groups/join", {
         method: "POST",
@@ -68,14 +114,11 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
           nickname: nickname.trim() || undefined,
         }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error || "참가에 실패했습니다");
         return;
       }
-
       if (data.pending) {
         setStep("pending");
         return;
@@ -93,7 +136,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">그룹 참가</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => { stopScan(); onClose(); }} className="text-slate-400 hover:text-slate-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -118,47 +161,74 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
             </button>
           </div>
         ) : step === "code" ? (
-          <form onSubmit={handleCodeSubmit} className="p-6 space-y-4">
-            <div className="flex justify-center py-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center">
-                <Users className="w-8 h-8 text-blue-500" />
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-500 text-center">
-              리더에게 받은 초대 코드를 입력하세요
-            </p>
-
-            <input
-              type="text"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
-              placeholder="초대 코드 입력"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono text-lg tracking-wider placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400"
-              autoFocus
-            />
-
-            {error && (
-              <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg text-center">{error}</p>
-            )}
-
-            <div className="flex gap-3 pt-2">
+          <div className="p-6 space-y-4">
+            {/* 스캔 / 직접입력 탭 */}
+            <div className="flex rounded-xl overflow-hidden border border-slate-200">
               <button
                 type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium border border-slate-200"
+                onClick={() => { stopScan(); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${!scanning ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
               >
-                취소
+                <Keyboard className="w-4 h-4" /> 직접 입력
               </button>
               <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors text-sm font-semibold disabled:opacity-50"
+                type="button"
+                onClick={() => { setError(""); setScanning(true); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${scanning ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
               >
-                {loading ? "확인 중..." : <>다음 <ArrowRight className="w-4 h-4" /></>}
+                <Camera className="w-4 h-4" /> QR 스캔
               </button>
             </div>
-          </form>
+
+            {scanning ? (
+              <div className="space-y-3">
+                <div id="qr-reader" className="w-full rounded-xl overflow-hidden" />
+                <p className="text-xs text-slate-400 text-center">카메라로 초대 QR 코드를 비춰주세요</p>
+              </div>
+            ) : (
+              <form onSubmit={handleCodeSubmit} className="space-y-4">
+                <div className="flex justify-center py-2">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
+                    <Users className="w-7 h-7 text-blue-500" />
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 text-center">
+                  리더에게 받은 초대 코드를 입력하세요
+                </p>
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="초대 코드 입력"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono text-lg tracking-wider placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400"
+                  autoFocus
+                />
+                {error && (
+                  <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg text-center">{error}</p>
+                )}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium border border-slate-200"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors text-sm font-semibold disabled:opacity-50"
+                  >
+                    {loading ? "확인 중..." : <>다음 <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {scanning && error && (
+              <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg text-center">{error}</p>
+            )}
+          </div>
         ) : (
           <form onSubmit={handleJoin} className="p-6 space-y-4">
             <div className="bg-blue-50 rounded-xl p-4 text-center">

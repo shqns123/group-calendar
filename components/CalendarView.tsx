@@ -338,9 +338,13 @@ export default function CalendarView({
   const touchStartY = useRef<number | null>(null);
 
   const fetchEvents = useCallback(async () => {
-    const params = group ? `?groupId=${group.id}` : "";
-    const res = await fetch(`/api/events${params}`);
-    if (res.ok) setEvents(await res.json());
+    try {
+      const params = group ? `?groupId=${group.id}` : "";
+      const res = await fetch(`/api/events${params}`);
+      if (res.ok) setEvents(await res.json());
+    } catch {
+      // network error — keep existing events
+    }
   }, [group]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
@@ -605,55 +609,29 @@ export default function CalendarView({
               if (hasOvertime) classes.push("fc-day-overtime");
               return classes;
             }}
-            eventContent={(info) => {
-              const calEvent = info.event.extendedProps.event as CalEvent | undefined;
-              const description = calEvent?.description;
-              const personnel = calEvent?.personnel;
-
-              let showText: boolean;
-              if (info.isStart && info.isEnd) {
-                showText = true;
-              } else if (info.isStart || info.isEnd) {
-                const evStart = info.event.start!;
-                const evEnd = info.event.end ?? evStart;
-                const startSegLen = 7 - evStart.getDay();
-                const endSegLen = evEnd.getDay() || 7;
-                showText = info.isStart ? startSegLen >= endSegLen : endSegLen > startSegLen;
-              } else {
-                showText = true;
-              }
-
-              if (!showText) return <div style={{ width: "100%", height: "100%" }} />;
-
-              const label = [
-                info.event.title,
-                description ? `· ${description}` : "",
-                personnel ? `· ${personnel}` : "",
-              ].filter(Boolean).join(" ");
-              return (
+            eventContent={(info) => (
+              <div style={{
+                padding: "2px 4px",
+                overflow: "hidden",
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
                 <div style={{
-                  padding: "2px 4px",
+                  fontSize: "0.62rem",
+                  fontWeight: 600,
+                  lineHeight: 1.25,
                   overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                   width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  textAlign: "center",
                 }}>
-                  <div style={{
-                    fontSize: "0.62rem",
-                    fontWeight: 600,
-                    lineHeight: 1.25,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    width: "100%",
-                    textAlign: "center",
-                  }}>
-                    {label}
-                  </div>
+                  {info.event.title}
                 </div>
-              );
-            }}
+              </div>
+            )}
           />
           </div>
         )}

@@ -23,6 +23,7 @@ import {
   CalendarClock,
   CalendarX2,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
 import GroupModal, { type GroupFromApi } from "./GroupModal";
@@ -1005,6 +1006,14 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 <RefreshCw style={{ width: 15, height: 15, ...(refreshingCode ? { animation: "spin 1s linear infinite" } : {}) }} />
               </button>
             </div>
+            <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+              <div style={{ padding: 12, background: "#fff", borderRadius: 12, border: "1px solid var(--border)" }}>
+                <QRCodeSVG value={selectedGroup.inviteCode} size={160} />
+              </div>
+            </div>
+            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
+              QR 코드를 스캔해도 참가할 수 있습니다
+            </p>
           </div>
         </div>
       )}
