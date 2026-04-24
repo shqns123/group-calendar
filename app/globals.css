@@ -291,43 +291,16 @@ body {
   z-index: 1;
 }
 
-/* 회사 지정 휴일 (빨간 점) */
+/* 회사 지정 휴일 */
 .fc-day-custom-holiday .fc-daygrid-day-number {
   color: #EF4444;
   font-weight: 700;
 }
-.fc-day-custom-holiday .fc-daygrid-day-frame::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #EF4444;
-  pointer-events: none;
-  z-index: 1;
-}
 
-/* 대체 근무일 (인디고 점, 회색 제거) */
+/* 대체 근무일 */
 .fc-day-custom-workday .fc-daygrid-day-number {
   color: var(--accent) !important;
   font-weight: 700;
-}
-.fc-day-custom-workday .fc-daygrid-day-frame {
-  position: relative;
-}
-.fc-day-custom-workday .fc-daygrid-day-frame::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* ── 키프레임 ── */
