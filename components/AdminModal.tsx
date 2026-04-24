@@ -152,8 +152,9 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
             const isGuest = u.email?.endsWith("@local.guest");
             const isExpanded = expandedUserId === u.id;
             return (
-              <div key={u.id} style={{ borderRadius: 10, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#F5F3FF" : isSelf ? "var(--accent-light)" : "var(--surface)", overflow: "hidden" }}>
-                <div style={{ display: "flex", gap: 10, padding: "10px 12px" }}>
+              <div key={u.id} style={{ borderRadius: 10, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#F5F3FF" : isSelf ? "var(--accent-light)" : "var(--surface)" }}>
+                {/* 상단: 아바타 + 이름/이메일 */}
+                <div style={{ display: "flex", gap: 10, padding: "10px 12px 0" }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: u.isOperator ? "#7C3AED" : isSelf ? "var(--accent)" : "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
                     <User style={{ width: 14, height: 14, color: u.isOperator || isSelf ? "white" : "var(--text-tertiary)" }} />
                   </div>
@@ -167,65 +168,64 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
                     <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", wordBreak: "break-all" }}>
                       {isGuest ? (u.employeeId ? `사번: ${u.employeeId}` : "게스트") : u.email}
                     </p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                      {u.groupMembers.length > 0 && (
-                        <button onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
-                          style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: isExpanded ? "var(--surface-raised)" : "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--text-tertiary)", fontFamily: "inherit" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = isExpanded ? "var(--surface-raised)" : "none")}
-                        >
-                          <ChevronDown style={{ width: 11, height: 11, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-                          그룹 {u.groupMembers.length}
-                        </button>
-                      )}
-                      {!isSelf && (
-                        <button onClick={() => handleToggleOperator(u.id, u.isOperator, u.name)}
-                          disabled={actionLoading === u.id + "-operator"}
-                          style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#EDE9FE" : "none", cursor: "pointer", color: u.isOperator ? "#7C3AED" : "var(--text-tertiary)", fontFamily: "inherit", fontSize: "0.72rem" }}
-                          onMouseEnter={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "var(--surface-raised)"; } }}
-                          onMouseLeave={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "none"; } }}
-                        >
-                          <Crown style={{ width: 12, height: 12 }} />
-                          {u.isOperator ? "권한 회수" : "운영자 지정"}
-                        </button>
-                      )}
-                      {!isSelf && (
-                        <button onClick={() => handleDelete(u.id, u.name)}
-                          disabled={actionLoading === u.id + "-delete"}
-                          style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", fontSize: "0.72rem" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#FECACA"; e.currentTarget.style.color = "#DC2626"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                        >
-                          <Trash2 style={{ width: 12, height: 12 }} />
-                          삭제
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
 
+                {/* 하단: 액션 버튼 전용 행 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px 10px", flexWrap: "wrap" }}>
+                  {u.groupMembers.length > 0 && (
+                    <button onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 3, padding: "5px 10px", borderRadius: 6, border: "1px solid var(--border)", background: isExpanded ? "var(--surface-raised)" : "var(--surface)", cursor: "pointer", fontSize: "0.72rem", color: "var(--text-secondary)", fontFamily: "inherit" }}
+                    >
+                      <ChevronDown style={{ width: 11, height: 11, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                      그룹 {u.groupMembers.length}
+                    </button>
+                  )}
+                  {!isSelf && (
+                    <button onClick={() => handleToggleOperator(u.id, u.isOperator, u.name)}
+                      disabled={actionLoading === u.id + "-operator"}
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#EDE9FE" : "var(--surface)", cursor: "pointer", color: u.isOperator ? "#7C3AED" : "var(--text-secondary)", fontFamily: "inherit", fontSize: "0.72rem" }}
+                    >
+                      <Crown style={{ width: 12, height: 12 }} />
+                      {u.isOperator ? "권한 회수" : "운영자 지정"}
+                    </button>
+                  )}
+                  {!isSelf && (
+                    <button onClick={() => handleDelete(u.id, u.name)}
+                      disabled={actionLoading === u.id + "-delete"}
+                      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", fontSize: "0.72rem" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#FECACA"; e.currentTarget.style.color = "#DC2626"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                    >
+                      <Trash2 style={{ width: 12, height: 12 }} />
+                      삭제
+                    </button>
+                  )}
+                </div>
+
+                {/* 그룹 확장 패널 */}
                 {isExpanded && (
-                  <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
                     <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 2 }}>그룹 멤버십 · 관리자 변경</p>
                     {u.groupMembers.map((m) => {
                       const isGroupLeader = m.group.leaderId === u.id;
                       return (
                         <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 7, background: "var(--surface-raised)" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--text-primary)" }}>{m.group.name}</p>
+                            <p style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.group.name}</p>
                             <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{isGroupLeader ? "관리자" : m.role === "MEMBER" ? "멤버" : m.role}</p>
                           </div>
                           {!isGroupLeader ? (
                             <button onClick={() => handleTransferLeader(m.group.id, m.group.name, u.id, u.name)}
                               disabled={actionLoading === m.group.id + "-leader"}
-                              style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "inherit", whiteSpace: "nowrap" }}
+                              style={{ flexShrink: 0, padding: "5px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-secondary)", fontFamily: "inherit", whiteSpace: "nowrap" }}
                               onMouseEnter={(e) => { e.currentTarget.style.background = "#F5F3FF"; e.currentTarget.style.borderColor = "#DDD6FE"; e.currentTarget.style.color = "#7C3AED"; }}
                               onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
                             >
                               {actionLoading === m.group.id + "-leader" ? "변경 중..." : "관리자로 지정"}
                             </button>
                           ) : (
-                            <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: "var(--text-primary)", color: "var(--surface)" }}>현재 관리자</span>
+                            <span style={{ flexShrink: 0, fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: "var(--text-primary)", color: "var(--surface)", whiteSpace: "nowrap" }}>현재 관리자</span>
                           )}
                         </div>
                       );
