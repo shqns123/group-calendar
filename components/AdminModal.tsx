@@ -128,7 +128,7 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ background: "var(--surface)", borderRadius: 14, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid var(--border)" }}>
+      <div style={{ background: "var(--surface)", borderRadius: 14, width: "100%", maxWidth: 560, height: "90vh", maxHeight: 700, display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", border: "1px solid var(--border)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Users style={{ width: 16, height: 16, color: "var(--accent)" }} />
@@ -153,54 +153,54 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
             const isExpanded = expandedUserId === u.id;
             return (
               <div key={u.id} style={{ borderRadius: 10, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#F5F3FF" : isSelf ? "var(--accent-light)" : "var(--surface)", overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: u.isOperator ? "#7C3AED" : isSelf ? "var(--accent)" : "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 10, padding: "10px 12px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: u.isOperator ? "#7C3AED" : isSelf ? "var(--accent)" : "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
                     <User style={{ width: 14, height: 14, color: u.isOperator || isSelf ? "white" : "var(--text-tertiary)" }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                      <p style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name || "이름 없음"}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginBottom: 2 }}>
+                      <p style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-primary)" }}>{u.name || "이름 없음"}</p>
                       {u.isOperator && <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "#7C3AED", color: "white" }}>운영자</span>}
                       {isSelf && <span style={{ fontSize: "0.65rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: "var(--accent)", color: "white" }}>나</span>}
                       {isGuest && <span style={{ fontSize: "0.65rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: "var(--surface-raised)", color: "var(--text-tertiary)" }}>Guest{u.employeeId ? ` #${u.employeeId}` : ""}</span>}
                     </div>
-                    <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", wordBreak: "break-all" }}>
                       {isGuest ? (u.employeeId ? `사번: ${u.employeeId}` : "게스트") : u.email}
                     </p>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    {u.groupMembers.length > 0 && (
-                      <button onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: isExpanded ? "var(--surface-raised)" : "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--text-tertiary)", fontFamily: "inherit" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = isExpanded ? "var(--surface-raised)" : "none")}
-                      >
-                        <ChevronDown style={{ width: 11, height: 11, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-                        그룹 {u.groupMembers.length}
-                      </button>
-                    )}
-                    {!isSelf && (
-                      <button onClick={() => handleToggleOperator(u.id, u.isOperator, u.name)}
-                        disabled={actionLoading === u.id + "-operator"}
-                        title={u.isOperator ? "운영자 권한 회수" : "운영자로 지정"}
-                        style={{ padding: "5px 6px", borderRadius: 6, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#EDE9FE" : "none", cursor: "pointer", color: u.isOperator ? "#7C3AED" : "var(--text-tertiary)", display: "flex" }}
-                        onMouseEnter={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "var(--surface-raised)"; } }}
-                        onMouseLeave={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "none"; } }}
-                      >
-                        <Crown style={{ width: 13, height: 13 }} />
-                      </button>
-                    )}
-                    {!isSelf && (
-                      <button onClick={() => handleDelete(u.id, u.name)}
-                        disabled={actionLoading === u.id + "-delete"}
-                        title="계정 삭제"
-                        style={{ padding: "5px 6px", borderRadius: 6, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", display: "flex" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#FECACA"; e.currentTarget.style.color = "#DC2626"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
-                      >
-                        <Trash2 style={{ width: 13, height: 13 }} />
-                      </button>
-                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      {u.groupMembers.length > 0 && (
+                        <button onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: isExpanded ? "var(--surface-raised)" : "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--text-tertiary)", fontFamily: "inherit" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-raised)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = isExpanded ? "var(--surface-raised)" : "none")}
+                        >
+                          <ChevronDown style={{ width: 11, height: 11, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                          그룹 {u.groupMembers.length}
+                        </button>
+                      )}
+                      {!isSelf && (
+                        <button onClick={() => handleToggleOperator(u.id, u.isOperator, u.name)}
+                          disabled={actionLoading === u.id + "-operator"}
+                          style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6, border: `1px solid ${u.isOperator ? "#DDD6FE" : "var(--border)"}`, background: u.isOperator ? "#EDE9FE" : "none", cursor: "pointer", color: u.isOperator ? "#7C3AED" : "var(--text-tertiary)", fontFamily: "inherit", fontSize: "0.72rem" }}
+                          onMouseEnter={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "var(--surface-raised)"; } }}
+                          onMouseLeave={(e) => { if (!u.isOperator) { e.currentTarget.style.background = "none"; } }}
+                        >
+                          <Crown style={{ width: 12, height: 12 }} />
+                          {u.isOperator ? "권한 회수" : "운영자 지정"}
+                        </button>
+                      )}
+                      {!isSelf && (
+                        <button onClick={() => handleDelete(u.id, u.name)}
+                          disabled={actionLoading === u.id + "-delete"}
+                          style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "none", cursor: "pointer", color: "var(--text-tertiary)", fontFamily: "inherit", fontSize: "0.72rem" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "#FEF2F2"; e.currentTarget.style.borderColor = "#FECACA"; e.currentTarget.style.color = "#DC2626"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+                        >
+                          <Trash2 style={{ width: 12, height: 12 }} />
+                          삭제
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
