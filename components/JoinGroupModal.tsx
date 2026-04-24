@@ -20,35 +20,42 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const [error, setError] = useState("");
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (!scanning) return;
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
+    startedRef.current = false;
+
     scanner.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 220, height: 220 } },
       (decoded) => {
         setInviteCode(decoded.trim());
-        stopScan();
+        setScanning(false);
         submitCode(decoded.trim());
       },
       () => {}
-    ).catch(() => {
+    ).then(() => {
+      startedRef.current = true;
+    }).catch(() => {
       setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
       setScanning(false);
+      scannerRef.current = null;
     });
+
     return () => {
-      scanner.stop().catch(() => {});
+      if (startedRef.current) {
+        scanner.stop().catch(() => {});
+      }
+      scannerRef.current = null;
+      startedRef.current = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanning]);
 
   const stopScan = () => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().catch(() => {});
-      scannerRef.current = null;
-    }
     setScanning(false);
   };
 
