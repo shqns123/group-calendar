@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { X, Users, ArrowRight, Clock, Camera, Keyboard } from "lucide-react";
-import { Html5Qrcode } from "html5-qrcode";
+import type { Html5Qrcode as Html5QrcodeType } from "html5-qrcode";
 
 type Props = {
   onClose: () => void;
@@ -19,35 +19,43 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [scanning, setScanning] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5QrcodeType | null>(null);
   const startedRef = useRef(false);
 
   useEffect(() => {
     if (!scanning) return;
-    const scanner = new Html5Qrcode("qr-reader");
-    scannerRef.current = scanner;
-    startedRef.current = false;
+    let cancelled = false;
 
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 220, height: 220 } },
-      (decoded) => {
-        setInviteCode(decoded.trim());
-        setScanning(false);
-        submitCode(decoded.trim());
-      },
-      () => {}
-    ).then(() => {
-      startedRef.current = true;
-    }).catch(() => {
-      setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
-      setScanning(false);
-      scannerRef.current = null;
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      if (cancelled) return;
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
+      startedRef.current = false;
+
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decoded) => {
+          setInviteCode(decoded.trim());
+          setScanning(false);
+          submitCode(decoded.trim());
+        },
+        () => {}
+      ).then(() => {
+        startedRef.current = true;
+      }).catch(() => {
+        if (!cancelled) {
+          setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
+          setScanning(false);
+        }
+        scannerRef.current = null;
+      });
     });
 
     return () => {
-      if (startedRef.current) {
-        scanner.stop().catch(() => {});
+      cancelled = true;
+      if (startedRef.current && scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
       }
       scannerRef.current = null;
       startedRef.current = false;
