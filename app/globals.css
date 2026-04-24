@@ -167,6 +167,10 @@ body {
 }
 
 /* ── 날짜 숫자 ── */
+.fc-daygrid-day-top {
+  position: relative !important;
+  z-index: 4 !important;
+}
 .fc-daygrid-day-number {
   font-size: 0.72rem !important;
   font-weight: 400 !important;
@@ -184,10 +188,6 @@ body {
 .fc-day-today {
   background-color: rgba(99,102,241,0.06) !important;
 }
-.fc-day-today .fc-daygrid-day-top {
-  position: relative !important;
-  z-index: 2 !important;
-}
 .fc-day-today .fc-daygrid-day-number {
   display: inline-flex !important;
   align-items: center !important;
@@ -200,8 +200,6 @@ body {
   font-weight: 800 !important;
   padding: 0 !important;
   margin: 3px 4px !important;
-  position: relative !important;
-  z-index: 2 !important;
 }
 
 /* ── 주말 / 공휴일 ── */
