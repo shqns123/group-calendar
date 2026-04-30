@@ -6,7 +6,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
-import { format, isToday } from "date-fns";
+import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Clock } from "lucide-react";
 import EventModal from "./EventModal";
@@ -52,7 +52,6 @@ type CustomHoliday = {
 
 type Props = {
   userId: string;
-  userName: string;
   group: Group | null;
   isLeader: boolean;
   customHolidays?: CustomHoliday[];
@@ -316,7 +315,6 @@ function TodayView({
 // ── 메인 컴포넌트 ──────────────────────────────────────
 export default function CalendarView({
   userId,
-  userName,
   group,
   isLeader,
   customHolidays = [],
@@ -347,7 +345,12 @@ export default function CalendarView({
     }
   }, [group]);
 
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchEvents();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchEvents]);
 
   // SSE 실시간 업데이트 + 탭 포커스 새로고침
   useEffect(() => {
@@ -363,12 +366,16 @@ export default function CalendarView({
   }, [group, fetchEvents]);
 
   useEffect(() => {
-    if (pendingEvent) {
+    if (!pendingEvent) return;
+
+    const timeoutId = window.setTimeout(() => {
       setSelectedEvent(pendingEvent);
       setSelectedDates(null);
       setShowModal(true);
       onPendingEventHandled?.();
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [pendingEvent, onPendingEventHandled]);
 
   const calendarEvents: EventInput[] = events
@@ -410,27 +417,37 @@ export default function CalendarView({
   }, [events]);
 
   useEffect(() => {
-    if (pendingDayDate) {
+    if (!pendingDayDate) return;
+
+    const timeoutId = window.setTimeout(() => {
       openDayPopup(pendingDayDate);
       onPendingDayDateHandled?.();
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [pendingDayDate, openDayPopup, onPendingDayDateHandled]);
 
   // 팝업이 열려있는 상태에서 events가 갱신되면 팝업 내용도 갱신 (닫지 않음)
   useEffect(() => {
-    setDayPopup((prev) => {
-      if (!prev) return null;
-      const s = new Date(prev.date); s.setHours(0, 0, 0, 0);
-      const e = new Date(prev.date); e.setHours(23, 59, 59, 999);
-      const updated = events
-        .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
-        .sort((a, b) => {
-          if (a.allDay && !b.allDay) return -1;
-          if (!a.allDay && b.allDay) return 1;
-          return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-        });
-      return { ...prev, events: updated };
-    });
+    const timeoutId = window.setTimeout(() => {
+      setDayPopup((prev) => {
+        if (!prev) return null;
+        const s = new Date(prev.date);
+        s.setHours(0, 0, 0, 0);
+        const e = new Date(prev.date);
+        e.setHours(23, 59, 59, 999);
+        const updated = events
+          .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+          .sort((a, b) => {
+            if (a.allDay && !b.allDay) return -1;
+            if (!a.allDay && b.allDay) return 1;
+            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+          });
+        return { ...prev, events: updated };
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [events]);
 
   const handleDateClick = (info: DateClickArg) => {
@@ -667,7 +684,6 @@ export default function CalendarView({
       {showModal && (
         <EventModal
           userId={userId}
-          userName={userName}
           group={group}
           isLeader={isLeader}
           event={selectedEvent}

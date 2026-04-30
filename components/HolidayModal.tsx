@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Trash2, CalendarX2, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -26,14 +26,19 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
   const [type, setType] = useState<"holiday" | "workday">("holiday");
   const [adding, setAdding] = useState(false);
 
-  const fetchHolidays = async () => {
+  const fetchHolidays = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/holidays");
     if (res.ok) setHolidays(await res.json());
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchHolidays(); }, []);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchHolidays();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchHolidays]);
 
   const handleAdd = async () => {
     if (!date) return;

@@ -858,7 +858,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
           ) : (
             <CalendarView
               userId={user.id}
-              userName={user.name || user.email?.split("@")[0] || ""}
               group={selectedGroup}
               isLeader={
                 selectedGroup?.leaderId === user.id ||
