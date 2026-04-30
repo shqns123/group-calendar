@@ -454,8 +454,22 @@ export default function CalendarView({
     openDayPopup(info.date);
   };
 
+  const getClickedSegmentDate = (info: EventClickArg): Date | null => {
+    const target = info.jsEvent.target;
+    if (!(target instanceof Element)) return null;
+
+    const dayCell = target.closest("[data-date]");
+    if (!dayCell) return null;
+
+    const clickedDate = dayCell.getAttribute("data-date");
+    if (!clickedDate) return null;
+
+    const parsed = new Date(clickedDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   const handleEventClick = (info: EventClickArg) => {
-    const date = info.event.start ?? new Date();
+    const date = getClickedSegmentDate(info) ?? info.event.start ?? new Date();
     openDayPopup(date);
   };
 
