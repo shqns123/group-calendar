@@ -4,7 +4,32 @@ import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { NextRequest } from "next/server";
 
-// 이벤트 수정
+async function resolveDefaultPersonnel(userId: string, groupId?: string | null) {
+  if (groupId) {
+    const member = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+      select: {
+        nickname: true,
+        user: { select: { name: true, email: true } },
+      },
+    });
+
+    return (
+      member?.nickname?.trim() ||
+      member?.user.name?.trim() ||
+      member?.user.email?.split("@")[0] ||
+      "\uC791\uC131\uC790"
+    );
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true },
+  });
+
+  return user?.name?.trim() || user?.email?.split("@")[0] || "\uC791\uC131\uC790";
+}
+
 export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/events/[eventId]">
@@ -20,7 +45,6 @@ export async function PATCH(
     return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 작성자, 관리자, 리더만 수정 가능
   let canEdit = event.creatorId === session.user.id;
   if (!canEdit && event.groupId) {
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
@@ -37,7 +61,19 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { title, description, startDate, endDate, allDay, color, isPrivate, overtimeAvailable, isOvertimeOnly, personnel } = body;
+  const {
+    title,
+    description,
+    startDate,
+    endDate,
+    allDay,
+    color,
+    isPrivate,
+    overtimeAvailable,
+    isOvertimeOnly,
+    personnel,
+  } = body;
+  const defaultPersonnel = await resolveDefaultPersonnel(event.creatorId, event.groupId);
 
   const updated = await prisma.event.update({
     where: { id: eventId },
@@ -51,7 +87,7 @@ export async function PATCH(
       ...(isPrivate !== undefined && { isPrivate }),
       ...(overtimeAvailable !== undefined && { overtimeAvailable }),
       ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
-      ...(personnel !== undefined && { personnel: personnel?.trim() || null }),
+      ...(personnel !== undefined && { personnel: personnel?.trim() || defaultPersonnel }),
     },
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },
@@ -62,7 +98,6 @@ export async function PATCH(
   return Response.json(updated);
 }
 
-// 이벤트 삭제
 export async function DELETE(
   _req: NextRequest,
   ctx: RouteContext<"/api/events/[eventId]">
