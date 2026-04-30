@@ -56,8 +56,6 @@ const UI = {
   personnelPlaceholder: "\uC778\uC6D0 (\uBBF8\uC120\uD0DD\uC2DC : \uC791\uC131\uC790)",
   selectedSuffix: "\uBA85 \uC120\uD0DD",
   defaultSuffix: "\uAE30\uBCF8\uAC12",
-  uncheckedPrefix: "\uBBF8\uCCB4\uD06C \uC2DC ",
-  uncheckedSuffix: "\uB85C \uC800\uC7A5\uB429\uB2C8\uB2E4.",
   defaultPersonnelPrefix: "\uC778\uC6D0 \uAE30\uBCF8\uAC12: ",
   start: "\uC2DC\uC791",
   end: "\uC885\uB8CC",
@@ -398,11 +396,6 @@ export default function EventModal({
                           </label>
                         );
                       })}
-                    </div>
-                    <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
-                      {UI.uncheckedPrefix}
-                      {creatorLabel}
-                      {UI.uncheckedSuffix}
                     </div>
                   </div>
                 )}
