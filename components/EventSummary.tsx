@@ -349,9 +349,10 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                           <span
                             style={{
                               fontSize: "0.65rem",
-                              background: "var(--surface-raised)",
-                              color: "var(--text-secondary)",
-                              padding: "1px 6px",
+                              fontWeight: 600,
+                              background: event.color + "20",
+                              color: event.color,
+                              padding: "2px 8px",
                               borderRadius: 10,
                               letterSpacing: "-0.01em",
                             }}
