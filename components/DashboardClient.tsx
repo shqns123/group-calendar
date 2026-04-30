@@ -127,8 +127,10 @@ export function DashboardClient({ user, initialGroups }: Props) {
   // 운영자 대기 유저 폴링
   const fetchPendingUsers = useCallback(async () => {
     if (!user.isOperator) return;
-    const res = await fetch("/api/admin/pending");
-    if (res.ok) setPendingUsers(await res.json());
+    try {
+      const res = await fetch("/api/admin/pending");
+      if (res.ok) setPendingUsers(await res.json());
+    } catch { /* 네트워크 오류 무시 */ }
   }, [user.isOperator]);
 
   useEffect(() => {
@@ -268,11 +270,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
       t -= 1;
       setInviteTimeLeft(t);
       if (t <= 0) {
-        const res = await fetch(`/api/groups/${selectedGroup.id}/invite`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        if (res.ok) await refreshGroups();
+        try {
+          const res = await fetch(`/api/groups/${selectedGroup.id}/invite`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (res.ok) await refreshGroups();
+        } catch { /* 네트워크 오류 무시 */ }
         t = 180;
         setInviteTimeLeft(180);
       }

@@ -8,7 +8,7 @@ import type { EventInput, EventClickArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { format, isToday } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, User } from "lucide-react";
+import { Clock } from "lucide-react";
 import EventModal from "./EventModal";
 import DayEventsModal from "./DayEventsModal";
 
@@ -288,20 +288,20 @@ function TodayView({
                       {event.description}
                     </p>
                   )}
+
+                  {/* 설명 끝 */}
                 </div>
 
-                {/* 인원 */}
-                {group && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <User style={{ width: 11, height: 11, color: "var(--text-tertiary)" }} />
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>{event.personnel || memberName}</span>
+                {/* 인원 태그 */}
+                {group && !isHidden && (
+                  <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                    <span style={{
+                      fontSize: "0.68rem", fontWeight: 600,
+                      background: event.color + "20", color: event.color,
+                      padding: "2px 8px", borderRadius: 10,
+                    }}>
+                      {event.personnel || memberName}
+                    </span>
                   </div>
                 )}
               </button>
