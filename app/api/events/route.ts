@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { isLeaderRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { rateLimit } from "@/lib/rateLimit";
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     const isAdmin = group?.leaderId === session.user.id;
-    const isLeader = isAdmin || member?.role === "그룹장" || member?.role === "파트장";
+    const isLeader = isAdmin || (member?.status === "ACTIVE" && isLeaderRole(member.role));
 
     if (!isAdmin && (!member || member.status !== "ACTIVE")) {
       return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
@@ -120,8 +121,9 @@ export async function POST(request: NextRequest) {
   if (groupId) {
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId: session.user.id } },
+      select: { status: true },
     });
-    if (!member) {
+    if (member?.status !== "ACTIVE") {
       return Response.json({ error: "그룹 멤버가 아닙니다" }, { status: 403 });
     }
   }

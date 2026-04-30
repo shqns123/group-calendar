@@ -14,8 +14,11 @@ export async function PATCH(req: Request) {
   // newLeaderId must be an active member of the group
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: newLeaderId } },
+    select: { status: true },
   });
-  if (!member) return Response.json({ error: "해당 유저는 그룹 멤버가 아닙니다" }, { status: 400 });
+  if (member?.status !== "ACTIVE") {
+    return Response.json({ error: "해당 유저는 활성 멤버가 아닙니다" }, { status: 400 });
+  }
 
   await prisma.group.update({ where: { id: groupId }, data: { leaderId: newLeaderId } });
   return Response.json({ ok: true });

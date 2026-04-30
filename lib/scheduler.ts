@@ -2,7 +2,12 @@ import cron from "node-cron";
 import { prisma } from "./prisma";
 import { sendPushToUser } from "./webpush";
 
+let schedulerStarted = false;
+
 export function startScheduler() {
+  if (schedulerStarted) return;
+  schedulerStarted = true;
+
   // 매 분마다 체크
   cron.schedule("* * * * *", async () => {
     const now = new Date();

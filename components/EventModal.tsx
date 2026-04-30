@@ -36,7 +36,6 @@ type CalEvent = {
 
 type Props = {
   userId: string;
-  userName: string;
   group: Group | null;
   isLeader: boolean;
   event: CalEvent | null;
@@ -60,11 +59,6 @@ const COLORS = [
   "#06B6D4", // 하늘
 ];
 
-function toDateTimeLocal(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 function toDateLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -72,7 +66,6 @@ function toDateLocal(date: Date): string {
 
 export default function EventModal({
   userId,
-  userName,
   group,
   isLeader,
   event,
@@ -96,7 +89,7 @@ export default function EventModal({
   const [endDate, setEndDate] = useState(toDateLocal(defaultEnd));
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
-  const [overtimeAvailable, setOvertimeAvailable] = useState(event?.overtimeAvailable ?? false);
+  const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [personnel, setPersonnel] = useState(event?.personnel ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Trash2, Bell, ToggleLeft, ToggleRight, Pencil, Send, Check } from "lucide-react";
 
 type Schedule = {
@@ -49,14 +49,19 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
   const [notifySending, setNotifySending] = useState(false);
   const [notifyResult, setNotifyResult] = useState<string | null>(null);
 
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/admin/schedules?groupId=${groupId}`);
     if (res.ok) setSchedules(await res.json());
     setLoading(false);
-  };
+  }, [groupId]);
 
-  useEffect(() => { fetchSchedules(); }, [groupId]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchSchedules();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchSchedules]);
 
   const handleAdd = async () => {
     if (!message.trim() || selectedDays.length === 0) return;
@@ -74,7 +79,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
     });
     setAdding(false);
     setMessage("");
-    fetchSchedules();
+    void fetchSchedules();
   };
 
   const handleToggle = async (id: string, active: boolean) => {
@@ -83,7 +88,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, active: !active }),
     });
-    fetchSchedules();
+    void fetchSchedules();
   };
 
   const handleDelete = async (id: string) => {
@@ -92,7 +97,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    fetchSchedules();
+    void fetchSchedules();
   };
 
   const startEdit = (s: Schedule) => {
@@ -121,7 +126,7 @@ export default function ScheduleModal({ groupId, groupName, onClose }: Props) {
     });
     setSaving(false);
     setEditing(null);
-    fetchSchedules();
+    void fetchSchedules();
   };
 
   const handleInstantNotify = async () => {
