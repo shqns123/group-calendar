@@ -628,8 +628,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           style={{
             background: "var(--surface)",
             borderBottom: "1px solid var(--border)",
-            padding: "0 16px",
-            height: 52,
+            padding: "12px 16px",
             display: "flex",
             alignItems: "center",
             gap: 10,

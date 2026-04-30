@@ -256,20 +256,6 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   }}>
                     특근
                   </p>
-                  <p style={{
-                    fontSize: "0.68rem", marginTop: 1,
-                    color: effectiveStatus === 'available'
-                      ? "var(--accent)"
-                      : effectiveStatus === 'unavailable'
-                      ? "#EF4444"
-                      : "var(--text-tertiary)",
-                  }}>
-                    {effectiveStatus === 'available'
-                      ? "이 날 특근 가능으로 표시됨"
-                      : effectiveStatus === 'unavailable'
-                      ? "이 날 특근 불가능으로 표시됨"
-                      : "특근 가능 여부를 알려주세요"}
-                  </p>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>

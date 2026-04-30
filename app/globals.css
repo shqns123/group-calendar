@@ -232,6 +232,8 @@ body {
 /* ── 그리드 선 ── */
 .fc-scrollgrid {
   border-color: var(--border) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
 }
 .fc td, .fc th {
   border-color: var(--border-subtle) !important;
