@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventInput, EventClickArg } from "@fullcalendar/core";
+import type { EventInput, EventClickArg, DatesSetArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Search } from "lucide-react";
 import EventModal from "./EventModal";
 import DayEventsModal from "./DayEventsModal";
 
@@ -330,6 +330,9 @@ export default function CalendarView({
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
   const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
+  const [currentMonthLabel, setCurrentMonthLabel] = useState(() =>
+    format(new Date(), "yyyy년 M월", { locale: ko })
+  );
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -509,27 +512,52 @@ export default function CalendarView({
     onEventSaved?.();
   };
 
-  const tabBtn = (mode: "month" | "today", label: string) => (
-    <button
-      onClick={() => setViewMode(viewMode === mode ? "month" : mode)}
-      style={{
-        padding: "5px 12px",
-        borderRadius: 6,
-        border: "1px solid",
-        borderColor: viewMode === mode ? "var(--accent)" : "var(--border)",
-        background: viewMode === mode ? "var(--accent-light)" : "transparent",
-        color: viewMode === mode ? "var(--accent)" : "var(--text-secondary)",
-        fontSize: "0.75rem",
-        fontWeight: viewMode === mode ? 700 : 400,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        letterSpacing: "-0.01em",
-        transition: "all 0.15s ease",
-      }}
-    >
-      {label}
-    </button>
-  );
+  const handleSummaryToggle = () => {
+    setViewMode((current) => (current === "today" ? "month" : "today"));
+  };
+
+  const handlePrevMonth = () => {
+    calendarWrapRef.current?.classList.add("fc-swipe-prev");
+    calendarRef.current?.getApi().prev();
+    setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-prev"), 350);
+  };
+
+  const handleNextMonth = () => {
+    calendarWrapRef.current?.classList.add("fc-swipe-next");
+    calendarRef.current?.getApi().next();
+    setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-next"), 350);
+  };
+
+  const handleTodayClick = () => {
+    if (viewMode === "today") {
+      setViewMode("month");
+    }
+    requestAnimationFrame(() => {
+      calendarRef.current?.getApi().today();
+    });
+  };
+
+  const handleDatesSet = (arg: DatesSetArg) => {
+    setCurrentMonthLabel(format(arg.view.currentStart, "yyyy년 M월", { locale: ko }));
+  };
+
+  const toolbarButtonStyle: CSSProperties = {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text-secondary)",
+    borderRadius: 7,
+    fontSize: "0.78rem",
+    fontWeight: 500,
+    padding: 0,
+    boxShadow: "none",
+    transition: "all 0.12s ease",
+    fontFamily: "inherit",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    height: 30,
+  };
 
   return (
     <div
@@ -548,12 +576,78 @@ export default function CalendarView({
       <div
         style={{
           display: "flex",
+          alignItems: "center",
           gap: 6,
-          padding: "10px 14px 0",
+          padding: "12px 16px 0",
           flexShrink: 0,
         }}
       >
-        {tabBtn("today", "Summary")}
+        <button
+          type="button"
+          onClick={handleSummaryToggle}
+          title="Summary"
+          style={{
+            ...toolbarButtonStyle,
+            width: 30,
+            borderColor: viewMode === "today" ? "var(--accent)" : "var(--border)",
+            background: viewMode === "today" ? "var(--accent-light)" : "var(--surface)",
+            color: viewMode === "today" ? "var(--accent)" : "var(--text-secondary)",
+          }}
+        >
+          <Search style={{ width: 14, height: 14 }} />
+        </button>
+
+        {viewMode === "month" && (
+          <>
+            <div style={{ width: 1, height: 18, background: "var(--border)", flexShrink: 0 }} />
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <button type="button" onClick={handlePrevMonth} title="이전 달" style={{ ...toolbarButtonStyle, width: 30 }}>
+                <ChevronLeft style={{ width: 14, height: 14 }} />
+              </button>
+              <div
+                style={{
+                  minWidth: 0,
+                  flex: 1,
+                  textAlign: "center",
+                  fontSize: "0.925rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  color: "var(--text-primary)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {currentMonthLabel}
+              </div>
+              <button type="button" onClick={handleNextMonth} title="다음 달" style={{ ...toolbarButtonStyle, width: 30 }}>
+                <ChevronRight style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+            <div style={{ width: 1, height: 18, background: "var(--border)", flexShrink: 0 }} />
+            <button
+              type="button"
+              onClick={handleTodayClick}
+              style={{
+                ...toolbarButtonStyle,
+                padding: "0 10px",
+                fontWeight: 700,
+                color: "var(--accent)",
+                background: "var(--accent-light)",
+                borderColor: "var(--accent-light)",
+              }}
+            >
+              Today
+            </button>
+          </>
+        )}
       </div>
 
       {/* 뷰 영역 */}
@@ -579,35 +673,9 @@ export default function CalendarView({
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
-            headerToolbar={{
-              left: "prev",
-              center: "title",
-              right: "next sep today",
-            }}
-            buttonText={{ today: "Today" }}
+            headerToolbar={false}
             locale="ko"
-            customButtons={{
-              prev: {
-                icon: "chevron-left",
-                click: () => {
-                  calendarWrapRef.current?.classList.add("fc-swipe-prev");
-                  calendarRef.current?.getApi().prev();
-                  setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-prev"), 350);
-                },
-              },
-              next: {
-                icon: "chevron-right",
-                click: () => {
-                  calendarWrapRef.current?.classList.add("fc-swipe-next");
-                  calendarRef.current?.getApi().next();
-                  setTimeout(() => calendarWrapRef.current?.classList.remove("fc-swipe-next"), 350);
-                },
-              },
-              sep: {
-                text: "",
-                click: () => {},
-              },
-            }}
+            datesSet={handleDatesSet}
             dayHeaderContent={(arg) => {
               const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
               return DAYS[arg.date.getDay()];
