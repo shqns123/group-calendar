@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Lock, Globe, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -45,23 +45,76 @@ type Props = {
   onClose: () => void;
 };
 
-// 10가지 색상
+const UI = {
+  author: "\uC791\uC131\uC790",
+  detail: "\uC77C\uC815 \uC0C1\uC138",
+  edit: "\uC77C\uC815 \uC218\uC815",
+  create: "\uC77C\uC815 \uCD94\uAC00",
+  title: "\uC81C\uBAA9",
+  description: "\uC124\uBA85 (\uC120\uD0DD)",
+  personnel: "\uC778\uC6D0 \uC120\uD0DD",
+  personnelPlaceholder: "\uC778\uC6D0 (\uBBF8\uC120\uD0DD\uC2DC : \uC791\uC131\uC790)",
+  selectedSuffix: "\uBA85 \uC120\uD0DD",
+  defaultSuffix: "\uAE30\uBCF8\uAC12",
+  uncheckedPrefix: "\uBBF8\uCCB4\uD06C \uC2DC ",
+  uncheckedSuffix: "\uB85C \uC800\uC7A5\uB429\uB2C8\uB2E4.",
+  defaultPersonnelPrefix: "\uC778\uC6D0 \uAE30\uBCF8\uAC12: ",
+  start: "\uC2DC\uC791",
+  end: "\uC885\uB8CC",
+  color: "\uC0C9\uC0C1",
+  privateOnly: "\uB098\uB9CC \uBCF4\uAE30",
+  groupPublic: "\uADF8\uB8F9 \uACF5\uAC1C",
+  privateHint: "\uB9AC\uB354\uC5D0\uAC8C\uB9CC \uBCF4\uC785\uB2C8\uB2E4.",
+  publicHint: "\uADF8\uB8F9\uC6D0 \uBAA8\uB450\uC5D0\uAC8C \uBCF4\uC785\uB2C8\uB2E4.",
+  saveFailed: "\uC800\uC7A5\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+  networkFailed: "\uB124\uD2B8\uC6CC\uD06C \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.",
+  titleRequired: "\uC81C\uBAA9\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694.",
+  endBeforeStart: "\uC885\uB8CC \uB0A0\uC9DC\uB294 \uC2DC\uC791 \uB0A0\uC9DC\uBCF4\uB2E4 \uBE60\uB97C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  overtimeAvailable: "\uC5F0\uC7A5 \uAC00\uB2A5",
+  confirmDelete: "\uC815\uB9D0 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
+  deleteFailed: "\uC0AD\uC81C\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
+  createdBy: "\uC791\uC131\uC790: ",
+  cancel: "\uCDE8\uC18C",
+  delete: "\uC0AD\uC81C",
+  save: "\uC800\uC7A5",
+  saving: "\uC800\uC7A5 \uC911...",
+  editSave: "\uC218\uC815",
+  noName: "\uC774\uB984 \uC5C6\uC74C",
+} as const;
+
 const COLORS = [
-  "#3B82F6", // 파랑
-  "#6366F1", // 인디고
-  "#8B5CF6", // 보라
-  "#EC4899", // 핑크
-  "#EF4444", // 빨강
-  "#F97316", // 주황
-  "#F59E0B", // 노랑
-  "#10B981", // 초록
-  "#14B8A6", // 청록
-  "#06B6D4", // 하늘
+  "#3B82F6",
+  "#6366F1",
+  "#8B5CF6",
+  "#EC4899",
+  "#EF4444",
+  "#F97316",
+  "#F59E0B",
+  "#10B981",
+  "#14B8A6",
+  "#06B6D4",
 ];
 
 function toDateLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getDisplayName(
+  group: Group | null,
+  userId: string,
+  fallbackName?: string | null,
+  fallbackEmail?: string | null
+) {
+  const groupMember = group?.members.find((member) => member.userId === userId);
+
+  return (
+    groupMember?.nickname?.trim() ||
+    groupMember?.user.name?.trim() ||
+    fallbackName?.trim() ||
+    fallbackEmail?.split("@")[0] ||
+    UI.author
+  );
 }
 
 export default function EventModal({
@@ -76,8 +129,8 @@ export default function EventModal({
 }: Props) {
   const isEdit = !!event;
   const canEdit = !event || event.creatorId === userId || isLeader;
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 기본값: 오늘 날짜
   const now = new Date();
   const defaultStart = initialDates?.start ?? (event ? new Date(event.startDate) : now);
   const defaultEnd = initialDates?.end ?? (event ? new Date(event.endDate) : now);
@@ -90,11 +143,58 @@ export default function EventModal({
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [isPrivate, setIsPrivate] = useState(event?.isPrivate ?? false);
   const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
-  const [personnel, setPersonnel] = useState(event?.personnel ?? "");
+  const [personnelOpen, setPersonnelOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 시작 날짜 변경 → 종료가 시작보다 이전이면 종료도 같이 조정
+  const creatorLabel = useMemo(
+    () =>
+      getDisplayName(
+        group,
+        event?.creatorId ?? userId,
+        event?.creator.name,
+        event?.creator.email
+      ),
+    [event, group, userId]
+  );
+
+  const memberOptions = useMemo(
+    () =>
+      (group?.members ?? []).map((member) => ({
+        id: member.id,
+        label: member.nickname?.trim() || member.user.name?.trim() || UI.noName,
+      })),
+    [group]
+  );
+
+  const [selectedPersonnel, setSelectedPersonnel] = useState<string[]>(() => {
+    if (!event?.personnel || !group) return [];
+
+    const allowedLabels = new Set(
+      group.members.map(
+        (member) => member.nickname?.trim() || member.user.name?.trim() || UI.noName
+      )
+    );
+
+    return event.personnel
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value && allowedLabels.has(value));
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (mouseEvent: MouseEvent) => {
+      if (!dropdownRef.current?.contains(mouseEvent.target as Node)) {
+        setPersonnelOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const personnelValue = selectedPersonnel.length > 0 ? selectedPersonnel.join(", ") : "";
+
   const handleStartDateChange = (value: string) => {
     setStartDate(value);
     if (value && endDate && new Date(value) > new Date(endDate)) {
@@ -103,25 +203,32 @@ export default function EventModal({
     setError("");
   };
 
-  // 종료 날짜 변경 → 시작보다 이전이면 오류
   const handleEndDateChange = (value: string) => {
     setEndDate(value);
     if (value && startDate && new Date(value) < new Date(startDate)) {
-      setError("종료 날짜는 시작 날짜보다 이후여야 합니다");
+      setError(UI.endBeforeStart);
     } else {
       setError("");
     }
   };
 
+  const togglePersonnel = (label: string) => {
+    setSelectedPersonnel((current) =>
+      current.includes(label)
+        ? current.filter((value) => value !== label)
+        : [...current, label]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalTitle = title.trim() || (overtimeAvailable ? "특근 가능" : "");
+    const finalTitle = title.trim() || (overtimeAvailable ? UI.overtimeAvailable : "");
     if (!finalTitle) {
-      setError("제목을 입력해주세요");
+      setError(UI.titleRequired);
       return;
     }
     if (new Date(endDate) < new Date(startDate)) {
-      setError("종료 날짜는 시작 날짜보다 이후여야 합니다");
+      setError(UI.endBeforeStart);
       return;
     }
     setLoading(true);
@@ -138,7 +245,7 @@ export default function EventModal({
       isPrivate,
       overtimeAvailable,
       isOvertimeOnly: finalIsOvertimeOnly,
-      personnel: personnel.trim() || null,
+      personnel: personnelValue,
       groupId: group?.id ?? null,
     };
 
@@ -157,19 +264,19 @@ export default function EventModal({
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "저장에 실패했습니다");
+        setError(data.error || UI.saveFailed);
         return;
       }
       onSaved();
     } catch {
-      setError("네트워크 오류가 발생했습니다");
+      setError(UI.networkFailed);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!event || !confirm("정말 삭제하시겠습니까?")) return;
+    if (!event || !confirm(UI.confirmDelete)) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
@@ -177,48 +284,48 @@ export default function EventModal({
         onDeleted();
       } else {
         const data = await res.json();
-        setError(data.error || "삭제에 실패했습니다");
+        setError(data.error || UI.deleteFailed);
       }
     } catch {
-      setError("네트워크 오류가 발생했습니다");
+      setError(UI.networkFailed);
     } finally {
       setLoading(false);
     }
   };
 
-  // 읽기 전용 뷰
   if (isEdit && !canEdit) {
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-          <div className="flex items-center justify-between p-6 border-b border-slate-100">
-            <h3 className="text-lg font-semibold text-slate-800">일정 상세</h3>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <h3 className="text-lg font-semibold text-slate-800">{UI.detail}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="space-y-4 p-6">
             <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: event.color }} />
+              <div className="h-4 w-4 rounded-full" style={{ backgroundColor: event.color }} />
               <h4 className="text-xl font-semibold text-slate-800">{event.title}</h4>
-              {event.isPrivate && <Lock className="w-4 h-4 text-slate-400" />}
+              {event.isPrivate && <Lock className="h-4 w-4 text-slate-400" />}
             </div>
-            {event.description && (
-              <p className="text-slate-600 text-sm">{event.description}</p>
-            )}
+            {event.description && <p className="text-sm text-slate-600">{event.description}</p>}
             <div className="flex items-center gap-2 text-sm text-slate-500">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="h-4 w-4" />
               <span>
-                {format(new Date(event.startDate), event.allDay ? "yyyy년 MM월 dd일" : "yyyy년 MM월 dd일 HH:mm", { locale: ko })}
-                {!event.allDay && " ~ " + format(new Date(event.endDate), "HH:mm", { locale: ko })}
+                {format(
+                  new Date(event.startDate),
+                  event.allDay ? "yyyy\uB144 MM\uC6D4 dd\uC77C" : "yyyy\uB144 MM\uC6D4 dd\uC77C HH:mm",
+                  { locale: ko }
+                )}
+                {!event.allDay &&
+                  ` ~ ${format(new Date(event.endDate), "HH:mm", { locale: ko })}`}
               </span>
             </div>
             {group && (
               <p className="text-xs text-slate-400">
-                작성자: {
-                  group.members.find(m => m.userId === event.creatorId)?.nickname ||
-                  event.creator.name
-                }
+                {UI.createdBy}
+                {getDisplayName(group, event.creatorId, event.creator.name, event.creator.email)}
               </p>
             )}
           </div>
@@ -228,144 +335,186 @@ export default function EventModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="modal-scale-in bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="modal-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 p-6">
           <h3 className="text-lg font-semibold text-slate-800">
-            {isEdit ? "일정 수정" : "새 일정"}
+            {isEdit ? UI.edit : UI.create}
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* 제목 */}
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="제목"
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium"
+            placeholder={UI.title}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-medium text-slate-800 placeholder-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
           />
 
-          {/* 설명 + 인원 */}
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="설명 (선택)"
+              placeholder={UI.description}
               rows={2}
-              className="w-full sm:flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
-              type="text"
-              value={personnel}
-              onChange={(e) => setPersonnel(e.target.value)}
-              placeholder="인원 (기본값: 작성자)"
-              className="w-full sm:flex-1 px-3 py-3 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            />
+
+            {group ? (
+              <div ref={dropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setPersonnelOpen((current) => !current)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-left text-sm text-slate-800 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <p className={`truncate ${personnelValue ? "text-slate-800" : "text-slate-400"}`}>
+                    {personnelValue || UI.personnelPlaceholder}
+                  </p>
+                </button>
+
+                {personnelOpen && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <div className="max-h-56 overflow-y-auto py-2">
+                      {memberOptions.map((member) => {
+                        const checked = selectedPersonnel.includes(member.label);
+
+                        return (
+                          <label
+                            key={member.id}
+                            className="flex cursor-pointer items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => togglePersonnel(member.label)}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="truncate">{member.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+                      {UI.uncheckedPrefix}
+                      {creatorLabel}
+                      {UI.uncheckedSuffix}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                {UI.defaultPersonnelPrefix}
+                {creatorLabel}
+              </div>
+            )}
           </div>
 
-          {/* 날짜 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-slate-500 font-medium mb-1 block">시작</label>
+              <label className="mb-1 block text-xs font-medium text-slate-500">{UI.start}</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 font-medium mb-1 block">종료</label>
+              <label className="mb-1 block text-xs font-medium text-slate-500">{UI.end}</label>
               <input
                 type="date"
                 value={endDate}
                 min={startDate}
                 onChange={(e) => handleEndDateChange(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  error.includes("종료") ? "border-red-400 bg-red-50" : "border-slate-200"
+                className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  error.includes(UI.end) ? "border-red-400 bg-red-50" : "border-slate-200"
                 }`}
               />
             </div>
           </div>
 
-          {/* 색상 (10가지) - 전체 너비 균등 분배 */}
           <div>
-            <label className="text-xs text-slate-500 font-medium mb-2 block">색상</label>
-            <div className="grid grid-cols-10 gap-1.5 w-full">
-              {COLORS.map((c) => (
+            <label className="mb-2 block text-xs font-medium text-slate-500">{UI.color}</label>
+            <div className="grid w-full grid-cols-10 gap-1.5">
+              {COLORS.map((itemColor) => (
                 <button
-                  key={c}
+                  key={itemColor}
                   type="button"
-                  onClick={() => setColor(c)}
+                  onClick={() => setColor(itemColor)}
                   className={`aspect-square w-full rounded-full transition-transform ${
-                    color === c ? "scale-110 ring-2 ring-offset-1 ring-slate-400" : "hover:scale-105"
+                    color === itemColor
+                      ? "scale-110 ring-2 ring-slate-400 ring-offset-1"
+                      : "hover:scale-105"
                   }`}
-                  style={{ backgroundColor: c }}
+                  style={{ backgroundColor: itemColor }}
                 />
               ))}
             </div>
           </div>
 
-          {/* 공개/비공개 */}
           {group && (
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
               <button
                 type="button"
                 onClick={() => setIsPrivate(!isPrivate)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                   isPrivate ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
                 }`}
               >
                 {isPrivate ? (
-                  <><Lock className="w-3.5 h-3.5" />나만 보기</>
+                  <>
+                    <Lock className="h-3.5 w-3.5" />
+                    {UI.privateOnly}
+                  </>
                 ) : (
-                  <><Globe className="w-3.5 h-3.5" />그룹 공개</>
+                  <>
+                    <Globe className="h-3.5 w-3.5" />
+                    {UI.groupPublic}
+                  </>
                 )}
               </button>
               <span className="text-xs text-slate-400">
-                {isPrivate ? "리더에게도 보임" : "그룹원 모두에게 보임"}
+                {isPrivate ? UI.privateHint : UI.publicHint}
               </span>
             </div>
           )}
 
-
           {error && (
-            <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>
           )}
 
-          {/* 버튼 */}
           <div className="flex gap-3 pt-2">
             {isEdit && (
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium"
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50"
               >
-                <Trash2 className="w-4 h-4" />
-                삭제
+                <Trash2 className="h-4 w-4" />
+                {UI.delete}
               </button>
             )}
             <div className="flex-1" />
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm font-medium"
+              className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
             >
-              취소
+              {UI.cancel}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors text-sm font-semibold disabled:opacity-50"
+              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? "저장 중..." : isEdit ? "수정" : "저장"}
+              {loading ? UI.saving : isEdit ? UI.editSave : UI.save}
             </button>
           </div>
         </form>
