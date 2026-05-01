@@ -70,7 +70,6 @@ export async function GET(request: NextRequest) {
       where: {
         groupId,
         ...dateFilter,
-        OR: isLeader ? undefined : [{ isPrivate: false }, { creatorId: session.user.id }],
       },
       include: {
         creator: { select: { id: true, name: true, email: true, image: true } },
@@ -122,11 +121,11 @@ export async function POST(request: NextRequest) {
     endDate,
     allDay,
     color,
-    isPrivate,
     overtimeAvailable,
     isOvertimeOnly,
     groupId,
     personnel,
+    equipment,
   } = body;
 
   if (!title?.trim()) {
@@ -157,21 +156,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const eventData = {
+    title: title.trim(),
+    description: description?.trim(),
+    startDate: new Date(startDate),
+    endDate: new Date(endDate),
+    allDay: allDay ?? false,
+    color: color ?? "#3B82F6",
+    overtimeAvailable: overtimeAvailable ?? false,
+    isOvertimeOnly: isOvertimeOnly ?? false,
+    personnel: personnel?.trim() || defaultPersonnel,
+    equipment: equipment?.trim() || null,
+    creatorId: session.user.id,
+    groupId: groupId || null,
+  };
+
   const event = await prisma.event.create({
-    data: {
-      title: title.trim(),
-      description: description?.trim(),
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      allDay: allDay ?? false,
-      color: color ?? "#3B82F6",
-      isPrivate: isPrivate ?? false,
-      overtimeAvailable: overtimeAvailable ?? false,
-      isOvertimeOnly: isOvertimeOnly ?? false,
-      personnel: personnel?.trim() || defaultPersonnel,
-      creatorId: session.user.id,
-      groupId: groupId || null,
-    },
+    data: eventData as never,
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },
     },

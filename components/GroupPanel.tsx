@@ -19,6 +19,9 @@ type Group = {
   name: string;
   description: string | null;
   inviteCode: string;
+  trackerOptions?: string | null;
+  laptopOptions?: string | null;
+  targetCount?: number;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Member[];
@@ -70,6 +73,9 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState(group.name);
   const [groupDescInput, setGroupDescInput] = useState(group.description ?? "");
+  const [trackerOptionsInput, setTrackerOptionsInput] = useState(group.trackerOptions ?? "");
+  const [laptopOptionsInput, setLaptopOptionsInput] = useState(group.laptopOptions ?? "");
+  const [targetCountInput, setTargetCountInput] = useState(String(group.targetCount ?? 2));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
   const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
@@ -85,7 +91,13 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
       const res = await fetch(`/api/groups/${group.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: groupNameInput.trim(), description: groupDescInput.trim() }),
+        body: JSON.stringify({
+          name: groupNameInput.trim(),
+          description: groupDescInput.trim(),
+          trackerOptions: trackerOptionsInput,
+          laptopOptions: laptopOptionsInput,
+          targetCount: Number(targetCountInput) || 0,
+        }),
       });
       if (res.ok) {
         await onUpdated();
@@ -299,7 +311,14 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
               <span style={labelStyle}>그룹 정보</span>
               {isAdmin && !editingGroupName && (
                 <button
-                  onClick={() => { setGroupNameInput(group.name); setGroupDescInput(group.description ?? ""); setEditingGroupName(true); }}
+                  onClick={() => {
+                    setGroupNameInput(group.name);
+                    setGroupDescInput(group.description ?? "");
+                    setTrackerOptionsInput(group.trackerOptions ?? "");
+                    setLaptopOptionsInput(group.laptopOptions ?? "");
+                    setTargetCountInput(String(group.targetCount ?? 2));
+                    setEditingGroupName(true);
+                  }}
                   style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--accent)", fontWeight: 500, fontFamily: "inherit" }}
                 >
                   수정
@@ -330,6 +349,35 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                     onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
                     onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                   />
+                  <textarea
+                    value={trackerOptionsInput}
+                    onChange={(e) => setTrackerOptionsInput(e.target.value)}
+                    placeholder="트래커 목록을 줄바꿈이나 쉼표로 입력"
+                    rows={3}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)", resize: "vertical" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                  />
+                  <textarea
+                    value={laptopOptionsInput}
+                    onChange={(e) => setLaptopOptionsInput(e.target.value)}
+                    placeholder="노트북 목록을 줄바꿈이나 쉼표로 입력"
+                    rows={3}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)", resize: "vertical" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={targetCountInput}
+                    onChange={(e) => setTargetCountInput(e.target.value)}
+                    placeholder="타겟 개수"
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)" }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                  />
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setEditingGroupName(false)} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "1px solid var(--border)", borderRadius: 6, background: "none", cursor: "pointer", fontFamily: "inherit", color: "var(--text-secondary)" }}>취소</button>
                     <button onClick={saveGroupInfo} disabled={loading || !groupNameInput.trim()} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "none", borderRadius: 6, background: "var(--text-primary)", color: "white", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
@@ -341,6 +389,26 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                 <div>
                   <p style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{group.name}</p>
                   {group.description && <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 2 }}>{group.description}</p>}
+                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                    <div>
+                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>트래커</p>
+                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "pre-wrap" }}>
+                        {group.trackerOptions?.trim() || "설정된 항목 없음"}
+                      </p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>노트북</p>
+                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "pre-wrap" }}>
+                        {group.laptopOptions?.trim() || "설정된 항목 없음"}
+                      </p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>타겟 개수</p>
+                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                        {group.targetCount ?? 2}개
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

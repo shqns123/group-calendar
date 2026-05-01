@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { CalendarClock, Clock, Plus, X } from "lucide-react";
+import { Boxes, CalendarClock, Clock, Plus, X } from "lucide-react";
 
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
@@ -28,10 +28,10 @@ type CalEvent = {
   endDate: string;
   allDay: boolean;
   color: string;
-  isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
   personnel: string | null;
+  equipment?: string | null;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -41,6 +41,9 @@ type Group = {
   id: string;
   name: string;
   leaderId: string;
+  trackerOptions?: string | null;
+  laptopOptions?: string | null;
+  targetCount?: number;
   members: Array<{
     id: string;
     userId: string;
@@ -70,9 +73,41 @@ type Props = {
   onRefresh: () => void;
 };
 
+function parseEquipmentOptions(raw?: string | null) {
+  if (!raw) return [] as string[];
+  return raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseEquipmentAllocation(raw?: string | null) {
+  if (!raw) {
+    return { items: [] as string[], targetCount: 0 };
+  }
+
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .reduce(
+      (acc, token) => {
+        const targetMatch = /^Target x(\d+)$/i.exec(token);
+        if (targetMatch) {
+          acc.targetCount += Number(targetMatch[1]) || 0;
+          return acc;
+        }
+        acc.items.push(token);
+        return acc;
+      },
+      { items: [] as string[], targetCount: 0 }
+    );
+}
+
 export default function DayEventsModal({ date, events, userId, group, isLeader, customHolidays = [], onEventClick, onAddClick, onClose, onRefresh }: Props) {
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState<'available' | 'unavailable' | null | undefined>(undefined);
+  const [showEquipmentStock, setShowEquipmentStock] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -119,7 +154,6 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             endDate: `${dateStr}T00:00:00`,
             allDay: true,
             color: choice === 'available' ? "#F59E0B" : "#EF4444",
-            isPrivate: false,
             overtimeAvailable: choice === 'available',
             isOvertimeOnly: true,
             groupId: group?.id ?? null,
@@ -140,12 +174,42 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
 
   // 일반 이벤트만
   const normalEvents = events.filter(e => !e.isOvertimeOnly);
-  const visibleEvents = normalEvents.filter(e => !e.isPrivate || e.creatorId === userId || isLeader);
-  const sorted = [...visibleEvents].sort((a, b) => {
+  const sorted = [...normalEvents].sort((a, b) => {
     if (a.allDay && !b.allDay) return -1;
     if (!a.allDay && b.allDay) return 1;
     return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
+  const equipmentStock = useMemo(() => {
+    if (!group) return null;
+
+    const trackerOptions = parseEquipmentOptions(group.trackerOptions);
+    const laptopOptions = parseEquipmentOptions(group.laptopOptions);
+    const targetTotal = Math.max(0, group.targetCount ?? 2);
+    const trackerUsed = new Set<string>();
+    const laptopUsed = new Set<string>();
+    let targetUsed = 0;
+
+    for (const event of normalEvents) {
+      const allocation = parseEquipmentAllocation(event.equipment);
+      targetUsed += allocation.targetCount;
+
+      for (const item of allocation.items) {
+        if (trackerOptions.includes(item)) {
+          trackerUsed.add(item);
+        } else if (laptopOptions.includes(item)) {
+          laptopUsed.add(item);
+        }
+      }
+    }
+
+    return {
+      trackerRemaining: trackerOptions.filter((item) => !trackerUsed.has(item)),
+      laptopRemaining: laptopOptions.filter((item) => !laptopUsed.has(item)),
+      targetRemaining: Math.max(0, targetTotal - targetUsed),
+      hasConfiguredEquipment:
+        trackerOptions.length > 0 || laptopOptions.length > 0 || targetTotal > 0,
+    };
+  }, [group, normalEvents]);
 
   const dateStr = format(date, "yyyy-MM-dd");
   const customEntry = customHolidays.find((h) => h.date === dateStr);
@@ -186,7 +250,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <p style={{ fontSize: "1rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
                 {format(date, "M월 d일 (E)", { locale: ko })}
@@ -196,6 +260,28 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   fontSize: "0.72rem", fontWeight: 600,
                   color: customEntry?.type === "workday" ? "var(--accent)" : "#EF4444",
                 }}>{holidayName}</span>
+              )}
+              {group && equipmentStock?.hasConfiguredEquipment && (
+                <button
+                  type="button"
+                  onClick={() => setShowEquipmentStock((current) => !current)}
+                  title="장비 잔여량"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    border: showEquipmentStock ? "1px solid #818CF8" : "1px solid var(--border)",
+                    background: showEquipmentStock ? "#EEF2FF" : "var(--surface)",
+                    color: showEquipmentStock ? "#4338CA" : "var(--text-tertiary)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Boxes style={{ width: 14, height: 14 }} />
+                </button>
               )}
             </div>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", marginTop: 2 }}>
@@ -213,6 +299,64 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         </div>
 
         {/* 특근 섹션 (그룹 있을 때만) */}
+        {group && showEquipmentStock && equipmentStock && (
+          <div
+            style={{
+              padding: "14px 20px",
+              borderBottom: "1px solid var(--border)",
+              background: "#F8FAFC",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                장비 잔여량
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowEquipmentStock(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", display: "flex", padding: 0 }}
+              >
+                <X style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#4F46E5", textTransform: "uppercase", letterSpacing: "0.06em" }}>트래커</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                  {equipmentStock.trackerRemaining.length > 0 ? equipmentStock.trackerRemaining.map((item) => (
+                    <span key={item} style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, padding: "4px 10px", fontSize: "0.72rem", fontWeight: 600, background: "#EEF2FF", color: "#4338CA", border: "1px solid #C7D2FE" }}>
+                      {item}
+                    </span>
+                  )) : (
+                    <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>남은 장비 없음</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#0F766E", textTransform: "uppercase", letterSpacing: "0.06em" }}>노트북</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                  {equipmentStock.laptopRemaining.length > 0 ? equipmentStock.laptopRemaining.map((item) => (
+                    <span key={item} style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, padding: "4px 10px", fontSize: "0.72rem", fontWeight: 600, background: "#ECFEFF", color: "#0F766E", border: "1px solid #99F6E4" }}>
+                      {item}
+                    </span>
+                  )) : (
+                    <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>남은 장비 없음</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#B45309", textTransform: "uppercase", letterSpacing: "0.06em" }}>타겟</p>
+                <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "#92400E", marginTop: 6 }}>
+                  {equipmentStock.targetRemaining}개 남음
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {group && (
           <div style={{
             padding: "12px 20px",
@@ -396,8 +540,6 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             </div>
           ) : (
             sorted.map((event, idx) => {
-              const isOwn = event.creatorId === userId;
-              const isHidden = event.isPrivate && !isOwn && !isLeader;
               const start = new Date(event.startDate);
               const end = new Date(event.endDate);
               const creatorName = event.personnel || getMemberName(event);
@@ -433,9 +575,9 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                         fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)",
                         letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
                       }}>
-                        {isHidden ? "비공개 일정" : event.title}
+                        {event.title}
                       </p>
-                      {(isLeader || isOwn) && event.overtimeAvailable && !isHidden && (
+                      {(isLeader || event.creatorId === userId) && event.overtimeAvailable && (
                         <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "var(--accent-light)", color: "var(--accent)", flexShrink: 0 }}>
                           특근
                         </span>
@@ -459,14 +601,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                         </span>
                       </div>
                     )}
-                    {!isHidden && event.description && (
+                    {event.description && (
                       <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {event.description}
                       </p>
                     )}
 
                     {/* 작성자 태그 */}
-                    {group && !isHidden && (
+                    {group && (
                       <div style={{ marginTop: 6 }}>
                         <span style={{
                           fontSize: "0.68rem", fontWeight: 600,
@@ -513,3 +655,4 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
     </div>
   );
 }
+

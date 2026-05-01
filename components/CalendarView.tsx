@@ -33,10 +33,10 @@ type CalEvent = {
   endDate: string;
   allDay: boolean;
   color: string;
-  isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
   personnel: string | null;
+  equipment?: string | null;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
@@ -178,8 +178,6 @@ function TodayView({
           </div>
         ) : (
           todayEvents.map((event) => {
-            const isOwn = event.creatorId === userId;
-            const isHidden = event.isPrivate && !isOwn && !isLeader;
             const start = new Date(event.startDate);
             const end = new Date(event.endDate);
             const memberName = getMemberName(event);
@@ -259,7 +257,7 @@ function TodayView({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {isHidden ? "비공개 일정" : event.title}
+                    {event.title}
                   </p>
 
                   {/* 시간 */}
@@ -273,7 +271,7 @@ function TodayView({
                   )}
 
                   {/* 설명 */}
-                  {!isHidden && event.description && (
+                  {event.description && (
                     <p
                       style={{
                         fontSize: "0.75rem",
@@ -292,7 +290,7 @@ function TodayView({
                 </div>
 
                 {/* 인원 태그 */}
-                {group && !isHidden && (
+                {group && (
                   <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                     <span style={{
                       fontSize: "0.68rem", fontWeight: 600,
@@ -384,7 +382,6 @@ export default function CalendarView({
   const calendarEvents: EventInput[] = events
     .filter((e) => !e.isOvertimeOnly)
     .map((e) => {
-      const isOwn = e.creatorId === userId;
       let endValue: Date | string = e.endDate;
       if (e.allDay) {
         const d = new Date(e.endDate);
@@ -393,7 +390,7 @@ export default function CalendarView({
       }
       return {
         id: e.id,
-        title: e.isPrivate && !isOwn && !isLeader ? "비공개 일정" : e.title,
+        title: e.title,
         start: e.startDate,
         end: endValue,
         allDay: e.allDay,
