@@ -87,6 +87,9 @@ model Group {
   name            String
   description     String?
   inviteCode      String        @unique @default(cuid())
+  trackerOptions  String?
+  laptopOptions   String?
+  targetCount     Int           @default(2)
   leaderId        String
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]
@@ -127,10 +130,10 @@ model Event {
   endDate     DateTime
   allDay      Boolean  @default(false)
   color       String   @default("#3B82F6")
-  isPrivate         Boolean  @default(false)
   overtimeAvailable Boolean  @default(false)
   isOvertimeOnly    Boolean  @default(false)
   personnel         String?
+  equipment         String?
   creatorId         String
   groupId           String?
   creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)

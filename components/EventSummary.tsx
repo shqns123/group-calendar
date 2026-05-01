@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { format, isToday, isTomorrow, isThisMonth, isPast, startOfDay } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, Lock, MapPin, RefreshCw, PanelLeftClose } from "lucide-react";
+import { Clock, MapPin, RefreshCw, PanelLeftClose } from "lucide-react";
 
 type CalEvent = {
   id: string;
@@ -13,10 +13,10 @@ type CalEvent = {
   endDate: string;
   allDay: boolean;
   color: string;
-  isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
   personnel: string | null;
+  equipment?: string | null;
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
@@ -88,6 +88,8 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
         data.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
         setEvents(data);
       }
+    } catch {
+      // Keep the panel mounted even if the local API temporarily fails during schema changes.
     } finally {
       setLoading(false);
     }
@@ -252,8 +254,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
             </div>
 
             {grp.events.map((event, evIdx) => {
-              const isOwn = event.creatorId === userId;
-              const isHidden = event.isPrivate && !isOwn && !isLeader;
               const creatorName = getCreatorName(event);
               const start = new Date(event.startDate);
               const end = new Date(event.endDate);
@@ -307,14 +307,11 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                             letterSpacing: "-0.01em",
                           }}
                         >
-                          {isHidden ? "비공개 일정" : event.title}
+                          {event.title}
                         </span>
-                        {event.isPrivate && (
-                          <Lock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
-                        )}
                       </div>
 
-                      {!isHidden && event.description && (
+                      {event.description && (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                           <MapPin style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
                           <span

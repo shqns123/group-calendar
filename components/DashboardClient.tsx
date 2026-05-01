@@ -51,10 +51,10 @@ type CalEvent = {
   endDate: string;
   allDay: boolean;
   color: string;
-  isPrivate: boolean;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
   personnel: string | null;
+  equipment?: string | null;
   creatorId: string;
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
@@ -263,7 +263,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   };
 
   useEffect(() => {
-    if (!selectedGroup) return;
+    if (!selectedGroup || !showInviteSheet) return;
     setInviteTimeLeft(180);
     let t = 180;
     const interval = setInterval(async () => {
@@ -283,7 +283,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
     }, 1000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroup?.id]);
+  }, [selectedGroup?.id, showInviteSheet]);
 
   const sidebarStyle: React.CSSProperties = isMobile
     ? {

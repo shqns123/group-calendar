@@ -8,6 +8,9 @@ export type GroupFromApi = {
   name: string;
   description: string | null;
   inviteCode: string;
+  trackerOptions?: string | null;
+  laptopOptions?: string | null;
+  targetCount?: number;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Array<{

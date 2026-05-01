@@ -68,27 +68,29 @@ export async function PATCH(
     endDate,
     allDay,
     color,
-    isPrivate,
     overtimeAvailable,
     isOvertimeOnly,
     personnel,
+    equipment,
   } = body;
   const defaultPersonnel = await resolveDefaultPersonnel(event.creatorId, event.groupId);
 
+  const updateData = {
+    ...(title?.trim() && { title: title.trim() }),
+    ...(description !== undefined && { description: description?.trim() }),
+    ...(startDate && { startDate: new Date(startDate) }),
+    ...(endDate && { endDate: new Date(endDate) }),
+    ...(allDay !== undefined && { allDay }),
+    ...(color && { color }),
+    ...(overtimeAvailable !== undefined && { overtimeAvailable }),
+    ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
+    ...(personnel !== undefined && { personnel: personnel?.trim() || defaultPersonnel }),
+    ...(equipment !== undefined && { equipment: equipment?.trim() || null }),
+  };
+
   const updated = await prisma.event.update({
     where: { id: eventId },
-    data: {
-      ...(title?.trim() && { title: title.trim() }),
-      ...(description !== undefined && { description: description?.trim() }),
-      ...(startDate && { startDate: new Date(startDate) }),
-      ...(endDate && { endDate: new Date(endDate) }),
-      ...(allDay !== undefined && { allDay }),
-      ...(color && { color }),
-      ...(isPrivate !== undefined && { isPrivate }),
-      ...(overtimeAvailable !== undefined && { overtimeAvailable }),
-      ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
-      ...(personnel !== undefined && { personnel: personnel?.trim() || defaultPersonnel }),
-    },
+    data: updateData as never,
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },
     },
