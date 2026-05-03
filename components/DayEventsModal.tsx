@@ -3,7 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Boxes, CalendarClock, Clock, Plus, X } from "lucide-react";
+import { CalendarClock, Clock, Plus, X } from "lucide-react";
+import EquipmentStockModal from "./EquipmentStockModal";
+import EquipmentStatusIcon from "./EquipmentStatusIcon";
+import { getEquipmentStock } from "./equipmentStock";
 
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
@@ -73,41 +76,10 @@ type Props = {
   onRefresh: () => void;
 };
 
-function parseEquipmentOptions(raw?: string | null) {
-  if (!raw) return [] as string[];
-  return raw
-    .split(/[\n,]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-function parseEquipmentAllocation(raw?: string | null) {
-  if (!raw) {
-    return { items: [] as string[], targetCount: 0 };
-  }
-
-  return raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .reduce(
-      (acc, token) => {
-        const targetMatch = /^Target x(\d+)$/i.exec(token);
-        if (targetMatch) {
-          acc.targetCount += Number(targetMatch[1]) || 0;
-          return acc;
-        }
-        acc.items.push(token);
-        return acc;
-      },
-      { items: [] as string[], targetCount: 0 }
-    );
-}
-
 export default function DayEventsModal({ date, events, userId, group, isLeader, customHolidays = [], onEventClick, onAddClick, onClose, onRefresh }: Props) {
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState<'available' | 'unavailable' | null | undefined>(undefined);
-  const [showEquipmentStock, setShowEquipmentStock] = useState(false);
+  const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -180,35 +152,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
     return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
   const equipmentStock = useMemo(() => {
-    if (!group) return null;
-
-    const trackerOptions = parseEquipmentOptions(group.trackerOptions);
-    const laptopOptions = parseEquipmentOptions(group.laptopOptions);
-    const targetTotal = Math.max(0, group.targetCount ?? 2);
-    const trackerUsed = new Set<string>();
-    const laptopUsed = new Set<string>();
-    let targetUsed = 0;
-
-    for (const event of normalEvents) {
-      const allocation = parseEquipmentAllocation(event.equipment);
-      targetUsed += allocation.targetCount;
-
-      for (const item of allocation.items) {
-        if (trackerOptions.includes(item)) {
-          trackerUsed.add(item);
-        } else if (laptopOptions.includes(item)) {
-          laptopUsed.add(item);
-        }
-      }
-    }
-
-    return {
-      trackerRemaining: trackerOptions.filter((item) => !trackerUsed.has(item)),
-      laptopRemaining: laptopOptions.filter((item) => !laptopUsed.has(item)),
-      targetRemaining: Math.max(0, targetTotal - targetUsed),
-      hasConfiguredEquipment:
-        trackerOptions.length > 0 || laptopOptions.length > 0 || targetTotal > 0,
-    };
+    return getEquipmentStock(group, normalEvents);
   }, [group, normalEvents]);
 
   const dateStr = format(date, "yyyy-MM-dd");
@@ -264,23 +208,23 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
               {group && equipmentStock?.hasConfiguredEquipment && (
                 <button
                   type="button"
-                  onClick={() => setShowEquipmentStock((current) => !current)}
+                  onClick={() => setShowEquipmentStockModal(true)}
                   title="장비 잔여량"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    border: showEquipmentStock ? "1px solid #818CF8" : "1px solid var(--border)",
-                    background: showEquipmentStock ? "#EEF2FF" : "var(--surface)",
-                    color: showEquipmentStock ? "#4338CA" : "var(--text-tertiary)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Boxes style={{ width: 14, height: 14 }} />
+                     display: "flex",
+                     alignItems: "center",
+                     justifyContent: "center",
+                     width: 28,
+                     height: 28,
+                     borderRadius: 8,
+                     border: "1px solid var(--border)",
+                     background: "var(--surface)",
+                     color: "var(--text-tertiary)",
+                     cursor: "pointer",
+                     flexShrink: 0,
+                   }}
+                 >
+                    <EquipmentStatusIcon size={18} />
                 </button>
               )}
             </div>
@@ -297,65 +241,6 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             <X style={{ width: 16, height: 16 }} />
           </button>
         </div>
-
-        {/* 특근 섹션 (그룹 있을 때만) */}
-        {group && showEquipmentStock && equipmentStock && (
-          <div
-            style={{
-              padding: "14px 20px",
-              borderBottom: "1px solid var(--border)",
-              background: "#F8FAFC",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-                장비 잔여량
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowEquipmentStock(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", display: "flex", padding: 0 }}
-              >
-                <X style={{ width: 14, height: 14 }} />
-              </button>
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div>
-                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#4F46E5", textTransform: "uppercase", letterSpacing: "0.06em" }}>트래커</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                  {equipmentStock.trackerRemaining.length > 0 ? equipmentStock.trackerRemaining.map((item) => (
-                    <span key={item} style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, padding: "4px 10px", fontSize: "0.72rem", fontWeight: 600, background: "#EEF2FF", color: "#4338CA", border: "1px solid #C7D2FE" }}>
-                      {item}
-                    </span>
-                  )) : (
-                    <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>남은 장비 없음</span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#0F766E", textTransform: "uppercase", letterSpacing: "0.06em" }}>노트북</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                  {equipmentStock.laptopRemaining.length > 0 ? equipmentStock.laptopRemaining.map((item) => (
-                    <span key={item} style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, padding: "4px 10px", fontSize: "0.72rem", fontWeight: 600, background: "#ECFEFF", color: "#0F766E", border: "1px solid #99F6E4" }}>
-                      {item}
-                    </span>
-                  )) : (
-                    <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>남은 장비 없음</span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#B45309", textTransform: "uppercase", letterSpacing: "0.06em" }}>타겟</p>
-                <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "#92400E", marginTop: 6 }}>
-                  {equipmentStock.targetRemaining}개 남음
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {group && (
           <div style={{
@@ -652,6 +537,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           </button>
         </div>
       </div>
+      {showEquipmentStockModal && equipmentStock && (
+        <EquipmentStockModal
+          stock={equipmentStock}
+          title="장비 현황"
+          subtitle={format(date, "M월 d일 일정 기준", { locale: ko })}
+          onClose={() => setShowEquipmentStockModal(false)}
+        />
+      )}
     </div>
   );
 }

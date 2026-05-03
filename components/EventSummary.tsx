@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { format, isToday, isTomorrow, isThisMonth, isPast, startOfDay } from "date-fns";
+import { useCallback, useEffect, useState } from "react";
+import { format, isPast, isThisMonth, isToday, isTomorrow, startOfDay } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Clock, MapPin, RefreshCw, PanelLeftClose } from "lucide-react";
+import { Clock, MapPin, PanelLeftClose, RefreshCw } from "lucide-react";
 
 type CalEvent = {
   id: string;
@@ -27,6 +27,9 @@ type Group = {
   id: string;
   name: string;
   leaderId: string;
+  trackerOptions?: string | null;
+  laptopOptions?: string | null;
+  targetCount?: number;
   members: Array<{
     id: string;
     userId: string;
@@ -64,7 +67,14 @@ function getDateLabel(date: Date): string {
   return format(date, "M월", { locale: ko });
 }
 
-export default function EventSummary({ userId, group, isLeader, onEventClick, refreshKey, onClose }: Props) {
+export default function EventSummary({
+  userId,
+  group,
+  isLeader,
+  onEventClick,
+  refreshKey,
+  onClose,
+}: Props) {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -103,7 +113,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
   const labelMap = new Map<string, CalEvent[]>();
   const labelOrder: string[] = [];
 
-  for (const event of events.filter(e => !e.isOvertimeOnly)) {
+  for (const event of events.filter((e) => !e.isOvertimeOnly)) {
     const label = getDateLabel(new Date(event.startDate));
     if (!labelMap.has(label)) {
       labelMap.set(label, []);
@@ -113,8 +123,8 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
   }
 
   const labelAccents: Record<string, string> = {
-    "오늘": "var(--accent)",
-    "내일": "#6366F1",
+    오늘: "var(--accent)",
+    내일: "#6366F1",
     "이번 주": "#8B5CF6",
     "이번 달": "var(--text-secondary)",
     "다음 달 이후": "var(--text-tertiary)",
@@ -130,7 +140,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
 
   const getCreatorName = (event: CalEvent) => {
     if (!group) return null;
-    const member = group.members.find(m => m.userId === event.creatorId);
+    const member = group.members.find((member) => member.userId === event.creatorId);
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0];
   };
 
@@ -146,7 +156,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
         overflow: "hidden",
       }}
     >
-      {/* 헤더 */}
       <div
         style={{
           padding: "12px 16px",
@@ -169,7 +178,7 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
             일정 요약
           </h3>
           <p style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 1 }}>
-            향후 일정 · {events.filter(e => !e.isOvertimeOnly).length}건
+            향후 일정 총 {events.filter((e) => !e.isOvertimeOnly).length}건
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -178,21 +187,37 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
             disabled={loading}
             title="새로고침"
             style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: 4, borderRadius: 4, color: "var(--text-tertiary)", display: "flex",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+              borderRadius: 4,
+              color: "var(--text-tertiary)",
+              display: "flex",
               transition: "color 0.12s",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
           >
-            <RefreshCw style={{ width: 13, height: 13, ...(loading ? { animation: "spin 1s linear infinite" } : {}) }} />
+            <RefreshCw
+              style={{
+                width: 13,
+                height: 13,
+                ...(loading ? { animation: "spin 1s linear infinite" } : {}),
+              }}
+            />
           </button>
           <button
             onClick={onClose}
             title="일정 요약 닫기"
             style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: 4, borderRadius: 4, color: "var(--text-tertiary)", display: "flex",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+              borderRadius: 4,
+              color: "var(--text-tertiary)",
+              display: "flex",
               transition: "color 0.12s",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
@@ -203,7 +228,6 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
         </div>
       </div>
 
-      {/* 일정 목록 */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {events.length === 0 && !loading && (
           <div
@@ -217,13 +241,12 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
             }}
           >
             <Clock style={{ width: 32, height: 32, marginBottom: 8, opacity: 0.4 }} />
-            <p style={{ fontSize: "0.825rem" }}>예정된 일정이 없습니다</p>
+            <p style={{ fontSize: "0.825rem" }}>표시할 일정이 없습니다</p>
           </div>
         )}
 
         {grouped.map((grp, grpIdx) => (
           <div key={grp.label}>
-            {/* 날짜 그룹 헤더 */}
             <div
               style={{
                 position: "sticky",
@@ -313,7 +336,14 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
 
                       {event.description && (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                          <MapPin style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                          <MapPin
+                            style={{
+                              width: 10,
+                              height: 10,
+                              color: "var(--text-tertiary)",
+                              flexShrink: 0,
+                            }}
+                          />
                           <span
                             style={{
                               fontSize: "0.72rem",
@@ -329,15 +359,28 @@ export default function EventSummary({ userId, group, isLeader, onEventClick, re
                       )}
 
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
-                        <Clock style={{ width: 10, height: 10, color: "var(--text-tertiary)", flexShrink: 0 }} />
+                        <Clock
+                          style={{
+                            width: 10,
+                            height: 10,
+                            color: "var(--text-tertiary)",
+                            flexShrink: 0,
+                          }}
+                        />
                         <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
                           {event.allDay
-                            ? (format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                                ? format(start, "MM/dd (E)", { locale: ko })
-                                : `${format(start, "MM/dd", { locale: ko })} ~ ${format(end, "MM/dd", { locale: ko })}`)
-                            : (format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                                ? `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`
-                                : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "MM/dd HH:mm", { locale: ko })}`)}
+                            ? format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                              ? format(start, "MM/dd (E)", { locale: ko })
+                              : `${format(start, "MM/dd", { locale: ko })} ~ ${format(end, "MM/dd", {
+                                  locale: ko,
+                                })}`
+                            : format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                              ? `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`
+                              : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(
+                                  end,
+                                  "MM/dd HH:mm",
+                                  { locale: ko }
+                                )}`}
                         </span>
                       </div>
 

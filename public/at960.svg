@@ -1,0 +1,18 @@
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.8 1.9c.22-.35.6-.56 1.01-.56h1.1c.35 0 .69-.05 1.02-.16a3.6 3.6 0 0 1 2.14 0c.33.11.67.16 1.02.16h1.1c.41 0 .79.21 1.01.56l.8 1.29c.25.41.39.88.39 1.36v5.93c0 .34-.28.62-.62.62h-1.23a.3.3 0 0 1-.3-.3V4.12c0-.1-.02-.2-.07-.28l-.85-1.71a.3.3 0 0 0-.27-.17h-.55a.3.3 0 0 0-.29.37l.2.82c.03.11.04.22.04.33v2.04a.3.3 0 0 1-.3.3h-.1a.3.3 0 0 1-.3-.3V3.35c0-.3-.25-.55-.55-.55H7.4c-.3 0-.55.25-.55.55v2.17a.3.3 0 0 1-.3.3h-.1a.3.3 0 0 1-.3-.3V3.48c0-.11.01-.22.04-.33l.2-.82a.3.3 0 0 0-.29-.37h-.55a.3.3 0 0 0-.27.17l-.85 1.71a.62.62 0 0 0-.07.28v6.67a.3.3 0 0 1-.3.3H2.83a.62.62 0 0 1-.62-.62V4.54c0-.48.14-.95.39-1.36z" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7.35 3.78v2.72c0 .14.11.25.25.25h.8a.25.25 0 0 0 .25-.25V3.78c0-.14-.11-.25-.25-.25H7.6a.25.25 0 0 0-.25.25Z" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7.05 3.92h1.9" stroke="#666" stroke-linecap="round"/>
+  <path d="M7.52 4.06v.95M7.84 4.06v.7M8.16 4.06v.95M8.48 4.06v.7" stroke="#666" stroke-linecap="round"/>
+  <circle cx="8" cy="6.02" r=".5" stroke="#666"/>
+  <circle cx="8" cy="7.35" r=".5" stroke="#666"/>
+  <path d="M7.2 6.18v.26M8.8 6.18v.26M7.2 7.5v.26M8.8 7.5v.26" stroke="#666" stroke-linecap="round"/>
+  <path d="M7.15 8.72v1.1c0 .14.11.25.25.25h1.2a.25.25 0 0 0 .25-.25v-1.1" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7.45 8.98v.72M7.75 9.16v.54M8.05 9.16v.54M8.35 9.16v.54M8.65 8.98v.72" stroke="#666" stroke-linecap="round"/>
+  <path d="M2.9 9.95h.55" stroke="#666" stroke-linecap="round"/>
+  <path d="M10.1 9.95h.55" stroke="#666" stroke-linecap="round"/>
+  <path d="M3.28 9.12l.18-.34.18.34h-.36Z" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="3.46" cy="9.56" r=".18" stroke="#666"/>
+  <path d="M6.65 10.9h2.7c.22 0 .4.18.4.4v.18c0 .22-.18.4-.4.4h-.07c-.13 0-.25.05-.35.14l-.1.1a1.2 1.2 0 0 1-1.66 0l-.1-.1a.5.5 0 0 0-.35-.14h-.07a.4.4 0 0 1-.4-.4v-.18c0-.22.18-.4.4-.4Z" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M6.82 11.88v1.47c0 .1.05.18.13.22l.46.23c.11.06.23.09.35.09h.48c.12 0 .24-.03.35-.09l.46-.23a.25.25 0 0 0 .13-.22v-1.47" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M6.72 12.25h2.56M6.64 12.67h2.72M6.6 13.09h2.8M6.6 13.51h2.8" stroke="#666" stroke-linecap="round"/>
+</svg>
