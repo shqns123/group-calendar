@@ -11,11 +11,17 @@ import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Clock, Search } from "lucide-react";
 import EventModal from "./EventModal";
 import DayEventsModal from "./DayEventsModal";
+import EquipmentStockModal from "./EquipmentStockModal";
+import EquipmentStatusIcon from "./EquipmentStatusIcon";
+import { getEquipmentStock } from "./equipmentStock";
 
 type Group = {
   id: string;
   name: string;
   leaderId: string;
+  trackerOptions?: string | null;
+  laptopOptions?: string | null;
+  targetCount?: number;
   members: Array<{
     id: string;
     userId: string;
@@ -117,10 +123,11 @@ function TodayView({
   isLeader: boolean;
   onEventClick: (e: CalEvent) => void;
 }) {
+  const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
   const today = new Date();
   const todayEvents = events
     .filter((e) => {
-      if (e.isOvertimeOnly && !isLeader && e.creatorId !== userId) return false;
+      if (e.isOvertimeOnly) return false;
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
       const todayStart = new Date(today);
@@ -134,6 +141,7 @@ function TodayView({
       if (!a.allDay && b.allDay) return 1;
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     });
+  const equipmentStock = getEquipmentStock(group, todayEvents);
 
   const getMemberName = (event: CalEvent): string => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -142,13 +150,14 @@ function TodayView({
   };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
       {/* 날짜 헤더 */}
       <div
         style={{
           padding: "12px 16px 10px",
           borderBottom: "1px solid var(--border-subtle)",
           flexShrink: 0,
+          position: "relative",
         }}
       >
         <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
@@ -160,6 +169,31 @@ function TodayView({
       </div>
 
       {/* 일정 목록 */}
+      {group && equipmentStock?.hasConfiguredEquipment && (
+        <button
+          type="button"
+          onClick={() => setShowEquipmentStockModal(true)}
+          title="장비 현황"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text-tertiary)",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <EquipmentStatusIcon size={18} />
+        </button>
+      )}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
         {todayEvents.length === 0 ? (
           <div
@@ -182,7 +216,7 @@ function TodayView({
             const end = new Date(event.endDate);
             const memberName = getMemberName(event);
 
-            if (event.isOvertimeOnly) {
+            if (false && event.isOvertimeOnly) {
               return (
                 <div
                   key={event.id}
@@ -306,6 +340,14 @@ function TodayView({
           })
         )}
       </div>
+      {showEquipmentStockModal && equipmentStock && (
+        <EquipmentStockModal
+          stock={equipmentStock}
+          title="장비 현황"
+          subtitle={format(today, "오늘 일정 기준", { locale: ko })}
+          onClose={() => setShowEquipmentStockModal(false)}
+        />
+      )}
     </div>
   );
 }
