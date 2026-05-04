@@ -323,6 +323,15 @@ export default function EventModal({
     );
   };
 
+  const clearEquipmentChip = (label: string) => {
+    if (/^Target x\d+$/i.test(label)) {
+      setTargetEnabled(false);
+      setTargetQuantity(0);
+      return;
+    }
+    toggleEquipment(label);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalTitle = title.trim() || (overtimeAvailable ? UI.overtimeAvailable : "");
@@ -503,6 +512,10 @@ export default function EventModal({
                           <span
                             key={label}
                             className="inline-flex items-center rounded-full border border-[var(--accent-muted)] bg-white px-2.5 py-1 text-xs font-medium text-[var(--accent)]"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              clearEquipmentChip(label);
+                            }}
                           >
                             {label}
                           </span>
@@ -702,6 +715,10 @@ export default function EventModal({
                             <span
                               key={label}
                               className="inline-flex items-center rounded-full border border-[var(--accent-muted)] bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-white"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                togglePersonnel(label);
+                              }}
                             >
                               {label}
                             </span>

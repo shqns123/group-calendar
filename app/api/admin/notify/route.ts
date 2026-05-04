@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     await sendPushToUser(allSubs, {
       title: group.name,
       body: trimmedMessage,
-      url: "/",
+      url: `/?groupId=${group.id}`,
     });
   }
 

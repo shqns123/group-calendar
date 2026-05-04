@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Calendar,
@@ -74,6 +75,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export function DashboardClient({ user, initialGroups }: Props) {
+  const searchParams = useSearchParams();
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     initialGroups[0]?.id ?? null
@@ -101,6 +103,19 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [showNotifBanner, setShowNotifBanner] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
+  const requestedGroupId = searchParams.get("groupId");
+
+  useEffect(() => {
+    if (!requestedGroupId) return;
+    if (!groups.some((group) => group.id === requestedGroupId)) return;
+    setSelectedGroupId(requestedGroupId);
+  }, [groups, requestedGroupId]);
+
+  useEffect(() => {
+    if (selectedGroupId === null) return;
+    if (groups.some((group) => group.id === selectedGroupId)) return;
+    setSelectedGroupId(groups[0]?.id ?? null);
+  }, [groups, selectedGroupId]);
 
   // Mobile detection
   useEffect(() => {

@@ -1,15 +1,9 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-async function canManageHolidays(userId: string): Promise<boolean> {
+async function isHolidayOperator(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { isOperator: true } });
-  if (user?.isOperator) return true;
-  const leaderGroup = await prisma.group.findFirst({ where: { leaderId: userId } });
-  if (leaderGroup) return true;
-  const canNotifyMember = await prisma.groupMember.findFirst({
-    where: { userId, canNotify: true, status: "ACTIVE" },
-  });
-  return !!canNotifyMember;
+  return !!user?.isOperator;
 }
 
 export async function GET() {
@@ -31,7 +25,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  if (!(await canManageHolidays(session.user.id))) {
+  if (!(await isHolidayOperator(session.user.id))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -49,7 +43,7 @@ export async function DELETE(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!(await canManageHolidays(session.user.id))) {
+  if (!(await isHolidayOperator(session.user.id))) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

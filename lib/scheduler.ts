@@ -45,7 +45,7 @@ export function startScheduler() {
         await sendPushToUser(allSubs, {
           title: schedule.group.name,
           body: schedule.message,
-          url: "/",
+          url: `/?groupId=${schedule.group.id}`,
         });
       }
     }

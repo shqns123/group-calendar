@@ -14,6 +14,9 @@ import DayEventsModal from "./DayEventsModal";
 import EquipmentStockModal from "./EquipmentStockModal";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import { getEquipmentStock } from "./equipmentStock";
+import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
+import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
+import { getPersonnelAvailability } from "./personnelAvailability";
 
 type Group = {
   id: string;
@@ -27,6 +30,7 @@ type Group = {
     userId: string;
     nickname: string | null;
     role: string;
+    status?: string | null;
     user: { id: string; name: string | null; email: string | null; image: string | null };
   }>;
 };
@@ -124,6 +128,7 @@ function TodayView({
   onEventClick: (e: CalEvent) => void;
 }) {
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
+  const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
   const today = new Date();
   const todayEvents = events
     .filter((e) => {
@@ -142,6 +147,7 @@ function TodayView({
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     });
   const equipmentStock = getEquipmentStock(group, todayEvents);
+  const personnelAvailability = getPersonnelAvailability(group, todayEvents);
 
   const getMemberName = (event: CalEvent): string => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -177,7 +183,7 @@ function TodayView({
           style={{
             position: "absolute",
             top: 12,
-            right: 16,
+            right: 52,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -192,6 +198,31 @@ function TodayView({
           }}
         >
           <EquipmentStatusIcon size={18} />
+        </button>
+      )}
+      {group && personnelAvailability && (
+        <button
+          type="button"
+          onClick={() => setShowPersonnelAvailabilityModal(true)}
+          title="남아있는 인원"
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: personnelAvailability.remainingMembers.length > 0 ? "#2563EB" : "#DC2626",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <PersonnelAvailabilityIcon size={16} />
         </button>
       )}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
@@ -346,6 +377,14 @@ function TodayView({
           title="장비 현황"
           subtitle={format(today, "오늘 일정 기준", { locale: ko })}
           onClose={() => setShowEquipmentStockModal(false)}
+        />
+      )}
+      {showPersonnelAvailabilityModal && personnelAvailability && (
+        <PersonnelAvailabilityModal
+          availability={personnelAvailability}
+          title="인원 현황"
+          subtitle={format(today, "오늘 일정 기준", { locale: ko })}
+          onClose={() => setShowPersonnelAvailabilityModal(false)}
         />
       )}
     </div>

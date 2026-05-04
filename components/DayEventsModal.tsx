@@ -7,6 +7,9 @@ import { CalendarClock, Clock, Plus, X } from "lucide-react";
 import EquipmentStockModal from "./EquipmentStockModal";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import { getEquipmentStock } from "./equipmentStock";
+import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
+import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
+import { getPersonnelAvailability } from "./personnelAvailability";
 
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
@@ -52,6 +55,7 @@ type Group = {
     userId: string;
     nickname: string | null;
     role: string;
+    status?: string | null;
     user: { id: string; name: string | null; email: string | null; image: string | null };
   }>;
 };
@@ -80,6 +84,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState<'available' | 'unavailable' | null | undefined>(undefined);
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
+  const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -154,6 +159,9 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
   const equipmentStock = useMemo(() => {
     return getEquipmentStock(group, normalEvents);
   }, [group, normalEvents]);
+  const personnelAvailability = useMemo(() => {
+    return getPersonnelAvailability(group, normalEvents);
+  }, [group, normalEvents]);
 
   const dateStr = format(date, "yyyy-MM-dd");
   const customEntry = customHolidays.find((h) => h.date === dateStr);
@@ -225,6 +233,28 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                    }}
                  >
                     <EquipmentStatusIcon size={18} />
+                </button>
+              )}
+              {group && personnelAvailability && (
+                <button
+                  type="button"
+                  onClick={() => setShowPersonnelAvailabilityModal(true)}
+                  title="남아있는 인원"
+                  style={{
+                     display: "flex",
+                     alignItems: "center",
+                     justifyContent: "center",
+                     width: 28,
+                     height: 28,
+                     borderRadius: 8,
+                     border: "1px solid var(--border)",
+                     background: "var(--surface)",
+                     color: personnelAvailability.remainingMembers.length > 0 ? "#2563EB" : "#DC2626",
+                     cursor: "pointer",
+                     flexShrink: 0,
+                   }}
+                 >
+                    <PersonnelAvailabilityIcon size={16} />
                 </button>
               )}
             </div>
@@ -543,6 +573,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           title="장비 현황"
           subtitle={format(date, "M월 d일 일정 기준", { locale: ko })}
           onClose={() => setShowEquipmentStockModal(false)}
+        />
+      )}
+      {showPersonnelAvailabilityModal && personnelAvailability && (
+        <PersonnelAvailabilityModal
+          availability={personnelAvailability}
+          title="인원 현황"
+          subtitle={format(date, "M월 d일 일정 기준", { locale: ko })}
+          onClose={() => setShowPersonnelAvailabilityModal(false)}
         />
       )}
     </div>
