@@ -172,19 +172,20 @@ export function DashboardClient({ user, initialGroups }: Props) {
       const { publicKey: vapidKey } = await keyRes.json();
       if (!vapidKey) return;
       const existing = await reg.pushManager.getSubscription();
-      if (existing) await existing.unsubscribe();
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
-      });
+      const sub =
+        existing ??
+        (await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        }));
       const json = sub.toJSON();
       await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: sub.endpoint, keys: json.keys }),
       });
-    } catch {
-      // Push subscription failed silently
+    } catch (error) {
+      console.error("Push subscription failed", error);
     }
   }, []);
 
