@@ -28,6 +28,7 @@ function getHolidayName(date: Date): string | null {
 
 type CalEvent = {
   id: string;
+  category?: "BUSINESS_TRIP" | "ATTENDANCE";
   title: string;
   description: string | null;
   startDate: string;

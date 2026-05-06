@@ -37,6 +37,7 @@ type Group = {
 
 type CalEvent = {
   id: string;
+  category?: "BUSINESS_TRIP" | "ATTENDANCE";
   title: string;
   description: string | null;
   startDate: string;
@@ -461,7 +462,7 @@ export default function CalendarView({
   }, [pendingEvent, onPendingEventHandled]);
 
   const calendarEvents: EventInput[] = events
-    .filter((e) => !e.isOvertimeOnly)
+    .filter((e) => !e.isOvertimeOnly && (e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE")
     .map((e) => {
       let endValue: Date | string = e.endDate;
       if (e.allDay) {
@@ -783,7 +784,15 @@ export default function CalendarView({
                 const en = format(new Date(e.endDate), "yyyy-MM-dd");
                 return ds >= s && ds <= en;
               });
+              const hasAttendance = events.some((e) => {
+                if (e.isOvertimeOnly) return false;
+                if ((e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE") return false;
+                const s = format(new Date(e.startDate), "yyyy-MM-dd");
+                const en = format(new Date(e.endDate), "yyyy-MM-dd");
+                return ds >= s && ds <= en;
+              });
               if (hasOvertime) classes.push("fc-day-overtime");
+              if (hasAttendance) classes.push("fc-day-attendance");
               return classes;
             }}
             eventContent={(info) => (

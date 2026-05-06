@@ -22,6 +22,7 @@ type Group = {
 
 type CalEvent = {
   id: string;
+  category?: "BUSINESS_TRIP" | "ATTENDANCE";
   title: string;
   description: string | null;
   startDate: string;
@@ -36,6 +37,8 @@ type CalEvent = {
   groupId: string | null;
   creator: { id: string; name: string | null; email: string | null };
 };
+
+type EventCategory = "BUSINESS_TRIP" | "ATTENDANCE";
 
 type Props = {
   userId: string;
@@ -96,6 +99,8 @@ const COLORS = [
   "#14B8A6",
   "#06B6D4",
 ];
+
+const ATTENDANCE_TITLE_OPTIONS = ["월휴", "무휴", "유휴"] as const;
 
 const EQUIPMENT_GROUPS = [
   {
@@ -176,6 +181,7 @@ export default function EventModal({
 }: Props) {
   const isEdit = !!event;
   const canEdit = !event || event.creatorId === userId || isLeader;
+  const attendanceTitleRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const equipmentRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -187,15 +193,21 @@ export default function EventModal({
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
+  const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(
+    event?.category ?? (event ? "BUSINESS_TRIP" : null)
+  );
   const [startDate, setStartDate] = useState(toDateLocal(defaultStart));
   const [endDate, setEndDate] = useState(toDateLocal(defaultEnd));
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [personnelOpen, setPersonnelOpen] = useState(false);
+  const [attendanceTitleOpen, setAttendanceTitleOpen] = useState(false);
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [equipmentGroupIndex, setEquipmentGroupIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const currentCategory = selectedCategory ?? "BUSINESS_TRIP";
+  const isAttendance = currentCategory === "ATTENDANCE";
 
   const creatorLabel = useMemo(
     () =>
@@ -252,9 +264,10 @@ export default function EventModal({
     const parsed = parseEquipment(event?.equipment);
     return parsed.filter((value) => !/^Target x\d+$/i.test(value));
   });
-  const [targetQuantity, setTargetQuantity] = useState(() =>
-    parseTargetQuantity(parseEquipment(event?.equipment))
-  );
+  const [targetQuantity, setTargetQuantity] = useState<string>(() => {
+    const quantity = parseTargetQuantity(parseEquipment(event?.equipment));
+    return quantity > 0 ? String(quantity) : "";
+  });
   const [targetEnabled, setTargetEnabled] = useState(() =>
     parseTargetQuantity(parseEquipment(event?.equipment)) > 0
   );
@@ -263,6 +276,9 @@ export default function EventModal({
     const handleClickOutside = (mouseEvent: MouseEvent) => {
       if (!dropdownRef.current?.contains(mouseEvent.target as Node)) {
         setPersonnelOpen(false);
+      }
+      if (isAttendance && !attendanceTitleRef.current?.contains(mouseEvent.target as Node)) {
+        setAttendanceTitleOpen(false);
       }
       if (!equipmentRef.current?.contains(mouseEvent.target as Node)) {
         setEquipmentOpen(false);
@@ -273,11 +289,22 @@ export default function EventModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isAttendance) return;
+    setEquipmentOpen(false);
+  }, [isAttendance]);
+
+  useEffect(() => {
+    if (!isAttendance) {
+      setAttendanceTitleOpen(false);
+    }
+  }, [isAttendance]);
+
   const personnelValue = selectedPersonnel.length > 0 ? selectedPersonnel.join(", ") : "";
   const maxTargetCount = normalizeTargetCount(group?.targetCount);
   const equipmentSummary = [
     ...selectedEquipment,
-    ...(targetEnabled && targetQuantity > 0 ? [`Target x${targetQuantity}`] : []),
+    ...(targetEnabled && Number(targetQuantity) > 0 ? [`Target x${targetQuantity}`] : []),
   ];
   const activeEquipmentGroup = equipmentGroups[equipmentGroupIndex];
 
@@ -326,7 +353,7 @@ export default function EventModal({
   const clearEquipmentChip = (label: string) => {
     if (/^Target x\d+$/i.test(label)) {
       setTargetEnabled(false);
-      setTargetQuantity(0);
+      setTargetQuantity("");
       return;
     }
     toggleEquipment(label);
@@ -334,6 +361,10 @@ export default function EventModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedCategory) {
+      setError("일정 유형을 선택해주세요.");
+      return;
+    }
     const finalTitle = title.trim() || (overtimeAvailable ? UI.overtimeAvailable : "");
     if (!finalTitle) {
       setError(UI.titleRequired);
@@ -343,11 +374,16 @@ export default function EventModal({
       setError(UI.endBeforeStart);
       return;
     }
+    if (targetEnabled && targetQuantity && !Number.isFinite(Number(targetQuantity))) {
+      setError("타겟 수량을 올바르게 입력해주세요.");
+      return;
+    }
     setLoading(true);
     setError("");
 
     const finalIsOvertimeOnly = overtimeAvailable && !title.trim();
       const payload = {
+      category: selectedCategory,
       title: finalTitle,
       description: description.trim() || null,
       startDate: new Date(startDate).toISOString(),
@@ -357,7 +393,7 @@ export default function EventModal({
       overtimeAvailable,
       isOvertimeOnly: finalIsOvertimeOnly,
       personnel: personnelValue,
-      equipment: equipmentSummary.join(", "),
+      equipment: isAttendance ? null : equipmentSummary.join(", "),
       groupId: group?.id ?? null,
     };
 
@@ -445,6 +481,47 @@ export default function EventModal({
     );
   }
 
+  if (!isEdit && !selectedCategory) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+        <div className="modal-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <h3 className="text-lg font-semibold text-slate-800">{UI.create}</h3>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="space-y-3 p-6">
+            <p className="text-sm font-medium text-slate-700">일정 유형을 선택해주세요.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory("ATTENDANCE");
+                setColor("#2563EB");
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition-colors hover:border-blue-200 hover:bg-blue-50"
+            >
+              <p className="text-sm font-semibold text-slate-800">근태</p>
+              <p className="mt-1 text-xs text-slate-500">
+                월휴, 무휴, 유휴 같은 근태 일정을 등록합니다.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("BUSINESS_TRIP")}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left transition-colors hover:border-[var(--accent-muted)] hover:bg-[var(--accent-light)]"
+            >
+              <p className="text-sm font-semibold text-slate-800">출장</p>
+              <p className="mt-1 text-xs text-slate-500">
+                출장 일정을 등록합니다.
+              </p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <div className="modal-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
@@ -458,19 +535,83 @@ export default function EventModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition-colors focus-within:border-[var(--accent-muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
-              {UI.title}
-            </p>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="일정 제목을 입력해주세요."
-              className="mt-2 w-full bg-transparent text-sm text-slate-800 placeholder:text-xs placeholder:text-stone-400 focus:outline-none"
-              autoFocus
-            />
-          </div>
+          {isAttendance ? (
+            <div ref={attendanceTitleRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setAttendanceTitleOpen((current) => !current)}
+                className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 ${
+                  attendanceTitleOpen
+                    ? "border-[var(--accent-muted)] bg-[var(--accent-light)]"
+                    : "border-slate-200 bg-white hover:border-[var(--accent-muted)]"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                    {UI.title}
+                  </p>
+                  {title ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center rounded-full border border-[var(--accent-muted)] bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-white">
+                        {title}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 truncate text-xs text-stone-400">
+                      근태 유형을 선택해주세요.
+                    </p>
+                  )}
+                </div>
+              </button>
+
+              {attendanceTitleOpen && (
+                <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-20 rounded-2xl border border-[var(--accent-muted)] bg-[color-mix(in_srgb,var(--surface)_86%,var(--accent-light))] p-3 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-[var(--accent-hover)]">
+                      {UI.title}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ATTENDANCE_TITLE_OPTIONS.map((option) => {
+                      const checked = title === option;
+
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          aria-pressed={checked}
+                          onClick={() => {
+                            setTitle((current) => (current === option ? "" : option));
+                          }}
+                          className={`inline-flex min-h-9 items-center rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+                            checked
+                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                              : "border-stone-200 bg-white text-stone-700 hover:border-[var(--accent-muted)] hover:bg-[var(--accent-light)]"
+                          }`}
+                        >
+                          <span className="truncate">{option}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition-colors focus-within:border-[var(--accent-muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                {UI.title}
+              </p>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="일정 제목을 입력해주세요."
+                className="mt-2 w-full bg-transparent text-sm text-slate-800 placeholder:text-xs placeholder:text-stone-400 focus:outline-none"
+                autoFocus
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition-colors focus-within:border-[var(--accent-muted)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
@@ -480,13 +621,18 @@ export default function EventModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="세부사항을 입력 해주세요."
+              placeholder={
+                isAttendance
+                  ? "근태 유형을 입력해주세요(ex 52무휴, 월차, 식목일..등등)"
+                  : "세부사항을 입력 해주세요."
+              }
               rows={1}
               className="mt-2 w-full resize-none bg-transparent text-sm text-slate-800 placeholder:text-xs placeholder:text-stone-400 focus:outline-none"
             />
             </div>
 
-            <div ref={equipmentRef} className="relative">
+            {!isAttendance && (
+              <div ref={equipmentRef} className="relative">
               <button
                 type="button"
                 onClick={() => {
@@ -611,18 +757,12 @@ export default function EventModal({
   type="button"
   aria-pressed={targetEnabled}
   onClick={() => {
-    setTargetEnabled((current) => {
-      const next = !current;
-      if (next) {
-        setTargetQuantity((quantity) =>
-          quantity > 0 ? quantity : Math.min(1, maxTargetCount)
-        );
-      } else {
-        setTargetQuantity(0);
-      }
-      return next;
-    });
-  }}
+        setTargetEnabled((current) => {
+          const next = !current;
+          if (!next) setTargetQuantity("");
+          return next;
+        });
+      }}
   className="flex w-full items-center gap-3 rounded-xl text-left transition-colors"
 >
   <span
@@ -650,13 +790,20 @@ export default function EventModal({
                               min={1}
                               max={maxTargetCount}
                               disabled={!targetEnabled || maxTargetCount === 0}
-                              value={targetEnabled ? Math.max(targetQuantity, 1) : ""}
+                              value={targetEnabled ? targetQuantity : ""}
                               onChange={(e) => {
-                                const nextValue = Math.max(
+                                const nextValue = e.target.value;
+                                if (nextValue === "") {
+                                  setTargetQuantity("");
+                                  return;
+                                }
+                                const parsedValue = Number(nextValue);
+                                if (!Number.isFinite(parsedValue)) return;
+                                const normalizedValue = Math.max(
                                   1,
-                                  Math.min(maxTargetCount, Number(e.target.value) || 1)
+                                  Math.min(maxTargetCount, parsedValue)
                                 );
-                                setTargetQuantity(nextValue);
+                                setTargetQuantity(String(normalizedValue));
                               }}
                                 className="w-24 rounded-xl border border-[var(--accent-muted)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent-hover)] outline-none focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
                               />
@@ -691,7 +838,8 @@ export default function EventModal({
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {group ? (
               <div ref={dropdownRef} className="relative">
@@ -834,7 +982,19 @@ export default function EventModal({
               </button>
             )}
             <div className="flex-1" />
-            <button
+             {!isEdit && (
+               <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setError("");
+                }}
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100"
+              >
+                유형 선택
+              </button>
+             )}
+             <button
               type="button"
               onClick={onClose}
               className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"

@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const {
+    category,
     title,
     description,
     startDate,
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
     personnel,
     equipment,
   } = body;
+  const eventCategory = category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP";
 
   if (!title?.trim()) {
     return Response.json({ error: "제목은 필수입니다." }, { status: 400 });
@@ -157,6 +159,7 @@ export async function POST(request: NextRequest) {
   }
 
   const eventData = {
+    category: eventCategory,
     title: title.trim(),
     description: description?.trim(),
     startDate: new Date(startDate),
@@ -166,7 +169,7 @@ export async function POST(request: NextRequest) {
     overtimeAvailable: overtimeAvailable ?? false,
     isOvertimeOnly: isOvertimeOnly ?? false,
     personnel: personnel?.trim() || defaultPersonnel,
-    equipment: equipment?.trim() || null,
+    equipment: eventCategory === "ATTENDANCE" ? null : equipment?.trim() || null,
     creatorId: session.user.id,
     groupId: groupId || null,
   };

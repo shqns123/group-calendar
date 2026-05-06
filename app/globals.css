@@ -282,6 +282,9 @@ body {
 .fc-day-overtime .fc-daygrid-day-frame {
   position: relative;
 }
+.fc-day-attendance .fc-daygrid-day-frame {
+  position: relative;
+}
 .fc-day-overtime .fc-daygrid-day-frame::after {
   content: '';
   position: absolute;
@@ -293,6 +296,33 @@ body {
   background: #EF4444;
   pointer-events: none;
   z-index: 1;
+}
+.fc-day-attendance .fc-daygrid-day-frame::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563EB;
+  pointer-events: none;
+  z-index: 1;
+}
+.fc-day-overtime.fc-day-attendance .fc-daygrid-day-frame::before {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563EB;
+  pointer-events: none;
+  z-index: 1;
+}
+.fc-day-overtime.fc-day-attendance .fc-daygrid-day-frame::after {
+  background: #EF4444;
 }
 
 /* 회사 지정 휴일 */

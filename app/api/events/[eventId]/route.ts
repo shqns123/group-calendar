@@ -62,6 +62,7 @@ export async function PATCH(
 
   const body = await request.json();
   const {
+    category,
     title,
     description,
     startDate,
@@ -73,9 +74,16 @@ export async function PATCH(
     personnel,
     equipment,
   } = body;
+  const eventCategory =
+    category === undefined
+      ? event.category
+      : category === "ATTENDANCE"
+        ? "ATTENDANCE"
+        : "BUSINESS_TRIP";
   const defaultPersonnel = await resolveDefaultPersonnel(event.creatorId, event.groupId);
 
   const updateData = {
+    ...(category !== undefined && { category: eventCategory }),
     ...(title?.trim() && { title: title.trim() }),
     ...(description !== undefined && { description: description?.trim() }),
     ...(startDate && { startDate: new Date(startDate) }),
@@ -85,7 +93,11 @@ export async function PATCH(
     ...(overtimeAvailable !== undefined && { overtimeAvailable }),
     ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
     ...(personnel !== undefined && { personnel: personnel?.trim() || defaultPersonnel }),
-    ...(equipment !== undefined && { equipment: equipment?.trim() || null }),
+    ...(eventCategory === "ATTENDANCE"
+      ? { equipment: null }
+      : equipment !== undefined
+        ? { equipment: equipment?.trim() || null }
+        : {}),
   };
 
   const updated = await prisma.event.update({

@@ -124,6 +124,7 @@ model GroupMember {
 
 model Event {
   id          String   @id @default(cuid())
+  category    String   @default("BUSINESS_TRIP")
   title       String
   description String?
   startDate   DateTime
