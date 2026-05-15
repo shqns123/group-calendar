@@ -8,7 +8,11 @@ import { signOut } from "next-auth/react";
 export default function PendingPage() {
   const router = useRouter();
 
-  // 승인 여부를 폴링 (10초마다)
+  useEffect(() => {
+    void fetch("/api/onboarding/link", { method: "POST" }).catch(() => {});
+  }, []);
+
+  // 승인 여부를 폴링합니다. (10초마다)
   useEffect(() => {
     const check = async () => {
       const res = await fetch("/api/auth/status");
@@ -84,9 +88,9 @@ export default function PendingPage() {
             marginBottom: 24,
           }}
         >
-          관리자의 승인을 기다리고 있습니다.
+          관리자의 계정 승인을 기다리고 있습니다.
           <br />
-          승인되면 자동으로 이동합니다.
+          승인되면 자동으로 메인 화면으로 이동합니다.
         </p>
 
         <div
@@ -132,7 +136,7 @@ export default function PendingPage() {
           }}
         >
           <LogOut style={{ width: 14, height: 14 }} />
-          다른 계정으로 로그인
+          다른 계정으로 로그아웃
         </button>
       </div>
 

@@ -9,16 +9,16 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 사용자당 1분에 10회 제한
+  // 사용자당 1분에 10회로 제한
   if (!rateLimit(`join:${session.user.id}`, 10, 60_000)) {
-    return Response.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }, { status: 429 });
+    return Response.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 });
   }
 
   const body = await request.json();
   const { inviteCode, nickname, checkOnly } = body;
 
   if (!inviteCode?.trim()) {
-    return Response.json({ error: "초대 코드를 입력해주세요" }, { status: 400 });
+    return Response.json({ error: "초대 코드를 입력해 주세요." }, { status: 400 });
   }
 
   const group = await prisma.group.findFirst({
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!group) {
-    return Response.json({ error: "유효하지 않은 초대 코드입니다" }, { status: 404 });
+    return Response.json({ error: "유효하지 않은 초대 코드입니다." }, { status: 404 });
   }
 
   const existing = await prisma.groupMember.findUnique({
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (existing) {
-    return Response.json({ error: "이미 참가한 그룹입니다" }, { status: 409 });
+    return Response.json({ error: "이미 참가 중인 그룹입니다." }, { status: 409 });
   }
 
   if (checkOnly) {

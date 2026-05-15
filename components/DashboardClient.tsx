@@ -34,6 +34,7 @@ import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
 import HolidayModal, { type CustomHoliday } from "./HolidayModal";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
+import { buildInviteJoinUrl, PENDING_INVITE_STORAGE_KEY } from "@/lib/inviteOnboarding";
 
 type UserInfo = {
   id: string;
@@ -102,6 +103,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [customHolidays, setCustomHolidays] = useState<CustomHoliday[]>([]);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
+  const [autoJoinMessage, setAutoJoinMessage] = useState("");
+  const [origin, setOrigin] = useState("");
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
   const requestedGroupId = searchParams.get("groupId");
@@ -131,6 +134,10 @@ export function DashboardClient({ user, initialGroups }: Props) {
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
   }, []);
 
   const fetchCustomHolidays = useCallback(async () => {
@@ -219,6 +226,50 @@ export function DashboardClient({ user, initialGroups }: Props) {
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const autoJoinFromInvite = async () => {
+      const pendingInviteCode = window.localStorage.getItem(PENDING_INVITE_STORAGE_KEY)?.trim();
+      if (!pendingInviteCode) return;
+
+      try {
+        const res = await fetch("/api/groups/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inviteCode: pendingInviteCode }),
+        });
+        const data = await res.json().catch(() => null);
+
+        if (cancelled) return;
+
+        if (res.ok) {
+          window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
+          if (data?.pending && data?.groupName) {
+            setAutoJoinMessage(`${data.groupName} 그룹 참가 요청이 자동으로 전송되었습니다.`);
+          }
+          await refreshGroups();
+          return;
+        }
+
+        if (res.status === 409) {
+          window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
+          if (data?.error) {
+            setAutoJoinMessage(data.error);
+          }
+        }
+      } catch {
+        // Keep the invite code for a later retry.
+      }
+    };
+
+    void autoJoinFromInvite();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshGroups]);
+
   const handleGroupCreated = useCallback(
     async (group: Group) => {
       await refreshGroups();
@@ -266,6 +317,11 @@ export function DashboardClient({ user, initialGroups }: Props) {
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
+
+  const inviteLink =
+    selectedGroup && origin
+      ? buildInviteJoinUrl(origin, selectedGroup.inviteCode)
+      : selectedGroup?.inviteCode ?? "";
 
   const refreshInviteCode = async () => {
     if (!selectedGroup) return;
@@ -1030,7 +1086,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </div>
             <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
               <div style={{ padding: 12, background: "#fff", borderRadius: 12, border: "1px solid var(--border)" }}>
-                <QRCodeSVG value={selectedGroup.inviteCode} size={160} />
+                <QRCodeSVG value={inviteLink} size={160} />
               </div>
             </div>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
@@ -1158,6 +1214,37 @@ export function DashboardClient({ user, initialGroups }: Props) {
       )}
 
       {/* 가입 대기 승인 패널 */}
+      {autoJoinMessage && (
+        <div
+          style={{
+            position: "fixed",
+            top: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 410,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+            width: "min(420px, calc(100vw - 32px))",
+          }}
+        >
+          <p style={{ flex: 1, fontSize: "0.8rem", color: "var(--text-primary)", lineHeight: 1.4 }}>
+            {autoJoinMessage}
+          </p>
+          <button
+            onClick={() => setAutoJoinMessage("")}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 0, display: "flex" }}
+          >
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+      )}
+
       {showPendingPanel && (
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowPendingPanel(false); }}

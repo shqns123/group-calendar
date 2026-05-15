@@ -42,12 +42,15 @@ model User {
   employeeId    String?       @unique
   status        String        @default("ACTIVE")
   isOperator    Boolean       @default(false)
+  pendingInviteCode String?
+  pendingInviteAutoApprove Boolean @default(false)
   accounts      Account[]
   sessions      Session[]
   groupMembers  GroupMember[]
   ownedGroups   Group[]       @relation("GroupLeader")
   events        Event[]
   pushSubscriptions PushSubscription[]
+  qrInviteTokens QrInviteToken[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -95,8 +98,20 @@ model Group {
   members     GroupMember[]
   events      Event[]
   schedules   NotificationSchedule[]
+  qrInviteTokens QrInviteToken[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+model QrInviteToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  groupId      String
+  createdById  String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
 }
 
 model CustomHoliday {

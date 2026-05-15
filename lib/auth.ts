@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { consumePendingInviteForUser } from "./pendingInvite";
 import { prisma } from "./prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -25,8 +26,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!name || !employeeId) return null;
 
         const user = await prisma.user.findUnique({ where: { employeeId } });
-
-        // 미등록, 이름 불일치, PENDING 모두 거부
         if (!user || user.name !== name || user.status !== "ACTIVE") return null;
 
         return { id: user.id, name: user.name, email: user.email };
@@ -34,19 +33,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   events: {
-    // 신규 OAuth(Google) 유저 생성 시 PENDING으로 변경 + 운영자 푸시
     async createUser({ user }) {
-      await prisma.user.update({ where: { id: user.id }, data: { status: "PENDING" } });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: "PENDING" },
+      });
 
       const operators = await prisma.user.findMany({
         where: { isOperator: true },
         select: { pushSubscriptions: true },
       });
-      const allSubs = operators.flatMap((u) => u.pushSubscriptions);
+      const allSubs = operators.flatMap((operator) => operator.pushSubscriptions);
       if (allSubs.length > 0) {
         const { sendPushToUser } = await import("./webpush");
         await sendPushToUser(allSubs, {
-          title: "새 가입 요청",
+          title: "회원가입 요청",
           body: `${user.name ?? user.email}님이 Google 계정으로 가입 승인을 요청했습니다.`,
           url: "/",
         });
@@ -56,7 +57,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        // 운영자 이메일이면 즉시 ACTIVE + isOperator 보장
         if (process.env.OPERATOR_EMAIL && user.email === process.env.OPERATOR_EMAIL) {
           await prisma.user.update({
             where: { email: user.email },
@@ -64,12 +64,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
           return true;
         }
+
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { status: true },
+          select: { id: true, status: true, pendingInviteCode: true },
         });
-        if (dbUser?.status === "PENDING") return "/pending";
+
+        if (dbUser?.status === "ACTIVE" && dbUser.pendingInviteCode) {
+          await consumePendingInviteForUser(dbUser.id);
+        }
+        if (dbUser?.status === "PENDING") {
+          return "/pending";
+        }
       }
+
+      if (account?.provider === "guest" && user.id) {
+        const guestUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { pendingInviteCode: true },
+        });
+        if (guestUser?.pendingInviteCode) {
+          await consumePendingInviteForUser(user.id);
+        }
+      }
+
       return true;
     },
     async jwt({ token, user }) {
@@ -80,9 +98,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           select: { status: true, isOperator: true },
         });
         token.status = dbUser?.status ?? "ACTIVE";
-        // OPERATOR_EMAIL 환경변수와 일치하면 자동 운영자 부여
         if (!dbUser?.isOperator && user.email && user.email === process.env.OPERATOR_EMAIL) {
-          await prisma.user.update({ where: { id: user.id }, data: { isOperator: true } });
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { isOperator: true },
+          });
           token.isOperator = true;
         } else {
           token.isOperator = dbUser?.isOperator ?? false;

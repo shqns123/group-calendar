@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, Clock, Keyboard, Users, X } from "lucide-react";
 import type { Html5Qrcode as Html5QrcodeType } from "html5-qrcode";
+import { extractInviteCode } from "@/lib/inviteOnboarding";
 
 type Props = {
   onClose: () => void;
@@ -22,9 +23,9 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const startedRef = useRef(false);
 
   const submitCode = useCallback(async (code: string) => {
-    const normalizedCode = code.trim();
+    const normalizedCode = extractInviteCode(code);
     if (!normalizedCode) {
-      setError("초대 코드를 입력해주세요.");
+      setError("초대 코드를 입력해 주세요.");
       return;
     }
 
@@ -83,7 +84,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
         })
         .catch(() => {
           if (!cancelled) {
-            setError("카메라를 시작할 수 없습니다. 권한을 확인해주세요.");
+            setError("카메라를 시작할 수 없습니다. 권한을 확인해 주세요.");
             setScanning(false);
           }
           scannerRef.current = null;
@@ -209,7 +210,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
             {scanning ? (
               <div className="space-y-3">
                 <div id="qr-reader" className="w-full overflow-hidden rounded-xl" />
-                <p className="text-center text-xs text-slate-400">카메라로 초대 QR 코드를 비춰주세요.</p>
+                <p className="text-center text-xs text-slate-400">카메라로 초대 QR 코드를 비춰 주세요.</p>
               </div>
             ) : (
               <form onSubmit={handleCodeSubmit} className="space-y-4">
@@ -218,12 +219,12 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
                     <Users className="h-7 w-7 text-blue-500" />
                   </div>
                 </div>
-                <p className="text-center text-sm text-slate-500">리더에게 받은 초대 코드를 입력하세요.</p>
+                <p className="text-center text-sm text-slate-500">리더에게 받은 초대 코드나 링크를 입력해 주세요.</p>
                 <input
                   type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="초대 코드 입력"
+                  placeholder="초대 코드 또는 링크 입력"
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center font-mono text-lg tracking-wider text-slate-800 placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
@@ -267,7 +268,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                닉네임 <span className="font-normal text-slate-400">(선택)</span>
+                닉네임<span className="font-normal text-slate-400">(선택)</span>
               </label>
               <input
                 type="text"

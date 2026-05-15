@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type GuestMode = "login" | "register";
 
 export default function LoginForm() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<"google" | "guest">("google");
   const [guestMode, setGuestMode] = useState<GuestMode>("login");
   const [name, setName] = useState("");
@@ -16,12 +17,21 @@ export default function LoginForm() {
   const [pending, setPending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const router = useRouter();
+  const invitedGroupName = searchParams.get("groupName");
 
-  const reset = () => { setName(""); setEmployeeId(""); setError(""); setPending(false); };
+  const reset = () => {
+    setName("");
+    setEmployeeId("");
+    setError("");
+    setPending(false);
+  };
 
   const handleGuestLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !employeeId.trim()) { setError("이름과 사번을 입력해주세요."); return; }
+    if (!name.trim() || !employeeId.trim()) {
+      setError("이름과 사번을 입력해 주세요.");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -42,7 +52,10 @@ export default function LoginForm() {
 
   const handleGuestRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !employeeId.trim()) { setError("이름과 사번을 입력해주세요."); return; }
+    if (!name.trim() || !employeeId.trim()) {
+      setError("이름과 사번을 입력해 주세요.");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -57,7 +70,7 @@ export default function LoginForm() {
     if (res.ok && data.pending) {
       setPending(true);
     } else {
-      setError(data.error || "회원가입에 실패했습니다.");
+      setError(data.error || "회원가입 요청에 실패했습니다.");
     }
   };
 
@@ -79,14 +92,21 @@ export default function LoginForm() {
     return (
       <div style={{ padding: "24px 0", textAlign: "center", display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-          ⏳
+          !
         </div>
         <p style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>가입 요청 완료</p>
         <p style={{ fontSize: "0.825rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          운영자의 승인을 기다려 주세요.<br />승인 후 로그인하실 수 있습니다.
+          운영자의 승인을 기다려 주세요.
+          <br />
+          승인 후 로그인하실 수 있습니다.
         </p>
         <button
-          onClick={() => { setGuestMode("login"); setPending(false); setName(""); setEmployeeId(""); }}
+          onClick={() => {
+            setGuestMode("login");
+            setPending(false);
+            setName("");
+            setEmployeeId("");
+          }}
           style={{ marginTop: 4, padding: "8px 20px", borderRadius: 8, border: "1px solid var(--border)", background: "none", color: "var(--text-secondary)", fontSize: "0.825rem", cursor: "pointer", fontFamily: "inherit" }}
         >
           로그인으로 돌아가기
@@ -97,7 +117,24 @@ export default function LoginForm() {
 
   return (
     <div>
-      {/* 이용 안내 팝업 */}
+      {invitedGroupName && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: "1px solid #BFDBFE",
+            background: "#EFF6FF",
+            color: "#1D4ED8",
+            fontSize: "0.8rem",
+            lineHeight: 1.6,
+          }}
+        >
+          <strong style={{ fontWeight: 800 }}>{invitedGroupName}</strong> 그룹 초대 링크로 접속했습니다.
+          <br />
+          로그인 또는 회원가입 후 자동으로 그룹 참가 요청이 진행됩니다.
+        </div>
+      )}
       {showInfo && (
         <div
           onClick={() => setShowInfo(false)}
@@ -109,17 +146,18 @@ export default function LoginForm() {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <p style={{ fontWeight: 800, fontSize: "0.95rem", letterSpacing: "-0.03em", color: "var(--text-primary)" }}>이용 안내</p>
-              <button onClick={() => setShowInfo(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: "var(--text-tertiary)", lineHeight: 1 }}>✕</button>
+              <button onClick={() => setShowInfo(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: "var(--text-tertiary)", lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: "12px 14px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, fontSize: "0.825rem", color: "#92400E", lineHeight: 1.6 }}>
               <strong style={{ fontWeight: 800 }}>신규 가입은 운영자 승인 후 이용 가능합니다</strong>
-              <br />처음 접속하는 계정은 운영자가 승인할 때까지 대기 화면이 표시됩니다.
+              <br />
+              처음 접속하는 계정은 운영자가 승인할 때까지 대기 상태로 표시됩니다.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                { label: "Google 로그인", desc: "처음 사용하는 계정이면 운영자에게 승인 요청이 발송됩니다. 이미 승인된 계정은 바로 입장됩니다." },
-                { label: "Guest 회원가입", desc: "이름과 사번을 입력 후 가입 신청을 합니다. 운영자 승인 후 로그인 가능합니다." },
-                { label: "Guest 로그인", desc: "승인된 계정은 이름 + 사번으로 바로 로그인합니다. 이름 또는 사번이 틀리면 로그인 불가합니다." },
+                { label: "Google 로그인", desc: "처음 사용하는 계정이면 운영자에게 가입 승인 요청이 전송됩니다. 이미 승인된 계정은 바로 입장합니다." },
+                { label: "Guest 회원가입", desc: "이름과 사번을 입력해 가입을 요청합니다. 운영자 승인 후 로그인할 수 있습니다." },
+                { label: "Guest 로그인", desc: "승인된 계정은 이름과 사번으로 바로 로그인합니다. 이름 또는 사번이 다르면 로그인할 수 없습니다." },
               ].map((item) => (
                 <div key={item.label} style={{ display: "flex", gap: 10 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-primary)", marginTop: 7, flexShrink: 0 }} />
@@ -140,13 +178,15 @@ export default function LoginForm() {
         </div>
       )}
 
-      {/* 탭 */}
-      <div className="flex rounded-lg p-0.5 mb-6" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      <div className="mb-6 flex rounded-lg p-0.5" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
         {(["google", "guest"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => { setTab(t); reset(); }}
-            className="flex-1 py-2 text-sm font-medium rounded-md transition-all"
+            onClick={() => {
+              setTab(t);
+              reset();
+            }}
+            className="flex-1 rounded-md py-2 text-sm font-medium transition-all"
             style={{
               background: tab === t ? "var(--surface)" : "transparent",
               color: tab === t ? "var(--text-primary)" : "var(--text-tertiary)",
@@ -167,8 +207,11 @@ export default function LoginForm() {
           <button
             type="button"
             disabled={loading}
-            onClick={async () => { setLoading(true); await signIn("google", { callbackUrl: "/" }); }}
-            className="w-full flex items-center justify-center gap-3 transition-all"
+            onClick={async () => {
+              setLoading(true);
+              await signIn("google", { callbackUrl: "/" });
+            }}
+            className="flex w-full items-center justify-center gap-3 transition-all"
             style={{
               padding: "0.75rem 1rem",
               border: "2px solid var(--border)",
@@ -192,17 +235,21 @@ export default function LoginForm() {
             Google로 계속하기
           </button>
           <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
-            등록된 Google 계정만 로그인됩니다.<br />신규 계정은 운영자 승인 후 사용 가능합니다.
+            등록된 Google 계정만 로그인됩니다.
+            <br />
+            신규 계정은 운영자 승인 후 사용할 수 있습니다.
           </p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* 로그인/회원가입 전환 */}
           <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
             {(["login", "register"] as GuestMode[]).map((m) => (
               <button
                 key={m}
-                onClick={() => { setGuestMode(m); reset(); }}
+                onClick={() => {
+                  setGuestMode(m);
+                  reset();
+                }}
                 style={{
                   flex: 1,
                   padding: "8px 0",
@@ -265,19 +312,18 @@ export default function LoginForm() {
               }}
             >
               {loading
-                ? (guestMode === "login" ? "로그인 중..." : "요청 중...")
-                : (guestMode === "login" ? "로그인" : "가입 요청")}
+                ? guestMode === "login" ? "로그인 중..." : "요청 중..."
+                : guestMode === "login" ? "로그인" : "가입 요청"}
             </button>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
               {guestMode === "login"
-                ? "이름과 사번이 정확히 일치해야 합니다"
-                : "운영자 승인 후 로그인하실 수 있습니다"}
+                ? "이름과 사번이 정확히 일치해야 합니다."
+                : "운영자 승인 후 로그인하실 수 있습니다."}
             </p>
           </form>
         </div>
       )}
 
-      {/* 이용 안내 버튼 */}
       <div style={{ marginTop: 18, textAlign: "center" }}>
         <button
           onClick={() => setShowInfo(true)}
