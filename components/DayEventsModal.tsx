@@ -74,6 +74,7 @@ type Props = {
   userId: string;
   group: Group | null;
   isLeader: boolean;
+  isObserver: boolean;
   customHolidays?: CustomHoliday[];
   onEventClick: (event: CalEvent) => void;
   onAddClick: () => void;
@@ -81,7 +82,7 @@ type Props = {
   onRefresh: () => void;
 };
 
-export default function DayEventsModal({ date, events, userId, group, isLeader, customHolidays = [], onEventClick, onAddClick, onClose, onRefresh }: Props) {
+export default function DayEventsModal({ date, events, userId, group, isLeader, isObserver, customHolidays = [], onEventClick, onAddClick, onClose, onRefresh }: Props) {
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState<'available' | 'unavailable' | null | undefined>(undefined);
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
@@ -318,44 +319,46 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                   </p>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={() => handleOvertimeSelect('unavailable')}
-                  disabled={overtimeLoading}
-                  style={{
-                    padding: "4px 12px", borderRadius: 20, fontFamily: "inherit",
-                    border: `1.5px solid ${effectiveStatus === 'unavailable' ? "#EF4444" : "var(--border)"}`,
-                    background: effectiveStatus === 'unavailable' ? "#EF4444" : "transparent",
-                    color: effectiveStatus === 'unavailable' ? "#fff" : "var(--text-secondary)",
-                    fontSize: "0.75rem", fontWeight: 600,
-                    cursor: overtimeLoading ? "not-allowed" : "pointer",
-                    transition: "all 0.18s", opacity: overtimeLoading ? 0.6 : 1,
-                    display: "flex", alignItems: "center", gap: 3,
-                  }}
-                >
-                  {effectiveStatus === 'unavailable' && <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>}
-                  불가능
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOvertimeSelect('available')}
-                  disabled={overtimeLoading}
-                  style={{
-                    padding: "4px 12px", borderRadius: 20, fontFamily: "inherit",
-                    border: `1.5px solid ${effectiveStatus === 'available' ? "var(--accent)" : "var(--border)"}`,
-                    background: effectiveStatus === 'available' ? "var(--accent)" : "transparent",
-                    color: effectiveStatus === 'available' ? "#fff" : "var(--text-secondary)",
-                    fontSize: "0.75rem", fontWeight: 600,
-                    cursor: overtimeLoading ? "not-allowed" : "pointer",
-                    transition: "all 0.18s", opacity: overtimeLoading ? 0.6 : 1,
-                    display: "flex", alignItems: "center", gap: 3,
-                  }}
-                >
-                  {effectiveStatus === 'available' && <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>}
-                  가능
-                </button>
-              </div>
+              {!isObserver && (
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOvertimeSelect('unavailable')}
+                    disabled={overtimeLoading}
+                    style={{
+                      padding: "4px 12px", borderRadius: 20, fontFamily: "inherit",
+                      border: `1.5px solid ${effectiveStatus === 'unavailable' ? "#EF4444" : "var(--border)"}`,
+                      background: effectiveStatus === 'unavailable' ? "#EF4444" : "transparent",
+                      color: effectiveStatus === 'unavailable' ? "#fff" : "var(--text-secondary)",
+                      fontSize: "0.75rem", fontWeight: 600,
+                      cursor: overtimeLoading ? "not-allowed" : "pointer",
+                      transition: "all 0.18s", opacity: overtimeLoading ? 0.6 : 1,
+                      display: "flex", alignItems: "center", gap: 3,
+                    }}
+                  >
+                    {effectiveStatus === 'unavailable' && <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>}
+                    불가능
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOvertimeSelect('available')}
+                    disabled={overtimeLoading}
+                    style={{
+                      padding: "4px 12px", borderRadius: 20, fontFamily: "inherit",
+                      border: `1.5px solid ${effectiveStatus === 'available' ? "var(--accent)" : "var(--border)"}`,
+                      background: effectiveStatus === 'available' ? "var(--accent)" : "transparent",
+                      color: effectiveStatus === 'available' ? "#fff" : "var(--text-secondary)",
+                      fontSize: "0.75rem", fontWeight: 600,
+                      cursor: overtimeLoading ? "not-allowed" : "pointer",
+                      transition: "all 0.18s", opacity: overtimeLoading ? 0.6 : 1,
+                      display: "flex", alignItems: "center", gap: 3,
+                    }}
+                  >
+                    {effectiveStatus === 'available' && <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>}
+                    가능
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 가능자 / 불가능자 태그 목록 */}
@@ -543,30 +546,32 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         </div>
 
         {/* 일정 추가 버튼 */}
-        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
-          <button
-            onClick={onAddClick}
-            style={{
-              width: "100%", padding: "10px", borderRadius: 9,
-              border: "1.5px dashed var(--border)", background: "none",
-              color: "var(--text-tertiary)", fontSize: "0.825rem", fontWeight: 500,
-              cursor: "pointer", fontFamily: "inherit",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              transition: "all 0.12s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.color = "var(--text-tertiary)";
-            }}
-          >
-            <Plus style={{ width: 14, height: 14 }} />
-            일정 추가
-          </button>
-        </div>
+        {!isObserver && (
+          <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
+            <button
+              onClick={onAddClick}
+              style={{
+                width: "100%", padding: "10px", borderRadius: 9,
+                border: "1.5px dashed var(--border)", background: "none",
+                color: "var(--text-tertiary)", fontSize: "0.825rem", fontWeight: 500,
+                cursor: "pointer", fontFamily: "inherit",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                transition: "all 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--accent)";
+                e.currentTarget.style.color = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+                e.currentTarget.style.color = "var(--text-tertiary)";
+              }}
+            >
+              <Plus style={{ width: 14, height: 14 }} />
+              일정 추가
+            </button>
+          </div>
+        )}
       </div>
       {showEquipmentStockModal && equipmentStock && (
         <EquipmentStockModal

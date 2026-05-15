@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { isLeaderRole } from "@/lib/groupPermissions";
+import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { rateLimit } from "@/lib/rateLimit";
@@ -19,7 +19,7 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
       member?.nickname?.trim() ||
       member?.user.name?.trim() ||
       member?.user.email?.split("@")[0] ||
-      "\uC791\uC131\uC790"
+      "작성자"
     );
   }
 
@@ -28,7 +28,7 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
     select: { name: true, email: true },
   });
 
-  return user?.name?.trim() || user?.email?.split("@")[0] || "\uC791\uC131\uC790";
+  return user?.name?.trim() || user?.email?.split("@")[0] || "작성자";
 }
 
 export async function GET(request: NextRequest) {
@@ -60,7 +60,6 @@ export async function GET(request: NextRequest) {
     });
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     const isAdmin = group?.leaderId === session.user.id;
-    const isLeader = isAdmin || (member?.status === "ACTIVE" && isLeaderRole(member.role));
 
     if (!isAdmin && (!member || member.status !== "ACTIVE")) {
       return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
@@ -131,19 +130,19 @@ export async function POST(request: NextRequest) {
   const eventCategory = category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP";
 
   if (!title?.trim()) {
-    return Response.json({ error: "제목은 필수입니다." }, { status: 400 });
+    return Response.json({ error: "제목은 필수입니다" }, { status: 400 });
   }
   if (title.trim().length > 100) {
-    return Response.json({ error: "제목은 100자 이하여야 합니다." }, { status: 400 });
+    return Response.json({ error: "제목은 100자 이하여야 합니다" }, { status: 400 });
   }
   if (description && description.trim().length > 500) {
-    return Response.json({ error: "설명은 500자 이하여야 합니다." }, { status: 400 });
+    return Response.json({ error: "설명은 500자 이하여야 합니다" }, { status: 400 });
   }
   if (!startDate || !endDate) {
-    return Response.json({ error: "날짜는 필수입니다." }, { status: 400 });
+    return Response.json({ error: "날짜는 필수입니다" }, { status: 400 });
   }
   if (isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) {
-    return Response.json({ error: "유효하지 않은 날짜입니다." }, { status: 400 });
+    return Response.json({ error: "유효하지 않은 날짜입니다" }, { status: 400 });
   }
 
   const defaultPersonnel = await resolveDefaultPersonnel(session.user.id, groupId);
@@ -151,10 +150,13 @@ export async function POST(request: NextRequest) {
   if (groupId) {
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId: session.user.id } },
-      select: { status: true },
+      select: { status: true, role: true },
     });
     if (member?.status !== "ACTIVE") {
       return Response.json({ error: "그룹 멤버가 아닙니다" }, { status: 403 });
+    }
+    if (isObserverRole(member.role)) {
+      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
     }
   }
 

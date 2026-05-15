@@ -17,6 +17,7 @@ import { getEquipmentStock } from "./equipmentStock";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
+import { isObserverRole } from "@/lib/groupPermissions";
 
 type Group = {
   id: string;
@@ -404,6 +405,9 @@ export default function CalendarView({
   onPendingDayDateHandled,
   onEventSaved,
 }: Props) {
+  const isObserver = !!group?.members.find(
+    (member) => member.userId === userId && isObserverRole(member.role)
+  );
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
@@ -830,6 +834,7 @@ export default function CalendarView({
           userId={userId}
           group={group}
           isLeader={isLeader}
+          isObserver={isObserver}
           customHolidays={customHolidays}
           onEventClick={(e) => {
             setDayPopup(null);

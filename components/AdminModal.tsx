@@ -213,7 +213,7 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
                         <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 7, background: "var(--surface-raised)" }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{ fontSize: "0.78rem", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.group.name}</p>
-                            <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{isGroupLeader ? "관리자" : m.role === "MEMBER" ? "멤버" : m.role}</p>
+                            <p style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{isGroupLeader ? "관리자" : m.role === "MEMBER" ? "멤버" : m.role === "OBSERVER" ? "옵저버" : m.role}</p>
                           </div>
                           {!isGroupLeader ? (
                             <button onClick={() => handleTransferLeader(m.group.id, m.group.name, u.id, u.name)}

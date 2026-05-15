@@ -1,8 +1,11 @@
 "use client";
 
+import { shouldCountTowardTotals } from "@/lib/groupPermissions";
+
 export type PersonnelMember = {
   userId: string;
   nickname?: string | null;
+  role?: string | null;
   status?: string | null;
   user: {
     name?: string | null;
@@ -47,9 +50,7 @@ export function getPersonnelAvailability(
 ) {
   if (!group) return null;
 
-  const activeMembers = group.members.filter(
-    (member) => member.status === "ACTIVE" || member.status == null
-  );
+  const activeMembers = group.members.filter((member) => shouldCountTowardTotals(member));
   const roster = activeMembers.map((member) => getMemberLabel(member));
   const rosterSet = new Set(roster);
   const assignedSet = new Set<string>();

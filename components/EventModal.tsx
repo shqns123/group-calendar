@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { shouldCountTowardTotals } from "@/lib/groupPermissions";
 
 type Group = {
   id: string;
@@ -16,6 +17,8 @@ type Group = {
     id: string;
     userId: string;
     nickname: string | null;
+    role?: string | null;
+    status?: string | null;
     user: { id: string; name: string | null };
   }>;
 };
@@ -222,10 +225,12 @@ export default function EventModal({
 
   const memberOptions = useMemo(
     () =>
-      (group?.members ?? []).map((member) => ({
-        id: member.id,
-        label: member.nickname?.trim() || member.user.name?.trim() || UI.noName,
-      })),
+      (group?.members ?? [])
+        .filter((member) => shouldCountTowardTotals(member))
+        .map((member) => ({
+          id: member.id,
+          label: member.nickname?.trim() || member.user.name?.trim() || UI.noName,
+        })),
     [group]
   );
   const equipmentGroups = useMemo(
@@ -250,9 +255,9 @@ export default function EventModal({
     if (!event?.personnel || !group) return [];
 
     const allowedLabels = new Set(
-      group.members.map(
-        (member) => member.nickname?.trim() || member.user.name?.trim() || UI.noName
-      )
+      group.members
+        .filter((member) => shouldCountTowardTotals(member))
+        .map((member) => member.nickname?.trim() || member.user.name?.trim() || UI.noName)
     );
 
     return event.personnel

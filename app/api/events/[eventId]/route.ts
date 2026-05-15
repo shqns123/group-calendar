@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { isLeaderRole } from "@/lib/groupPermissions";
+import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { NextRequest } from "next/server";
@@ -18,7 +18,7 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
       member?.nickname?.trim() ||
       member?.user.name?.trim() ||
       member?.user.email?.split("@")[0] ||
-      "\uC791\uC131\uC790"
+      "작성자"
     );
   }
 
@@ -27,7 +27,7 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
     select: { name: true, email: true },
   });
 
-  return user?.name?.trim() || user?.email?.split("@")[0] || "\uC791\uC131\uC790";
+  return user?.name?.trim() || user?.email?.split("@")[0] || "작성자";
 }
 
 export async function PATCH(
@@ -46,15 +46,20 @@ export async function PATCH(
   }
 
   let canEdit = event.creatorId === session.user.id;
-  if (!canEdit && event.groupId) {
+  if (event.groupId) {
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
       select: { role: true, status: true },
     });
-    canEdit =
-      group?.leaderId === session.user.id ||
-      (member?.status === "ACTIVE" && isLeaderRole(member.role));
+    if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
+      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
+    }
+    if (!canEdit) {
+      canEdit =
+        group?.leaderId === session.user.id ||
+        (member?.status === "ACTIVE" && isLeaderRole(member.role));
+    }
   }
   if (!canEdit) {
     return Response.json({ error: "수정 권한이 없습니다" }, { status: 403 });
@@ -128,15 +133,20 @@ export async function DELETE(
   }
 
   let canDelete = event.creatorId === session.user.id;
-  if (!canDelete && event.groupId) {
+  if (event.groupId) {
     const group = await prisma.group.findUnique({ where: { id: event.groupId } });
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
       select: { role: true, status: true },
     });
-    canDelete =
-      group?.leaderId === session.user.id ||
-      (member?.status === "ACTIVE" && isLeaderRole(member.role));
+    if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
+      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
+    }
+    if (!canDelete) {
+      canDelete =
+        group?.leaderId === session.user.id ||
+        (member?.status === "ACTIVE" && isLeaderRole(member.role));
+    }
   }
   if (!canDelete) {
     return Response.json({ error: "삭제 권한이 없습니다" }, { status: 403 });

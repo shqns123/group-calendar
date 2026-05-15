@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut } from "lucide-react";
+import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 
 type Member = {
   id: string;
@@ -39,6 +40,7 @@ const ROLE_LABELS: Record<string, { label: string; bg: string; color: string }> 
   관리자: { label: "관리자", bg: "var(--text-primary)", color: "var(--surface)" },
   그룹장: { label: "그룹장", bg: "var(--accent-light)", color: "var(--accent)" },
   파트장: { label: "파트장", bg: "#F0FDF4", color: "#16A34A" },
+  OBSERVER: { label: "옵저버", bg: "#EFF6FF", color: "#1D4ED8" },
   MEMBER: { label: "멤버", bg: "var(--surface-raised)", color: "var(--text-tertiary)" },
 };
 
@@ -65,8 +67,9 @@ function RoleBadge({ role }: { role: string }) {
 export default function GroupPanel({ group, userId, isOperator, onClose, onUpdated }: Props) {
   const isAdmin = group.leaderId === userId || !!isOperator;
   const myMember = group.members.find((m) => m.userId === userId);
-  const isLeader = isAdmin || myMember?.role === "그룹장" || myMember?.role === "파트장";
+  const isLeader = isAdmin || isLeaderRole(myMember?.role);
   const activeMembers = group.members.filter((m) => m.status === "ACTIVE" || m.status === undefined);
+  const countedMembers = activeMembers.filter((m) => shouldCountTowardTotals(m));
   const pendingMembers = group.members.filter((m) => m.status === "PENDING");
 
   const [loading, setLoading] = useState(false);
@@ -126,7 +129,7 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   };
 
   const setMemberRole = async (member: Member, role: string, displayName: string) => {
-    const roleLabel = role === "그룹장" ? "그룹장" : role === "파트장" ? "파트장" : "일반 멤버";
+    const roleLabel = role === "그룹장" ? "그룹장" : role === "파트장" ? "파트장" : role === "OBSERVER" ? "옵저버" : "일반 멤버";
     if (!confirm(`"${displayName}"님을 ${roleLabel}로 변경하시겠습니까?`)) return;
     setRoleMenuId(null);
     setLoading(true);
@@ -470,7 +473,7 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
           {/* ── 멤버 목록 ── */}
           <div style={sectionStyle}>
             <div style={sectionHeaderStyle}>
-              <span style={labelStyle}>멤버 ({activeMembers.length}명)</span>
+              <span style={labelStyle}>멤버 ({countedMembers.length}명)</span>
             </div>
             <div>
               {activeMembers.map((member, idx) => {
@@ -553,7 +556,9 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                               </button>
                               {roleMenuId === member.id && (
                                 <div style={{
-                                  position: "fixed",
+                                  position: "absolute",
+                                  top: "calc(100% + 6px)",
+                                  right: 0,
                                   background: "var(--surface)",
                                   border: "1px solid var(--border)",
                                   borderRadius: 8,
@@ -561,9 +566,8 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                                   zIndex: 100,
                                   minWidth: 110,
                                   overflow: "hidden",
-                                  right: 20,
                                 }}>
-                                  {["그룹장", "파트장", "MEMBER"].map((r) => (
+                                  {["그룹장", "파트장", "MEMBER", "OBSERVER"].map((r) => (
                                     <button
                                       key={r}
                                       onClick={() => setMemberRole(member, r, displayName)}
@@ -574,7 +578,7 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                                         textAlign: "left",
                                         background: member.role === r ? "var(--surface-raised)" : "none",
                                         border: "none",
-                                        borderBottom: r !== "MEMBER" ? "1px solid var(--border-subtle)" : "none",
+                                        borderBottom: r !== "OBSERVER" ? "1px solid var(--border-subtle)" : "none",
                                         cursor: "pointer",
                                         fontSize: "0.82rem",
                                         color: "var(--text-primary)",
@@ -584,7 +588,7 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                                       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                                       onMouseLeave={(e) => (e.currentTarget.style.background = member.role === r ? "var(--surface-raised)" : "none")}
                                     >
-                                      {r === "MEMBER" ? "일반 멤버" : r}
+                                      {r === "MEMBER" ? "일반 멤버" : r === "OBSERVER" ? "옵저버" : r}
                                     </button>
                                   ))}
                                 </div>
@@ -592,22 +596,24 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                             </div>
 
                             {/* 알림 발송 권한 토글 */}
-                            <button
-                              onClick={() => toggleNotifyPermission(member)}
-                              title={memberNotify[member.id] ? "알림 발송 권한 회수" : "알림 발송 권한 부여"}
-                              style={{
-                                background: memberNotify[member.id] ? "#FFFBEB" : "none",
-                                border: memberNotify[member.id] ? "1px solid #FDE68A" : "none",
-                                cursor: "pointer", padding: 5, borderRadius: 4,
-                                color: memberNotify[member.id] ? "#D97706" : "var(--text-tertiary)",
-                                display: "flex",
-                                transition: "all 0.15s ease",
-                              }}
-                            >
-                              {memberNotify[member.id]
-                                ? <Bell style={{ width: 12, height: 12 }} />
-                                : <BellOff style={{ width: 12, height: 12 }} />}
-                            </button>
+                            {!isObserverRole(member.role) && (
+                              <button
+                                onClick={() => toggleNotifyPermission(member)}
+                                title={memberNotify[member.id] ? "알림 발송 권한 회수" : "알림 발송 권한 부여"}
+                                style={{
+                                  background: memberNotify[member.id] ? "#FFFBEB" : "none",
+                                  border: memberNotify[member.id] ? "1px solid #FDE68A" : "none",
+                                  cursor: "pointer", padding: 5, borderRadius: 4,
+                                  color: memberNotify[member.id] ? "#D97706" : "var(--text-tertiary)",
+                                  display: "flex",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                {memberNotify[member.id]
+                                  ? <Bell style={{ width: 12, height: 12 }} />
+                                  : <BellOff style={{ width: 12, height: 12 }} />}
+                              </button>
+                            )}
 
                             {/* 멤버 제거 */}
                             <button

@@ -33,6 +33,7 @@ import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
 import HolidayModal, { type CustomHoliday } from "./HolidayModal";
+import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 
 type UserInfo = {
   id: string;
@@ -243,7 +244,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const myRole = (g: Group) => {
     if (g.leaderId === user.id) return "admin";
     const m = g.members.find((m) => m.userId === user.id);
-    if (m?.role === "그룹장" || m?.role === "파트장") return "leader";
+    if (isLeaderRole(m?.role)) return "leader";
     return "member";
   };
 
@@ -251,6 +252,9 @@ export function DashboardClient({ user, initialGroups }: Props) {
     const role = myRole(g);
     return role === "admin" || role === "leader" || user.isOperator;
   };
+
+  const isObserver = (g: Group | null) =>
+    !!g && g.members.some((member) => member.userId === user.id && isObserverRole(member.role));
 
   const isOperatorManagedOnly = (g: Group | null): boolean =>
     !!g && user.isOperator && g.leaderId !== user.id && !g.members.some((m) => m.userId === user.id);
@@ -721,7 +725,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </h2>
             {selectedGroup && (
               <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
-                멤버 {selectedGroup.members.filter(m => m.status === "ACTIVE" || !m.status).length}명
+                멤버 {selectedGroup.members.filter((m) => shouldCountTowardTotals(m)).length}명
                 {selectedGroup.description && ` · ${selectedGroup.description}`}
               </p>
             )}
@@ -824,7 +828,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </button>
           )}
 
-          {selectedGroup && (
+          {selectedGroup && !isObserver(selectedGroup) && (
             <button
               onClick={() => setShowGroupPanel(true)}
               style={{
@@ -876,7 +880,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               group={selectedGroup}
               isLeader={
                 selectedGroup?.leaderId === user.id ||
-                ["그룹장", "파트장"].includes(selectedGroup?.members.find((m) => m.userId === user.id)?.role ?? "")
+                isLeaderRole(selectedGroup?.members.find((m) => m.userId === user.id)?.role)
               }
               customHolidays={customHolidays}
               pendingEvent={pendingEvent}
