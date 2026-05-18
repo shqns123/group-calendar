@@ -26,6 +26,7 @@ type Group = {
   trackerOptions?: string | null;
   laptopOptions?: string | null;
   targetCount?: number;
+  eventDisplayLimit?: number;
   members: Array<{
     id: string;
     userId: string;
@@ -417,6 +418,7 @@ export default function CalendarView({
   const [currentMonthLabel, setCurrentMonthLabel] = useState(() =>
     format(new Date(), "yyyy년 M월", { locale: ko })
   );
+  const eventDisplayLimit = Math.max(1, Math.min(10, group?.eventDisplayLimit ?? 3));
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -764,7 +766,7 @@ export default function CalendarView({
               return DAYS[arg.date.getDay()];
             }}
             events={calendarEvents}
-            dayMaxEvents={3}
+            dayMaxEvents={eventDisplayLimit}
             dayCellContent={(arg) => arg.date.getDate()}
             dateClick={handleDateClick}
             eventClick={handleEventClick}

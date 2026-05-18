@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut } from "lucide-react";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 
@@ -23,6 +23,7 @@ type Group = {
   trackerOptions?: string | null;
   laptopOptions?: string | null;
   targetCount?: number;
+  eventDisplayLimit?: number;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Member[];
@@ -79,12 +80,19 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   const [trackerOptionsInput, setTrackerOptionsInput] = useState(group.trackerOptions ?? "");
   const [laptopOptionsInput, setLaptopOptionsInput] = useState(group.laptopOptions ?? "");
   const [targetCountInput, setTargetCountInput] = useState(String(group.targetCount ?? 2));
+  const [eventDisplayLimitInput, setEventDisplayLimitInput] = useState(
+    String(group.eventDisplayLimit ?? 3)
+  );
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
   const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
   const [memberNotify, setMemberNotify] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(group.members.map((m) => [m.id, !!m.canNotify]))
   );
+
+  useEffect(() => {
+    setEventDisplayLimitInput(String(group.eventDisplayLimit ?? 3));
+  }, [group.eventDisplayLimit]);
 
 
   const saveGroupInfo = async () => {
@@ -122,6 +130,24 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
       if (res.ok) {
         await onUpdated();
         setEditingMemberId(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEventDisplayLimit = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventDisplayLimit: Number(eventDisplayLimitInput) || 3,
+        }),
+      });
+      if (res.ok) {
+        await onUpdated();
       }
     } finally {
       setLoading(false);
@@ -418,6 +444,65 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
           </div>
 
           {/* ── 가입 요청 (리더/관리자만) ── */}
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <span style={labelStyle}>일정 표시줄</span>
+            </div>
+            <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                월간 캘린더에서 하루에 보여줄 일정 표시줄 개수를 설정합니다.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={eventDisplayLimitInput}
+                  onChange={(e) => setEventDisplayLimitInput(e.target.value)}
+                  disabled={!isAdmin || loading}
+                  style={{
+                    width: 84,
+                    padding: "8px 10px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 7,
+                    fontSize: "0.85rem",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    color: "#6B7280",
+                    background: isAdmin ? "var(--surface)" : "var(--surface-raised)",
+                  }}
+                />
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={saveEventDisplayLimit}
+                    disabled={loading}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: "0.78rem",
+                      border: "none",
+                      borderRadius: 7,
+                      background: "var(--text-primary)",
+                      color: "#fff",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontWeight: 600,
+                    }}
+                  >
+                    확인
+                  </button>
+                ) : (
+                  <span style={{ fontSize: "0.76rem", color: "var(--text-tertiary)" }}>
+                    {group.eventDisplayLimit ?? 3}개
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
+                기본값은 3개이며 1개부터 10개까지 지정할 수 있습니다.
+              </p>
+            </div>
+          </div>
+
           {isLeader && pendingMembers.length > 0 && (
             <div style={{ border: "1px solid #FDE68A", borderRadius: 10 }}>
               <div style={{ padding: "8px 14px", background: "#FFFBEB", borderBottom: "1px solid #FDE68A", borderRadius: "10px 10px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

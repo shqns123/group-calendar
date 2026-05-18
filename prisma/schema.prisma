@@ -93,6 +93,7 @@ model Group {
   trackerOptions  String?
   laptopOptions   String?
   targetCount     Int           @default(2)
+  eventDisplayLimit Int         @default(3)
   leaderId        String
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]

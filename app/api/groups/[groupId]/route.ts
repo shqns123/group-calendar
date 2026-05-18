@@ -61,9 +61,13 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { name, description, trackerOptions, laptopOptions, targetCount } = body;
+  const { name, description, trackerOptions, laptopOptions, targetCount, eventDisplayLimit } = body;
   const normalizedTargetCount =
     targetCount === undefined ? undefined : Math.max(0, Math.min(100, Number(targetCount) || 0));
+  const normalizedEventDisplayLimit =
+    eventDisplayLimit === undefined
+      ? undefined
+      : Math.max(1, Math.min(10, Number(eventDisplayLimit) || 3));
 
   const updated = await prisma.group.update({
     where: { id: groupId },
@@ -73,6 +77,7 @@ export async function PATCH(
       ...(trackerOptions !== undefined && { trackerOptions: String(trackerOptions).trim() || null }),
       ...(laptopOptions !== undefined && { laptopOptions: String(laptopOptions).trim() || null }),
       ...(normalizedTargetCount !== undefined && { targetCount: normalizedTargetCount }),
+      ...(normalizedEventDisplayLimit !== undefined && { eventDisplayLimit: normalizedEventDisplayLimit }),
     },
   });
 

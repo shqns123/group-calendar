@@ -17,6 +17,7 @@ import {
   Check,
   RefreshCw,
   X,
+  Star,
   BookOpen,
   Bell,
   UserCheck,
@@ -68,6 +69,7 @@ type Props = {
   initialGroups: Group[];
 };
 
+const DEFAULT_GROUP_STORAGE_KEY = "group-calendar:default-group-id";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -82,6 +84,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     initialGroups[0]?.id ?? null
   );
+  const [defaultGroupId, setDefaultGroupId] = useState<string | null>(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showGroupPanel, setShowGroupPanel] = useState(false);
@@ -116,10 +119,35 @@ export function DashboardClient({ user, initialGroups }: Props) {
   }, [groups, requestedGroupId]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedGroupId = window.localStorage.getItem(DEFAULT_GROUP_STORAGE_KEY);
+    if (!storedGroupId) {
+      setDefaultGroupId(null);
+      return;
+    }
+
+    const exists = groups.some((group) => group.id === storedGroupId);
+    if (!exists) {
+      window.localStorage.removeItem(DEFAULT_GROUP_STORAGE_KEY);
+      setDefaultGroupId(null);
+      return;
+    }
+
+    setDefaultGroupId(storedGroupId);
+    if (!requestedGroupId) {
+      setSelectedGroupId(storedGroupId);
+    }
+  }, [groups, requestedGroupId]);
+
+  useEffect(() => {
     if (selectedGroupId === null) return;
     if (groups.some((group) => group.id === selectedGroupId)) return;
-    setSelectedGroupId(groups[0]?.id ?? null);
-  }, [groups, selectedGroupId]);
+    const fallbackGroupId =
+      defaultGroupId && groups.some((group) => group.id === defaultGroupId)
+        ? defaultGroupId
+        : groups[0]?.id ?? null;
+    setSelectedGroupId(fallbackGroupId);
+  }, [defaultGroupId, groups, selectedGroupId]);
 
   // Mobile detection
   useEffect(() => {
@@ -318,6 +346,21 @@ export function DashboardClient({ user, initialGroups }: Props) {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const toggleDefaultGroup = (groupId: string) => {
+    if (typeof window === "undefined") return;
+
+    const nextGroupId = defaultGroupId === groupId ? null : groupId;
+    if (nextGroupId) {
+      window.localStorage.setItem(DEFAULT_GROUP_STORAGE_KEY, nextGroupId);
+      setDefaultGroupId(nextGroupId);
+      setSelectedGroupId(nextGroupId);
+      return;
+    }
+
+    window.localStorage.removeItem(DEFAULT_GROUP_STORAGE_KEY);
+    setDefaultGroupId(null);
+  };
+
   const inviteLink =
     selectedGroup && origin
       ? buildInviteJoinUrl(origin, selectedGroup.inviteCode)
@@ -512,6 +555,46 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 </span>
               }
               label={g.name}
+              action={
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleDefaultGroup(g.id);
+                  }}
+                  title={
+                    defaultGroupId === g.id
+                      ? "기본 그룹 해제"
+                      : "기본 그룹으로 설정"
+                  }
+                  aria-label={
+                    defaultGroupId === g.id
+                      ? `${g.name} 기본 그룹 해제`
+                      : `${g.name} 기본 그룹으로 설정`
+                  }
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: 999,
+                    border: "none",
+                    background:
+                      defaultGroupId === g.id ? "rgba(224, 168, 75, 0.18)" : "transparent",
+                    color: defaultGroupId === g.id ? "#E0A84B" : "var(--sidebar-text)",
+                    cursor: "pointer",
+                    padding: 0,
+                    flexShrink: 0,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Star
+                    style={{ width: 13, height: 13 }}
+                    fill={defaultGroupId === g.id ? "currentColor" : "none"}
+                  />
+                </button>
+              }
               badge={(() => {
                 const isMgmtOnly = isOperatorManagedOnly(g);
                 const pendingCnt = isElevated(g) ? g.members.filter(m => m.status === "PENDING").length : 0;
@@ -1346,33 +1429,28 @@ function NavItem({
   onClick,
   icon,
   label,
+  action,
   badge,
 }: {
   selected: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  action?: React.ReactNode;
   badge?: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       style={{
         width: "100%",
         display: "flex",
         alignItems: "center",
         gap: 9,
-        padding: "7px 10px",
         borderRadius: 8,
-        border: "none",
         background: selected ? "var(--sidebar-item-active)" : "transparent",
         color: selected ? "var(--sidebar-text-active)" : "var(--sidebar-text)",
-        fontSize: "0.825rem",
-        fontWeight: selected ? 600 : 400,
-        cursor: "pointer",
         textAlign: "left",
         marginBottom: 1,
-        fontFamily: "inherit",
         transition: "all 0.15s ease",
       }}
       onMouseEnter={(e) => {
@@ -1388,12 +1466,35 @@ function NavItem({
         }
       }}
     >
-      <span style={{ flexShrink: 0 }}>{icon}</span>
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {label}
-      </span>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          padding: "7px 10px",
+          borderRadius: 8,
+          border: "none",
+          background: "transparent",
+          color: "inherit",
+          fontSize: "0.825rem",
+          fontWeight: selected ? 600 : 400,
+          cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "inherit",
+        }}
+      >
+        <span style={{ flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {label}
+        </span>
+      </button>
+      {action}
       {badge}
-    </button>
+    </div>
   );
 }
 

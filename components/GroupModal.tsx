@@ -11,6 +11,7 @@ export type GroupFromApi = {
   trackerOptions?: string | null;
   laptopOptions?: string | null;
   targetCount?: number;
+  eventDisplayLimit?: number;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Array<{
