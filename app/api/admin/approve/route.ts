@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { sendMobilePushToTokens } from "@/lib/mobilepush";
 import { consumePendingInviteForUser } from "@/lib/pendingInvite";
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/webpush";
@@ -33,8 +34,19 @@ export async function POST(req: Request) {
     await consumePendingInviteForUser(userId);
 
     const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+    const mobileTokens = await prisma.mobileDeviceToken.findMany({
+      where: { userId, platform: "ANDROID" },
+    });
+
     if (subs.length > 0) {
       await sendPushToUser(subs, {
+        title: "가입 승인",
+        body: "계정 승인이 완료되었습니다. 로그인 후 이용해 주세요.",
+        url: "/",
+      });
+    }
+    if (mobileTokens.length > 0) {
+      await sendMobilePushToTokens(mobileTokens.map((item) => item.token), {
         title: "가입 승인",
         body: "계정 승인이 완료되었습니다. 로그인 후 이용해 주세요.",
         url: "/",

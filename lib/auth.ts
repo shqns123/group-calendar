@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { sendMobilePushToTokens } from "./mobilepush";
 import { consumePendingInviteForUser } from "./pendingInvite";
 import { prisma } from "./prisma";
 
@@ -15,10 +16,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
     Credentials({
       id: "guest",
-      name: "게스트 로그인",
+      name: "Guest login",
       credentials: {
-        name: { label: "이름", type: "text" },
-        employeeId: { label: "사번", type: "text" },
+        name: { label: "Name", type: "text" },
+        employeeId: { label: "Employee ID", type: "text" },
       },
       async authorize(credentials) {
         const name = (credentials?.name as string)?.trim();
@@ -41,14 +42,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const operators = await prisma.user.findMany({
         where: { isOperator: true },
-        select: { pushSubscriptions: true },
+        select: { pushSubscriptions: true, mobileDeviceTokens: true },
       });
       const allSubs = operators.flatMap((operator) => operator.pushSubscriptions);
+      const allMobileTokens = operators.flatMap((operator) =>
+        operator.mobileDeviceTokens.map((token) => token.token),
+      );
+
       if (allSubs.length > 0) {
         const { sendPushToUser } = await import("./webpush");
         await sendPushToUser(allSubs, {
-          title: "회원가입 요청",
-          body: `${user.name ?? user.email}님이 Google 계정으로 가입 승인을 요청했습니다.`,
+          title: "가입 요청",
+          body: `${user.name ?? user.email} 님이 Google 계정으로 가입 승인을 요청했습니다.`,
+          url: "/",
+        });
+      }
+      if (allMobileTokens.length > 0) {
+        await sendMobilePushToTokens(allMobileTokens, {
+          title: "가입 요청",
+          body: `${user.name ?? user.email} 님이 Google 계정으로 가입 승인을 요청했습니다.`,
           url: "/",
         });
       }
@@ -113,9 +125,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token?.id) session.user.id = token.id as string;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const u = session.user as any;
-      u.status = token.status ?? "ACTIVE";
-      u.isOperator = token.isOperator ?? false;
+      const sessionUser = session.user as any;
+      sessionUser.status = token.status ?? "ACTIVE";
+      sessionUser.isOperator = token.isOperator ?? false;
       return session;
     },
   },

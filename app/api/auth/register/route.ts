@@ -2,6 +2,7 @@ import {
   PENDING_INVITE_COOKIE_NAME,
   PENDING_QR_TOKEN_COOKIE_NAME,
 } from "@/lib/inviteOnboarding";
+import { sendMobilePushToTokens } from "@/lib/mobilepush";
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/webpush";
 import { NextRequest, NextResponse } from "next/server";
@@ -59,23 +60,30 @@ export async function POST(req: NextRequest) {
   });
 
   const admins = await prisma.group.findMany({
-    select: { leader: { select: { pushSubscriptions: true } } },
+    select: { leader: { select: { pushSubscriptions: true, mobileDeviceTokens: true } } },
   });
   const allSubs = admins.flatMap((group) => group.leader.pushSubscriptions);
+  const allMobileTokens = admins.flatMap((group) =>
+    group.leader.mobileDeviceTokens.map((device) => device.token),
+  );
+
   if (allSubs.length > 0) {
     await sendPushToUser(allSubs, {
       title: "회원가입 요청",
-      body: `${name.trim()}님이 가입 승인을 요청했습니다.`,
+      body: `${name.trim()} 님이 가입 승인을 요청했습니다.`,
+      url: "/",
+    });
+  }
+  if (allMobileTokens.length > 0) {
+    await sendMobilePushToTokens(allMobileTokens, {
+      title: "회원가입 요청",
+      body: `${name.trim()} 님이 가입 승인을 요청했습니다.`,
       url: "/",
     });
   }
 
   const response = NextResponse.json({ pending: true });
-  if (token) {
-    response.cookies.delete(PENDING_QR_TOKEN_COOKIE_NAME);
-  }
-  if (inviteCodeCookie) {
-    response.cookies.delete(PENDING_INVITE_COOKIE_NAME);
-  }
+  if (token) response.cookies.delete(PENDING_QR_TOKEN_COOKIE_NAME);
+  if (inviteCodeCookie) response.cookies.delete(PENDING_INVITE_COOKIE_NAME);
   return response;
 }

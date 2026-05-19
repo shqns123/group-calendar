@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { sendMobilePushToTokens } from "./mobilepush";
 import { prisma } from "./prisma";
 import { sendPushToUser } from "./webpush";
 
@@ -8,10 +9,9 @@ export function startScheduler() {
   if (schedulerStarted) return;
   schedulerStarted = true;
 
-  // 매 분마다 체크
   cron.schedule("* * * * *", async () => {
     const now = new Date();
-    const currentDay = now.getDay();     // 0=일, 1=월, ..., 6=토
+    const currentDay = now.getDay();
     const currentHour = now.getHours();
     const currentMin = now.getMinutes();
 
@@ -26,7 +26,7 @@ export function startScheduler() {
           include: {
             members: {
               where: { status: "ACTIVE" },
-              include: { user: { include: { pushSubscriptions: true } } },
+              include: { user: { include: { pushSubscriptions: true, mobileDeviceTokens: true } } },
             },
           },
         },
@@ -37,12 +37,20 @@ export function startScheduler() {
       const days = schedule.dayOfWeek.split(",").map(Number);
       if (!days.includes(currentDay)) continue;
 
-      const allSubs = schedule.group.members.flatMap(
-        (m) => m.user.pushSubscriptions
+      const allSubs = schedule.group.members.flatMap((member) => member.user.pushSubscriptions);
+      const allMobileTokens = schedule.group.members.flatMap((member) =>
+        member.user.mobileDeviceTokens.map((device) => device.token),
       );
 
       if (allSubs.length > 0) {
         await sendPushToUser(allSubs, {
+          title: schedule.group.name,
+          body: schedule.message,
+          url: `/?groupId=${schedule.group.id}`,
+        });
+      }
+      if (allMobileTokens.length > 0) {
+        await sendMobilePushToTokens(allMobileTokens, {
           title: schedule.group.name,
           body: schedule.message,
           url: `/?groupId=${schedule.group.id}`,
