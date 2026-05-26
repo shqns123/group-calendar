@@ -17,6 +17,16 @@ import { getEquipmentStock } from "./equipmentStock";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
+import {
+  compareEventsByStart,
+  getCalendarEventEnd,
+  getCalendarEventStart,
+  getEventEndDate,
+  getEventEndDateKey,
+  getEventStartDate,
+  getEventStartDateKey,
+  isEventOnDate,
+} from "@/lib/calendarDate";
 import { isObserverRole } from "@/lib/groupPermissions";
 
 type Group = {
@@ -119,15 +129,11 @@ function isWeekend(date: Date): boolean {
 // ── Today 뷰 ──────────────────────────────────────────
 function TodayView({
   events,
-  userId,
   group,
-  isLeader,
   onEventClick,
 }: {
   events: CalEvent[];
-  userId: string;
   group: Group | null;
-  isLeader: boolean;
   onEventClick: (e: CalEvent) => void;
 }) {
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
@@ -136,18 +142,12 @@ function TodayView({
   const todayEvents = events
     .filter((e) => {
       if (e.isOvertimeOnly) return false;
-      const start = new Date(e.startDate);
-      const end = new Date(e.endDate);
-      const todayStart = new Date(today);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(today);
-      todayEnd.setHours(23, 59, 59, 999);
-      return start <= todayEnd && end >= todayStart;
+      return isEventOnDate(e, today);
     })
     .sort((a, b) => {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
-      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      return compareEventsByStart(a, b);
     });
   const equipmentStock = getEquipmentStock(group, todayEvents);
   const personnelAvailability = getPersonnelAvailability(group, todayEvents);
@@ -246,8 +246,8 @@ function TodayView({
           </div>
         ) : (
           todayEvents.map((event) => {
-            const start = new Date(event.startDate);
-            const end = new Date(event.endDate);
+            const start = getEventStartDate(event);
+            const end = getEventEndDate(event);
             const memberName = getMemberName(event);
 
             if (false && event.isOvertimeOnly) {
@@ -469,37 +469,25 @@ export default function CalendarView({
 
   const calendarEvents: EventInput[] = events
     .filter((e) => !e.isOvertimeOnly && (e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE")
-    .map((e) => {
-      let endValue: Date | string = e.endDate;
-      if (e.allDay) {
-        const d = new Date(e.endDate);
-        d.setDate(d.getDate() + 1);
-        endValue = d;
-      }
-      return {
-        id: e.id,
-        title: e.title,
-        start: e.startDate,
-        end: endValue,
-        allDay: e.allDay,
-        backgroundColor: e.color + "28",
-        borderColor: "transparent",
-        textColor: e.color,
-        extendedProps: { event: e },
-      };
-    });
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      start: getCalendarEventStart(e),
+      end: getCalendarEventEnd(e),
+      allDay: e.allDay,
+      backgroundColor: e.color + "28",
+      borderColor: "transparent",
+      textColor: e.color,
+      extendedProps: { event: e },
+    }));
 
   const openDayPopup = useCallback((date: Date) => {
-    const s = new Date(date);
-    s.setHours(0, 0, 0, 0);
-    const e = new Date(date);
-    e.setHours(23, 59, 59, 999);
     const dayEvents = events
-      .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+      .filter((ev) => isEventOnDate(ev, date))
       .sort((a, b) => {
         if (a.allDay && !b.allDay) return -1;
         if (!a.allDay && b.allDay) return 1;
-        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        return compareEventsByStart(a, b);
       });
     setDayPopup({ date, events: dayEvents });
   }, [events]);
@@ -520,16 +508,12 @@ export default function CalendarView({
     const timeoutId = window.setTimeout(() => {
       setDayPopup((prev) => {
         if (!prev) return null;
-        const s = new Date(prev.date);
-        s.setHours(0, 0, 0, 0);
-        const e = new Date(prev.date);
-        e.setHours(23, 59, 59, 999);
         const updated = events
-          .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
+          .filter((ev) => isEventOnDate(ev, prev.date))
           .sort((a, b) => {
             if (a.allDay && !b.allDay) return -1;
             if (!a.allDay && b.allDay) return 1;
-            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+            return compareEventsByStart(a, b);
           });
         return { ...prev, events: updated };
       });
@@ -740,9 +724,7 @@ export default function CalendarView({
         {viewMode === "today" ? (
           <TodayView
             events={events}
-            userId={userId}
             group={group}
-            isLeader={isLeader}
             onEventClick={(e) => {
               setSelectedEvent(e);
               setSelectedDates(null);
@@ -786,15 +768,15 @@ export default function CalendarView({
               const hasOvertime = events.some((e) => {
                 if (!e.overtimeAvailable) return false;
                 if (!isLeader && e.creatorId !== userId) return false;
-                const s = format(new Date(e.startDate), "yyyy-MM-dd");
-                const en = format(new Date(e.endDate), "yyyy-MM-dd");
+                const s = getEventStartDateKey(e);
+                const en = getEventEndDateKey(e);
                 return ds >= s && ds <= en;
               });
               const hasAttendance = events.some((e) => {
                 if (e.isOvertimeOnly) return false;
                 if ((e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE") return false;
-                const s = format(new Date(e.startDate), "yyyy-MM-dd");
-                const en = format(new Date(e.endDate), "yyyy-MM-dd");
+                const s = getEventStartDateKey(e);
+                const en = getEventEndDateKey(e);
                 return ds >= s && ds <= en;
               });
               if (hasOvertime) classes.push("fc-day-overtime");

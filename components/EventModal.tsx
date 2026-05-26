@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { getEventEndDate, getEventStartDate } from "@/lib/calendarDate";
 import { shouldCountTowardTotals } from "@/lib/groupPermissions";
 
 type Group = {
@@ -190,8 +191,8 @@ export default function EventModal({
   const touchStartXRef = useRef<number | null>(null);
 
   const now = new Date();
-  const defaultStart = initialDates?.start ?? (event ? new Date(event.startDate) : now);
-  const defaultEnd = initialDates?.end ?? (event ? new Date(event.endDate) : now);
+  const defaultStart = initialDates?.start ?? (event ? getEventStartDate(event) : now);
+  const defaultEnd = initialDates?.end ?? (event ? getEventEndDate(event) : now);
   const allDay = true;
 
   const [title, setTitle] = useState(event?.title ?? "");
@@ -292,7 +293,7 @@ export default function EventModal({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isAttendance]);
 
   useEffect(() => {
     if (!isAttendance) return;
@@ -391,8 +392,8 @@ export default function EventModal({
       category: selectedCategory,
       title: finalTitle,
       description: description.trim() || null,
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(endDate).toISOString(),
+      startDate,
+      endDate,
       allDay,
       color,
       overtimeAvailable,
@@ -466,12 +467,12 @@ export default function EventModal({
               <Calendar className="h-4 w-4" />
               <span>
                 {format(
-                  new Date(event.startDate),
+                  getEventStartDate(event),
                   event.allDay ? "yyyy\uB144 MM\uC6D4 dd\uC77C" : "yyyy\uB144 MM\uC6D4 dd\uC77C HH:mm",
                   { locale: ko }
                 )}
                 {!event.allDay &&
-                  ` ~ ${format(new Date(event.endDate), "HH:mm", { locale: ko })}`}
+                  ` ~ ${format(getEventEndDate(event), "HH:mm", { locale: ko })}`}
               </span>
             </div>
             {group && (

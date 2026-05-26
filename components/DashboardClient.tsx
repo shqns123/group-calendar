@@ -34,6 +34,7 @@ import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
 import HolidayModal, { type CustomHoliday } from "./HolidayModal";
+import { getEventStartDate } from "@/lib/calendarDate";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 import { buildInviteJoinUrl, PENDING_INVITE_STORAGE_KEY } from "@/lib/inviteOnboarding";
 
@@ -233,19 +234,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
     }
   };
 
-  const shouldReceiveNotifications = groups.length > 0;
-
-  useEffect(() => {
-    if (!shouldReceiveNotifications) return;
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission === "granted") {
-      registerPushSubscription();
-    } else if (Notification.permission === "default") {
-      setShowNotifBanner(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldReceiveNotifications]);
-
   const refreshGroups = useCallback(async () => {
     const res = await fetch("/api/groups");
     if (res.ok) {
@@ -334,6 +322,19 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   const isObserver = (g: Group | null) =>
     !!g && g.members.some((member) => member.userId === user.id && isObserverRole(member.role));
+
+  const shouldReceiveNotifications = groups.some((group) => !isObserver(group));
+
+  useEffect(() => {
+    if (!shouldReceiveNotifications) return;
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      registerPushSubscription();
+    } else if (Notification.permission === "default") {
+      setShowNotifBanner(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldReceiveNotifications]);
 
   const isOperatorManagedOnly = (g: Group | null): boolean =>
     !!g && user.isOperator && g.leaderId !== user.id && !g.members.some((m) => m.userId === user.id);
@@ -765,7 +766,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             userId={user.id}
             group={selectedGroup}
             isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-            onEventClick={(event) => setPendingDayDate(new Date(event.startDate))}
+              onEventClick={(event) => setPendingDayDate(getEventStartDate(event))}
             refreshKey={refreshKey}
             onClose={() => setSummaryOpen(false)}
           />
@@ -1057,7 +1058,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
               userId={user.id}
               group={selectedGroup}
               isLeader={isElevated(selectedGroup ?? { leaderId: "", members: [] } as unknown as Group)}
-              onEventClick={(event) => { setPendingDayDate(new Date(event.startDate)); setSummaryOpen(false); }}
+              onEventClick={(event) => { setPendingDayDate(getEventStartDate(event)); setSummaryOpen(false); }}
               refreshKey={refreshKey}
               onClose={() => setSummaryOpen(false)}
             />

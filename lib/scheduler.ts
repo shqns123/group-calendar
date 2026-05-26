@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { filterNotifiableGroupMembers } from "./notificationRecipients";
 import { sendMobilePushToTokens } from "./mobilepush";
 import { prisma } from "./prisma";
 import { sendPushToUser } from "./webpush";
@@ -37,8 +38,9 @@ export function startScheduler() {
       const days = schedule.dayOfWeek.split(",").map(Number);
       if (!days.includes(currentDay)) continue;
 
-      const allSubs = schedule.group.members.flatMap((member) => member.user.pushSubscriptions);
-      const allMobileTokens = schedule.group.members.flatMap((member) =>
+      const notifiableMembers = filterNotifiableGroupMembers(schedule.group.members);
+      const allSubs = notifiableMembers.flatMap((member) => member.user.pushSubscriptions);
+      const allMobileTokens = notifiableMembers.flatMap((member) =>
         member.user.mobileDeviceTokens.map((device) => device.token),
       );
 

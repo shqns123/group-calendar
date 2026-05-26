@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { format, isPast, isThisMonth, isToday, isTomorrow, startOfDay } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Clock, MapPin, PanelLeftClose, RefreshCw } from "lucide-react";
+import { compareEventsByStart, formatDateKey, getEventEndDate, getEventStartDate } from "@/lib/calendarDate";
 
 type CalEvent = {
   id: string;
@@ -68,9 +69,7 @@ function getDateLabel(date: Date): string {
 }
 
 export default function EventSummary({
-  userId,
   group,
-  isLeader,
   onEventClick,
   refreshKey,
   onClose,
@@ -87,15 +86,15 @@ export default function EventSummary({
       future.setDate(future.getDate() + 365);
 
       const params = new URLSearchParams({
-        start: today.toISOString(),
-        end: future.toISOString(),
+        start: formatDateKey(today),
+        end: formatDateKey(future),
       });
       if (group) params.set("groupId", group.id);
 
       const res = await fetch(`/api/events?${params}`);
       if (res.ok) {
         const data: CalEvent[] = await res.json();
-        data.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        data.sort(compareEventsByStart);
         setEvents(data);
       }
     } catch {
@@ -114,7 +113,7 @@ export default function EventSummary({
   const labelOrder: string[] = [];
 
   for (const event of events.filter((e) => !e.isOvertimeOnly)) {
-    const label = getDateLabel(new Date(event.startDate));
+    const label = getDateLabel(getEventStartDate(event));
     if (!labelMap.has(label)) {
       labelMap.set(label, []);
       labelOrder.push(label);
@@ -278,8 +277,8 @@ export default function EventSummary({
 
             {grp.events.map((event, evIdx) => {
               const creatorName = getCreatorName(event);
-              const start = new Date(event.startDate);
-              const end = new Date(event.endDate);
+              const start = getEventStartDate(event);
+              const end = getEventEndDate(event);
               const isPastEvent = isPast(end) && !isToday(end);
 
               return (

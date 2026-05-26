@@ -1,8 +1,10 @@
+import { NextRequest } from "next/server";
+
 import { auth } from "@/lib/auth";
+import { parseApiEventDate } from "@/lib/calendarDate";
+import { eventBus } from "@/lib/eventBus";
 import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
-import { eventBus } from "@/lib/eventBus";
-import { NextRequest } from "next/server";
 
 async function resolveDefaultPersonnel(userId: string, groupId?: string | null) {
   if (groupId) {
@@ -38,11 +40,11 @@ export async function PATCH(
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { eventId } = await ctx.params;
 
+  const { eventId } = await ctx.params;
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) {
-    return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
+    return Response.json({ error: "일정을 찾을 수 없습니다." }, { status: 404 });
   }
 
   let canEdit = event.creatorId === session.user.id;
@@ -52,17 +54,20 @@ export async function PATCH(
       where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
       select: { role: true, status: true },
     });
+
     if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
-      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
+      return Response.json({ error: "옵저버는 그룹 일정을 조회만 할 수 있습니다." }, { status: 403 });
     }
+
     if (!canEdit) {
       canEdit =
         group?.leaderId === session.user.id ||
         (member?.status === "ACTIVE" && isLeaderRole(member.role));
     }
   }
+
   if (!canEdit) {
-    return Response.json({ error: "수정 권한이 없습니다" }, { status: 403 });
+    return Response.json({ error: "수정 권한이 없습니다." }, { status: 403 });
   }
 
   const body = await request.json();
@@ -79,21 +84,29 @@ export async function PATCH(
     personnel,
     equipment,
   } = body;
+
   const eventCategory =
     category === undefined
       ? event.category
       : category === "ATTENDANCE"
         ? "ATTENDANCE"
         : "BUSINESS_TRIP";
+  const nextAllDay = allDay ?? event.allDay;
   const defaultPersonnel = await resolveDefaultPersonnel(event.creatorId, event.groupId);
+  const parsedStartDate = startDate ? parseApiEventDate(startDate, nextAllDay) : null;
+  const parsedEndDate = endDate ? parseApiEventDate(endDate, nextAllDay) : null;
+
+  if ((startDate && !parsedStartDate) || (endDate && !parsedEndDate)) {
+    return Response.json({ error: "유효하지 않은 날짜입니다." }, { status: 400 });
+  }
 
   const updateData = {
     ...(category !== undefined && { category: eventCategory }),
     ...(title?.trim() && { title: title.trim() }),
     ...(description !== undefined && { description: description?.trim() }),
-    ...(startDate && { startDate: new Date(startDate) }),
-    ...(endDate && { endDate: new Date(endDate) }),
-    ...(allDay !== undefined && { allDay }),
+    ...(startDate && parsedStartDate && { startDate: parsedStartDate }),
+    ...(endDate && parsedEndDate && { endDate: parsedEndDate }),
+    ...(allDay !== undefined && { allDay: nextAllDay }),
     ...(color && { color }),
     ...(overtimeAvailable !== undefined && { overtimeAvailable }),
     ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
@@ -113,7 +126,10 @@ export async function PATCH(
     },
   });
 
-  if (updated.groupId) eventBus.notify(updated.groupId);
+  if (updated.groupId) {
+    eventBus.notify(updated.groupId);
+  }
+
   return Response.json(updated);
 }
 
@@ -125,11 +141,11 @@ export async function DELETE(
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { eventId } = await ctx.params;
 
+  const { eventId } = await ctx.params;
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) {
-    return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
+    return Response.json({ error: "일정을 찾을 수 없습니다." }, { status: 404 });
   }
 
   let canDelete = event.creatorId === session.user.id;
@@ -139,21 +155,27 @@ export async function DELETE(
       where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
       select: { role: true, status: true },
     });
+
     if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
-      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
+      return Response.json({ error: "옵저버는 그룹 일정을 조회만 할 수 있습니다." }, { status: 403 });
     }
+
     if (!canDelete) {
       canDelete =
         group?.leaderId === session.user.id ||
         (member?.status === "ACTIVE" && isLeaderRole(member.role));
     }
   }
+
   if (!canDelete) {
-    return Response.json({ error: "삭제 권한이 없습니다" }, { status: 403 });
+    return Response.json({ error: "삭제 권한이 없습니다." }, { status: 403 });
   }
 
   await prisma.event.delete({ where: { id: eventId } });
 
-  if (event.groupId) eventBus.notify(event.groupId);
+  if (event.groupId) {
+    eventBus.notify(event.groupId);
+  }
+
   return Response.json({ success: true });
 }

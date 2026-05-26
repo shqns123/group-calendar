@@ -10,6 +10,7 @@ import { getEquipmentStock } from "./equipmentStock";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
+import { compareEventsByStart, formatDateKey, getEventEndDate, getEventStartDate, isEventOnDate } from "@/lib/calendarDate";
 
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
@@ -96,7 +97,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
 
   const myOvertimeEvent = events.find(
     (e) => e.isOvertimeOnly && e.creatorId === userId &&
-      format(new Date(e.startDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+      isEventOnDate(e, date)
   );
   const overtimeStatus: 'available' | 'unavailable' | null = myOvertimeEvent
     ? (myOvertimeEvent.overtimeAvailable ? 'available' : 'unavailable')
@@ -123,14 +124,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         if (!r.ok) throw new Error("delete failed");
       }
       if (!isSameChoice) {
-        const dateStr = format(date, "yyyy-MM-dd");
+        const dateStr = formatDateKey(date);
         const r = await fetch("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: choice === 'available' ? "특근 가능" : "특근 불가능",
-            startDate: `${dateStr}T00:00:00`,
-            endDate: `${dateStr}T00:00:00`,
+            startDate: dateStr,
+            endDate: dateStr,
             allDay: true,
             color: choice === 'available' ? "#F59E0B" : "#EF4444",
             overtimeAvailable: choice === 'available',
@@ -156,7 +157,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
   const sorted = [...normalEvents].sort((a, b) => {
     if (a.allDay && !b.allDay) return -1;
     if (!a.allDay && b.allDay) return 1;
-    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    return compareEventsByStart(a, b);
   });
   const equipmentStock = useMemo(() => {
     return getEquipmentStock(group, normalEvents);
@@ -459,8 +460,8 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
             </div>
           ) : (
             sorted.map((event, idx) => {
-              const start = new Date(event.startDate);
-              const end = new Date(event.endDate);
+              const start = getEventStartDate(event);
+              const end = getEventEndDate(event);
               const creatorName = event.personnel || getMemberName(event);
 
               return (

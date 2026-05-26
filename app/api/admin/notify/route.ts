@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canManageGroupNotifications } from "@/lib/groupPermissions";
 import { sendMobilePushToTokens } from "@/lib/mobilepush";
+import { filterNotifiableGroupMembers } from "@/lib/notificationRecipients";
 import { sendPushToUser } from "@/lib/webpush";
 
 export async function POST(req: Request) {
@@ -30,8 +31,9 @@ export async function POST(req: Request) {
 
   if (!group) return Response.json({ error: "Group not found" }, { status: 404 });
 
-  const allSubs = group.members.flatMap((member) => member.user.pushSubscriptions);
-  const allMobileTokens = group.members.flatMap((member) =>
+  const notifiableMembers = filterNotifiableGroupMembers(group.members);
+  const allSubs = notifiableMembers.flatMap((member) => member.user.pushSubscriptions);
+  const allMobileTokens = notifiableMembers.flatMap((member) =>
     member.user.mobileDeviceTokens.map((device) => device.token),
   );
 
