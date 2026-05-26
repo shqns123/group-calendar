@@ -197,7 +197,11 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   useEffect(() => {
     fetchPendingUsers();
-    const interval = setInterval(fetchPendingUsers, 30000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void fetchPendingUsers();
+      }
+    }, 60000);
     return () => clearInterval(interval);
   }, [fetchPendingUsers]);
 
@@ -349,30 +353,64 @@ export function DashboardClient({ user, initialGroups }: Props) {
     if (!user.isOperator && !canViewGroupNotifications) {
       setNotifications([]);
       setNotificationUnreadCount(0);
+      syncAppBadge(0);
       return;
     }
 
-    const query = selectedGroupId ? `?groupId=${selectedGroupId}` : "";
-    const res = await fetch(`/api/notifications${query}`);
-    if (!res.ok) return;
+    try {
+      const query = selectedGroupId ? `?groupId=${selectedGroupId}` : "";
+      const res = await fetch(`/api/notifications${query}`);
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setNotifications([]);
+          setNotificationUnreadCount(0);
+          syncAppBadge(0);
+        }
+        return;
+      }
 
-    const data = await res.json();
-    setNotifications(data.items ?? []);
-    setNotificationUnreadCount(data.unreadCount ?? 0);
-  }, [canViewGroupNotifications, selectedGroupId, user.isOperator]);
+      const data = await res.json();
+      setNotifications(data.items ?? []);
+      setNotificationUnreadCount(data.unreadCount ?? 0);
+      syncAppBadge(data.unreadCount ?? 0);
+    } catch {
+      // Ignore transient fetch failures in the client and retry on the next poll/update.
+    }
+  }, [canViewGroupNotifications, selectedGroupId, syncAppBadge, user.isOperator]);
 
   const handleEventSaved = useCallback(() => {
     setRefreshKey((k) => k + 1);
-  }, []);
+    void fetchNotifications();
+  }, [fetchNotifications]);
 
   useEffect(() => {
     void fetchNotifications();
     const interval = window.setInterval(() => {
-      void fetchNotifications();
-    }, 30000);
+      if (document.visibilityState === "visible") {
+        void fetchNotifications();
+      }
+    }, 120000);
 
     return () => window.clearInterval(interval);
   }, [fetchNotifications, refreshKey]);
+
+  useEffect(() => {
+    if (!selectedGroupId || (!user.isOperator && !canViewGroupNotifications)) {
+      return;
+    }
+
+    const eventSource = new EventSource(`/api/events/stream?groupId=${selectedGroupId}`);
+    eventSource.onmessage = () => {
+      void fetchNotifications();
+    };
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [canViewGroupNotifications, fetchNotifications, selectedGroupId, user.isOperator]);
 
   useEffect(() => {
     syncAppBadge(notificationUnreadCount);
@@ -416,6 +454,36 @@ export function DashboardClient({ user, initialGroups }: Props) {
       void fetchNotifications();
     }
   }, [fetchNotifications]);
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!selectedGroupId && !user.isOperator) return;
+
+    const previousItems = notifications;
+    const previousUnreadCount = notificationUnreadCount;
+    setNotifications([]);
+    setNotificationUnreadCount(0);
+    syncAppBadge(0);
+
+    const res = await fetch("/api/notifications/clear-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: selectedGroupId }),
+    });
+
+    if (!res.ok) {
+      setNotifications(previousItems);
+      setNotificationUnreadCount(previousUnreadCount);
+      syncAppBadge(previousUnreadCount);
+      void fetchNotifications();
+    }
+  }, [
+    fetchNotifications,
+    notificationUnreadCount,
+    notifications,
+    selectedGroupId,
+    syncAppBadge,
+    user.isOperator,
+  ]);
 
   const handleJoinRequestAction = useCallback(async (
     item: NotificationPanelItem,
@@ -1106,6 +1174,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
             items={notifications}
             onMarkRead={markNotificationRead}
             onMarkAllRead={markAllNotificationsRead}
+            onClearAll={clearAllNotifications}
             onApproveJoin={(item) => void handleJoinRequestAction(item, "ACTIVE")}
             onRejectJoin={(item) => void handleJoinRequestAction(item, "REJECTED")}
           />
