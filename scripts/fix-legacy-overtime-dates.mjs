@@ -6,7 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   isLegacyOvertimeMigrationCandidate,
   normalizeLegacyOvertimeDate,
-} from "../lib/legacyOvertimeMigration.ts";
+} from "../lib/legacyOvertimeMigration.mjs";
 
 if (fs.existsSync(".env")) {
   dotenv.config({ path: ".env" });
