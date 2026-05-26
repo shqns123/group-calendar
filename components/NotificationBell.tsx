@@ -7,6 +7,7 @@ import {
   Check,
   CircleDot,
   Clock3,
+  MoreVertical,
   UserPlus2,
   X,
 } from "lucide-react";
@@ -31,6 +32,7 @@ type Props = {
   items: NotificationPanelItem[];
   onMarkRead: (notificationId: string) => void;
   onMarkAllRead: (notificationIds: string[]) => void;
+  onClearAll: () => void;
   onApproveJoin: (item: NotificationPanelItem) => void;
   onRejectJoin: (item: NotificationPanelItem) => void;
 };
@@ -61,11 +63,13 @@ export default function NotificationBell({
   items,
   onMarkRead,
   onMarkAllRead,
+  onClearAll,
   onApproveJoin,
   onRejectJoin,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<NotificationTab>("all");
+  const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const filteredItems = useMemo(
@@ -83,6 +87,7 @@ export default function NotificationBell({
     const handlePointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
+        setMenuOpen(false);
       }
     };
 
@@ -175,23 +180,10 @@ export default function NotificationBell({
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <button
                 type="button"
-                onClick={() => onMarkAllRead(unreadIds)}
-                disabled={unreadIds.length === 0}
-                style={{
-                  border: "none",
-                  background: "none",
-                  color: unreadIds.length === 0 ? "var(--text-tertiary)" : "var(--accent)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: unreadIds.length === 0 ? "default" : "pointer",
-                  fontFamily: "inherit",
+                onClick={() => {
+                  setOpen(false);
+                  setMenuOpen(false);
                 }}
-              >
-                모두 읽음
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
                 style={{
                   border: "none",
                   background: "none",
@@ -206,27 +198,126 @@ export default function NotificationBell({
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, padding: "12px 14px 10px", borderBottom: "1px solid var(--border-subtle)" }}>
-            {TAB_ITEMS.map((item) => (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 14px 10px",
+              borderBottom: "1px solid var(--border-subtle)",
+            }}
+          >
+            <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 0 }}>
+              {TAB_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  style={{
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "7px 11px",
+                    background: tab === item.id ? "var(--text-primary)" : "var(--surface-raised)",
+                    color: tab === item.id ? "#fff" : "var(--text-secondary)",
+                    fontSize: "0.74rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ position: "relative", flexShrink: 0 }}>
               <button
-                key={item.id}
                 type="button"
-                onClick={() => setTab(item.id)}
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-label="알림 작업 더보기"
                 style={{
+                  width: 34,
+                  height: 34,
                   border: "none",
                   borderRadius: 999,
-                  padding: "7px 11px",
-                  background: tab === item.id ? "var(--text-primary)" : "var(--surface-raised)",
-                  color: tab === item.id ? "#fff" : "var(--text-secondary)",
-                  fontSize: "0.74rem",
-                  fontWeight: 700,
+                  background: menuOpen ? "var(--surface-raised)" : "transparent",
+                  color: "var(--text-secondary)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   cursor: "pointer",
                   fontFamily: "inherit",
                 }}
               >
-                {item.label}
+                <MoreVertical style={{ width: 16, height: 16 }} />
               </button>
-            ))}
+
+              {menuOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: 0,
+                    minWidth: 132,
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    boxShadow: "0 16px 36px rgba(0,0,0,0.14)",
+                    padding: 6,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    zIndex: 2,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMarkAllRead(unreadIds);
+                      setMenuOpen(false);
+                    }}
+                    disabled={unreadIds.length === 0}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      background: "transparent",
+                      color: unreadIds.length === 0 ? "var(--text-tertiary)" : "var(--text-secondary)",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: unreadIds.length === 0 ? "default" : "pointer",
+                      fontFamily: "inherit",
+                      textAlign: "left",
+                      padding: "9px 10px",
+                    }}
+                  >
+                    모두 읽음
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClearAll();
+                      setMenuOpen(false);
+                    }}
+                    disabled={items.length === 0}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      background: "transparent",
+                      color: items.length === 0 ? "var(--text-tertiary)" : "#DC2626",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: items.length === 0 ? "default" : "pointer",
+                      fontFamily: "inherit",
+                      textAlign: "left",
+                      padding: "9px 10px",
+                    }}
+                  >
+                    모두 지우기
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
