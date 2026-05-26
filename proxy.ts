@@ -2,7 +2,18 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/pending", "/join", "/api/auth", "/sw.js", "/manifest.json", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/pending",
+  "/join",
+  "/api/auth",
+  "/sw.js",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
+const PENDING_ALLOWED_PATHS = ["/pending", "/api/auth/status"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,7 +31,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const status = token.status;
-  if (status === "PENDING") {
+  if (
+    status === "PENDING" &&
+    !PENDING_ALLOWED_PATHS.some((path) => pathname.startsWith(path))
+  ) {
     return NextResponse.redirect(new URL("/pending", request.url));
   }
 

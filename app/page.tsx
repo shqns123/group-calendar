@@ -6,6 +6,8 @@ import { DashboardClient } from "@/components/DashboardClient";
 export default async function Home() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const status = (session.user as Record<string, unknown>).status;
+  if (status === "PENDING") redirect("/pending");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isOperator = (session.user as any).isOperator ?? false;

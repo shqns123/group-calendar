@@ -7,7 +7,10 @@ const FEATURES = ["실시간 일정 동기화", "그룹별 권한 관리", "특�
 
 export default async function LoginPage() {
   const session = await auth();
-  if (session) redirect("/");
+  if (session) {
+    const status = (session.user as Record<string, unknown>).status;
+    redirect(status === "PENDING" ? "/pending" : "/");
+  }
 
   return (
     <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
