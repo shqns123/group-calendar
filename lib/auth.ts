@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { sendMobilePushToTokens } from "./mobilepush";
 import { consumePendingInviteForUser } from "./pendingInvite";
+import { createGoogleProviderOptions } from "./googleAuthOptions";
 
 type NativeGoogleProfile = {
   sub: string;
@@ -129,10 +130,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    Google(createGoogleProviderOptions()),
     Credentials({
       id: "google-native",
       name: "Google native login",
