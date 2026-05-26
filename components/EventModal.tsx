@@ -2,9 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Calendar } from "lucide-react";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { shouldCountTowardTotals } from "@/lib/groupPermissions";
+import {
+  formatSeoulMonthDayWeekdayLabel,
+  formatSeoulSlashMonthDayTimeLabel,
+  formatSeoulTimeLabel,
+  parseSeoulDateInput,
+  toSeoulDateInput,
+} from "@/lib/seoulTime";
 
 type Group = {
   id: string;
@@ -150,11 +155,6 @@ function normalizeTargetCount(count?: number) {
   return Math.max(0, Math.min(100, count ?? 2));
 }
 
-function toDateLocal(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 function getDisplayName(
   group: Group | null,
   userId: string,
@@ -199,8 +199,8 @@ export default function EventModal({
   const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(
     event?.category ?? (event ? "BUSINESS_TRIP" : null)
   );
-  const [startDate, setStartDate] = useState(toDateLocal(defaultStart));
-  const [endDate, setEndDate] = useState(toDateLocal(defaultEnd));
+  const [startDate, setStartDate] = useState(toSeoulDateInput(defaultStart));
+  const [endDate, setEndDate] = useState(toSeoulDateInput(defaultEnd));
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [personnelOpen, setPersonnelOpen] = useState(false);
@@ -292,7 +292,7 @@ export default function EventModal({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isAttendance]);
 
   useEffect(() => {
     if (!isAttendance) return;
@@ -324,7 +324,7 @@ export default function EventModal({
 
   const handleStartDateChange = (value: string) => {
     setStartDate(value);
-    if (value && endDate && new Date(value) > new Date(endDate)) {
+    if (value && endDate && value > endDate) {
       setEndDate(value);
     }
     setError("");
@@ -332,7 +332,7 @@ export default function EventModal({
 
   const handleEndDateChange = (value: string) => {
     setEndDate(value);
-    if (value && startDate && new Date(value) < new Date(startDate)) {
+    if (value && startDate && value < startDate) {
       setError(UI.endBeforeStart);
     } else {
       setError("");
@@ -375,7 +375,7 @@ export default function EventModal({
       setError(UI.titleRequired);
       return;
     }
-    if (new Date(endDate) < new Date(startDate)) {
+    if (endDate < startDate) {
       setError(UI.endBeforeStart);
       return;
     }
@@ -391,8 +391,8 @@ export default function EventModal({
       category: selectedCategory,
       title: finalTitle,
       description: description.trim() || null,
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(endDate).toISOString(),
+      startDate: parseSeoulDateInput(startDate).toISOString(),
+      endDate: parseSeoulDateInput(endDate).toISOString(),
       allDay,
       color,
       overtimeAvailable,
@@ -465,13 +465,11 @@ export default function EventModal({
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Calendar className="h-4 w-4" />
               <span>
-                {format(
-                  new Date(event.startDate),
-                  event.allDay ? "yyyy\uB144 MM\uC6D4 dd\uC77C" : "yyyy\uB144 MM\uC6D4 dd\uC77C HH:mm",
-                  { locale: ko }
-                )}
+                {event.allDay
+                  ? formatSeoulMonthDayWeekdayLabel(event.startDate)
+                  : formatSeoulSlashMonthDayTimeLabel(event.startDate)}
                 {!event.allDay &&
-                  ` ~ ${format(new Date(event.endDate), "HH:mm", { locale: ko })}`}
+                  ` ~ ${formatSeoulTimeLabel(event.endDate)}`}
               </span>
             </div>
             {group && (

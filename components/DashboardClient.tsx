@@ -33,7 +33,9 @@ import JoinGroupModal from "./JoinGroupModal";
 import EventSummary from "./EventSummary";
 import AdminModal from "./AdminModal";
 import ScheduleModal from "./ScheduleModal";
+import NotificationBell, { type NotificationPanelItem } from "./NotificationBell";
 import HolidayModal, { type CustomHoliday } from "./HolidayModal";
+import { canViewNotificationBell } from "@/lib/notifications";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 import { buildInviteJoinUrl, PENDING_INVITE_STORAGE_KEY } from "@/lib/inviteOnboarding";
 
@@ -102,6 +104,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationPanelItem[]>([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [customHolidays, setCustomHolidays] = useState<CustomHoliday[]>([]);
@@ -110,6 +114,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [origin, setOrigin] = useState("");
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
+  const selectedMember =
+    selectedGroup?.members.find((member) => member.userId === user.id) ?? null;
+  const canViewGroupNotifications = canViewNotificationBell({
+    isOperator: user.isOperator,
+    memberRole: selectedMember?.status === "ACTIVE" ? selectedMember.role : null,
+    canNotify: selectedMember?.status === "ACTIVE" ? selectedMember.canNotify : false,
+  });
   const requestedGroupId = searchParams.get("groupId");
 
   useEffect(() => {
@@ -316,9 +327,113 @@ export function DashboardClient({ user, initialGroups }: Props) {
     [refreshGroups]
   );
 
+  const syncAppBadge = useCallback((count: number) => {
+    if (typeof navigator === "undefined") return;
+
+    const nav = navigator as Navigator & {
+      setAppBadge?: (value?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+
+    if (count > 0 && typeof nav.setAppBadge === "function") {
+      void nav.setAppBadge(count).catch(() => undefined);
+      return;
+    }
+
+    if (count === 0 && typeof nav.clearAppBadge === "function") {
+      void nav.clearAppBadge().catch(() => undefined);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user.isOperator && !canViewGroupNotifications) {
+      setNotifications([]);
+      setNotificationUnreadCount(0);
+      return;
+    }
+
+    const query = selectedGroupId ? `?groupId=${selectedGroupId}` : "";
+    const res = await fetch(`/api/notifications${query}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setNotifications(data.items ?? []);
+    setNotificationUnreadCount(data.unreadCount ?? 0);
+  }, [canViewGroupNotifications, selectedGroupId, user.isOperator]);
+
   const handleEventSaved = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
+
+  useEffect(() => {
+    void fetchNotifications();
+    const interval = window.setInterval(() => {
+      void fetchNotifications();
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [fetchNotifications, refreshKey]);
+
+  useEffect(() => {
+    syncAppBadge(notificationUnreadCount);
+  }, [notificationUnreadCount, syncAppBadge]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notificationId ? { ...item, readAt: new Date().toISOString() } : item,
+      ),
+    );
+    setNotificationUnreadCount((current) => Math.max(0, current - 1));
+
+    const res = await fetch(`/api/notifications/${notificationId}/read`, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      void fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const markAllNotificationsRead = useCallback(async (notificationIds: string[]) => {
+    if (notificationIds.length === 0) return;
+
+    const readAt = new Date().toISOString();
+    setNotifications((current) =>
+      current.map((item) =>
+        notificationIds.includes(item.id) ? { ...item, readAt } : item,
+      ),
+    );
+    setNotificationUnreadCount((current) => Math.max(0, current - notificationIds.length));
+
+    const res = await fetch("/api/notifications/read-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationIds }),
+    });
+
+    if (!res.ok) {
+      void fetchNotifications();
+    }
+  }, [fetchNotifications]);
+
+  const handleJoinRequestAction = useCallback(async (
+    item: NotificationPanelItem,
+    status: "ACTIVE" | "REJECTED",
+  ) => {
+    if (!item.groupMemberId) return;
+
+    const res = await fetch(`/api/groups/${item.groupId}/members/${item.groupMemberId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+
+    if (res.ok) {
+      await refreshGroups();
+      await fetchNotifications();
+    }
+  }, [fetchNotifications, refreshGroups]);
 
   const myRole = (g: Group) => {
     if (g.leaderId === user.id) return "admin";
@@ -332,8 +447,8 @@ export function DashboardClient({ user, initialGroups }: Props) {
     return role === "admin" || role === "leader" || user.isOperator;
   };
 
-  const isObserver = (g: Group | null) =>
-    !!g && g.members.some((member) => member.userId === user.id && isObserverRole(member.role));
+  const canManageGroup = (group: Group) =>
+    !group.members.some((member) => member.userId === user.id && isObserverRole(member.role));
 
   const isOperatorManagedOnly = (g: Group | null): boolean =>
     !!g && user.isOperator && g.leaderId !== user.id && !g.members.some((m) => m.userId === user.id);
@@ -556,44 +671,61 @@ export function DashboardClient({ user, initialGroups }: Props) {
               }
               label={g.name}
               action={
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleDefaultGroup(g.id);
-                  }}
-                  title={
-                    defaultGroupId === g.id
-                      ? "기본 그룹 해제"
-                      : "기본 그룹으로 설정"
-                  }
-                  aria-label={
-                    defaultGroupId === g.id
-                      ? `${g.name} 기본 그룹 해제`
-                      : `${g.name} 기본 그룹으로 설정`
-                  }
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: 999,
-                    border: "none",
-                    background:
-                      defaultGroupId === g.id ? "rgba(224, 168, 75, 0.18)" : "transparent",
-                    color: defaultGroupId === g.id ? "#E0A84B" : "var(--sidebar-text)",
-                    cursor: "pointer",
-                    padding: 0,
-                    flexShrink: 0,
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <Star
-                    style={{ width: 13, height: 13 }}
-                    fill={defaultGroupId === g.id ? "currentColor" : "none"}
-                  />
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                  {canManageGroup(g) && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedGroupId(g.id);
+                        setShowGroupPanel(true);
+                      }}
+                      title={`${g.name} ?? ??`}
+                      aria-label={`${g.name} ?? ??`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 20,
+                        height: 20,
+                        borderRadius: 999,
+                        border: "none",
+                        background: "transparent",
+                        color: "var(--sidebar-text)",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      <Settings style={{ width: 12, height: 12 }} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleDefaultGroup(g.id);
+                    }}
+                    title={defaultGroupId === g.id ? "?? ?? ??" : "?? ???? ??"}
+                    aria-label={defaultGroupId === g.id ? `${g.name} ?? ?? ??` : `${g.name} ?? ???? ??`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 20,
+                      height: 20,
+                      borderRadius: 999,
+                      border: "none",
+                      background: defaultGroupId === g.id ? "rgba(224, 168, 75, 0.18)" : "transparent",
+                      color: defaultGroupId === g.id ? "#E0A84B" : "var(--sidebar-text)",
+                      cursor: "pointer",
+                      padding: 0,
+                      flexShrink: 0,
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <Star style={{ width: 13, height: 13 }} fill={defaultGroupId === g.id ? "currentColor" : "none"} />
+                  </button>
+                </div>
               }
               badge={(() => {
                 const isMgmtOnly = isOperatorManagedOnly(g);
@@ -967,39 +1099,16 @@ export function DashboardClient({ user, initialGroups }: Props) {
             </button>
           )}
 
-          {selectedGroup && !isObserver(selectedGroup) && (
-            <button
-              onClick={() => setShowGroupPanel(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "5px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text-secondary)",
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                cursor: "pointer",
-                letterSpacing: "-0.01em",
-                flexShrink: 0,
-                fontFamily: "inherit",
-                transition: "background 0.15s ease, border-color 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--surface-raised)";
-                e.currentTarget.style.borderColor = "var(--text-tertiary)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--surface)";
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-            >
-              <Settings style={{ width: 13, height: 13 }} />
-              {isMobile ? "" : "그룹 관리"}
-            </button>
-          )}
+          <NotificationBell
+            canView={Boolean(selectedGroup ? canViewGroupNotifications : user.isOperator)}
+            isMobile={isMobile}
+            unreadCount={notificationUnreadCount}
+            items={notifications}
+            onMarkRead={markNotificationRead}
+            onMarkAllRead={markAllNotificationsRead}
+            onApproveJoin={(item) => void handleJoinRequestAction(item, "ACTIVE")}
+            onRejectJoin={(item) => void handleJoinRequestAction(item, "REJECTED")}
+          />
         </header>
 
 

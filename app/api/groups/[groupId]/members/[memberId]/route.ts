@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { isObserverRole } from "@/lib/groupPermissions";
+import { resolveJoinRequestNotification } from "@/lib/notificationStore";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
@@ -44,6 +45,7 @@ export async function PATCH(
     }
     const { status } = body;
     if (status === "REJECTED") {
+      await resolveJoinRequestNotification(memberId);
       await prisma.groupMember.delete({ where: { id: memberId } });
       return Response.json({ success: true });
     }
@@ -55,6 +57,7 @@ export async function PATCH(
       data: { status: "ACTIVE" },
       include: { user: { select: { id: true, name: true, email: true, image: true } } },
     });
+    await resolveJoinRequestNotification(memberId);
     return Response.json(updated);
   }
 

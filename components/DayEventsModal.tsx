@@ -1,8 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { CalendarClock, Clock, Plus, X } from "lucide-react";
 import EquipmentStockModal from "./EquipmentStockModal";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
@@ -10,6 +8,15 @@ import { getEquipmentStock } from "./equipmentStock";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
+import {
+  formatSeoulDateKey,
+  formatSeoulMonthDayKey,
+  formatSeoulMonthDayWeekdayLabel,
+  formatSeoulSlashMonthDayLabel,
+  formatSeoulTimeLabel,
+  isSameSeoulDate,
+  parseSeoulDateInput,
+} from "@/lib/seoulTime";
 
 const FIXED_HOLIDAYS: Record<string, string> = {
   "01-01": "신정", "03-01": "삼일절", "05-05": "어린이날",
@@ -23,7 +30,7 @@ const LUNAR_HOLIDAYS: Record<string, string> = {
   "2026-05-24": "부처님오신날", "2026-09-23": "추석 연휴", "2026-09-24": "추석", "2026-09-25": "추석 연휴",
 };
 function getHolidayName(date: Date): string | null {
-  return FIXED_HOLIDAYS[format(date, "MM-dd")] || LUNAR_HOLIDAYS[format(date, "yyyy-MM-dd")] || null;
+  return FIXED_HOLIDAYS[formatSeoulMonthDayKey(date)] || LUNAR_HOLIDAYS[formatSeoulDateKey(date)] || null;
 }
 
 type CalEvent = {
@@ -96,7 +103,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
 
   const myOvertimeEvent = events.find(
     (e) => e.isOvertimeOnly && e.creatorId === userId &&
-      format(new Date(e.startDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+      isSameSeoulDate(e.startDate, date)
   );
   const overtimeStatus: 'available' | 'unavailable' | null = myOvertimeEvent
     ? (myOvertimeEvent.overtimeAvailable ? 'available' : 'unavailable')
@@ -123,14 +130,14 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         if (!r.ok) throw new Error("delete failed");
       }
       if (!isSameChoice) {
-        const dateStr = format(date, "yyyy-MM-dd");
+        const dateStr = formatSeoulDateKey(date);
         const r = await fetch("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: choice === 'available' ? "특근 가능" : "특근 불가능",
-            startDate: `${dateStr}T00:00:00`,
-            endDate: `${dateStr}T00:00:00`,
+            startDate: parseSeoulDateInput(dateStr).toISOString(),
+            endDate: parseSeoulDateInput(dateStr).toISOString(),
             allDay: true,
             color: choice === 'available' ? "#F59E0B" : "#EF4444",
             overtimeAvailable: choice === 'available',
@@ -165,7 +172,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
     return getPersonnelAvailability(group, normalEvents);
   }, [group, normalEvents]);
 
-  const dateStr = format(date, "yyyy-MM-dd");
+  const dateStr = formatSeoulDateKey(date);
   const customEntry = customHolidays.find((h) => h.date === dateStr);
   const holidayName = customEntry?.type === "workday"
     ? "대체 근무일"
@@ -207,7 +214,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <p style={{ fontSize: "1rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-                {format(date, "M월 d일 (E)", { locale: ko })}
+                {formatSeoulMonthDayWeekdayLabel(date)}
               </p>
               {holidayName && (
                 <span style={{
@@ -504,11 +511,11 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                     </div>
 
                     {/* 시간 */}
-                    {event.allDay && format(start, "yyyy-MM-dd") !== format(end, "yyyy-MM-dd") && (
+                    {event.allDay && !isSameSeoulDate(start, end) && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 5 }}>
                         <Clock style={{ width: 11, height: 11, color: "var(--text-tertiary)", flexShrink: 0 }} />
                         <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                          {`${format(start, "MM/dd")} – ${format(end, "MM/dd")}`}
+                          {`${formatSeoulSlashMonthDayLabel(start)} – ${formatSeoulSlashMonthDayLabel(end)}`}
                         </span>
                       </div>
                     )}
@@ -516,7 +523,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 5 }}>
                         <Clock style={{ width: 11, height: 11, color: "var(--text-tertiary)", flexShrink: 0 }} />
                         <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                          {`${format(start, "HH:mm")} – ${format(end, "HH:mm")}`}
+                          {`${formatSeoulTimeLabel(start)} – ${formatSeoulTimeLabel(end)}`}
                         </span>
                       </div>
                     )}
@@ -577,7 +584,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         <EquipmentStockModal
           stock={equipmentStock}
           title="장비 현황"
-          subtitle={format(date, "M월 d일 일정 기준", { locale: ko })}
+          subtitle={`${formatSeoulMonthDayWeekdayLabel(date)} 일정 기준`}
           onClose={() => setShowEquipmentStockModal(false)}
         />
       )}
@@ -585,7 +592,7 @@ export default function DayEventsModal({ date, events, userId, group, isLeader, 
         <PersonnelAvailabilityModal
           availability={personnelAvailability}
           title="인원 현황"
-          subtitle={format(date, "M월 d일 일정 기준", { locale: ko })}
+          subtitle={`${formatSeoulMonthDayWeekdayLabel(date)} 일정 기준`}
           onClose={() => setShowPersonnelAvailabilityModal(false)}
         />
       )}

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Trash2, CalendarX2, Briefcase } from "lucide-react";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
+import { formatSeoulMonthDayWeekdayLabel, toSeoulDateInput } from "@/lib/seoulTime";
 
 export type CustomHoliday = {
   id: string;
@@ -21,7 +20,7 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
   const [holidays, setHolidays] = useState<CustomHoliday[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [date, setDate] = useState(toSeoulDateInput(new Date()));
   const [name, setName] = useState("");
   const [type, setType] = useState<"holiday" | "workday">("holiday");
   const [adding, setAdding] = useState(false);
@@ -71,7 +70,7 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
   );
 
   const formatDate = (d: string) => {
-    try { return format(new Date(d + "T00:00:00"), "yyyy년 M월 d일 (E)", { locale: ko }); }
+    try { return formatSeoulMonthDayWeekdayLabel(d); }
     catch { return d; }
   };
 

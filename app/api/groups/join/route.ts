@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { createJoinRequestNotification } from "@/lib/notificationStore";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rateLimit";
 import { NextRequest } from "next/server";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ groupId: group.id, groupName: group.name });
   }
 
-  await prisma.groupMember.create({
+  const createdMember = await prisma.groupMember.create({
     data: {
       groupId: group.id,
       userId: session.user.id,
@@ -49,6 +50,12 @@ export async function POST(request: NextRequest) {
       role: "MEMBER",
       status: "PENDING",
     },
+  });
+
+  await createJoinRequestNotification({
+    id: createdMember.id,
+    groupId: group.id,
+    userId: session.user.id,
   });
 
   return Response.json({ success: true, groupId: group.id, groupName: group.name, pending: true });
