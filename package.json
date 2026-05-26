@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "fix:legacy-overtime-dates": "node --experimental-strip-types ./scripts/fix-legacy-overtime-dates.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
