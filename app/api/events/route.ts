@@ -1,8 +1,10 @@
 import { auth } from "@/lib/auth";
-import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
+import { isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
+import { syncEventNotifications } from "@/lib/notificationStore";
 import { rateLimit } from "@/lib/rateLimit";
+import { parseEventDateInput } from "@/lib/seoulTime";
 import { NextRequest } from "next/server";
 
 async function resolveDefaultPersonnel(userId: string, groupId?: string | null) {
@@ -41,13 +43,15 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get("groupId");
   const startDate = searchParams.get("start");
   const endDate = searchParams.get("end");
+  const parsedStartDate = startDate ? parseEventDateInput(startDate) : null;
+  const parsedEndDate = endDate ? parseEventDateInput(endDate) : null;
 
   const dateFilter =
-    startDate || endDate
+    parsedStartDate || parsedEndDate
       ? {
           AND: [
-            ...(endDate ? [{ startDate: { lte: new Date(endDate) } }] : []),
-            ...(startDate ? [{ endDate: { gte: new Date(startDate) } }] : []),
+            ...(parsedEndDate ? [{ startDate: { lte: parsedEndDate } }] : []),
+            ...(parsedStartDate ? [{ endDate: { gte: parsedStartDate } }] : []),
           ],
         }
       : {};
@@ -141,7 +145,10 @@ export async function POST(request: NextRequest) {
   if (!startDate || !endDate) {
     return Response.json({ error: "날짜는 필수입니다" }, { status: 400 });
   }
-  if (isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) {
+  const parsedStartDateForCreate = parseEventDateInput(startDate);
+  const parsedEndDateForCreate = parseEventDateInput(endDate);
+
+  if (isNaN(parsedStartDateForCreate.getTime()) || isNaN(parsedEndDateForCreate.getTime())) {
     return Response.json({ error: "유효하지 않은 날짜입니다" }, { status: 400 });
   }
 
@@ -164,8 +171,8 @@ export async function POST(request: NextRequest) {
     category: eventCategory,
     title: title.trim(),
     description: description?.trim(),
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
+    startDate: parsedStartDateForCreate,
+    endDate: parsedEndDateForCreate,
     allDay: allDay ?? false,
     color: color ?? "#3B82F6",
     overtimeAvailable: overtimeAvailable ?? false,
@@ -181,6 +188,17 @@ export async function POST(request: NextRequest) {
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },
     },
+  });
+
+  await syncEventNotifications({
+    id: event.id,
+    groupId: event.groupId,
+    creatorId: event.creatorId,
+    title: event.title,
+    personnel: event.personnel,
+    overtimeAvailable: event.overtimeAvailable,
+    isOvertimeOnly: event.isOvertimeOnly,
+    startDate: event.startDate,
   });
 
   if (event.groupId) eventBus.notify(event.groupId);

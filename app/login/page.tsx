@@ -1,14 +1,10 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Calendar, Check } from "lucide-react";
 import LoginForm from "./LoginForm";
 
 const FEATURES = ["실시간 일정 동기화", "그룹별 권한 관리", "특근 가능 알림"];
 
 export default async function LoginPage() {
-  const session = await auth();
-  if (session) redirect("/");
-
   return (
     <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
       {/* 왼쪽 브랜드 패널 */}
@@ -79,7 +75,9 @@ export default async function LoginPage() {
             계속하려면 로그인하세요
           </p>
 
-          <LoginForm />
+          <Suspense fallback={<div style={{ minHeight: 320 }} />}>
+            <LoginForm />
+          </Suspense>
 
           <p className="text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>
             로그인 시 서비스 이용약관에 동의합니다

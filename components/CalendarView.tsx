@@ -6,8 +6,6 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput, EventClickArg, DatesSetArg } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Clock, Search } from "lucide-react";
 import EventModal from "./EventModal";
 import DayEventsModal from "./DayEventsModal";
@@ -18,6 +16,16 @@ import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
 import { isObserverRole } from "@/lib/groupPermissions";
+import {
+  addSeoulDays,
+  compareSeoulDateKeys,
+  formatSeoulDateKey,
+  formatSeoulMonthDayKey,
+  formatSeoulMonthDayWeekdayLabel,
+  formatSeoulTimeLabel,
+  formatSeoulYearMonthLabel,
+  getSeoulDayRange,
+} from "@/lib/seoulTime";
 
 type Group = {
   id: string;
@@ -106,8 +114,8 @@ const LUNAR_HOLIDAYS: Record<string, string> = {
 };
 
 function isHoliday(date: Date): boolean {
-  const mmdd = format(date, "MM-dd");
-  const yyyy_mm_dd = format(date, "yyyy-MM-dd");
+  const mmdd = formatSeoulMonthDayKey(date);
+  const yyyy_mm_dd = formatSeoulDateKey(date);
   return mmdd in FIXED_HOLIDAYS || yyyy_mm_dd in LUNAR_HOLIDAYS;
 }
 
@@ -119,30 +127,23 @@ function isWeekend(date: Date): boolean {
 // ── Today 뷰 ──────────────────────────────────────────
 function TodayView({
   events,
-  userId,
   group,
-  isLeader,
   onEventClick,
 }: {
   events: CalEvent[];
-  userId: string;
   group: Group | null;
-  isLeader: boolean;
   onEventClick: (e: CalEvent) => void;
 }) {
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
   const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
   const today = new Date();
+  const todayRange = getSeoulDayRange(today);
   const todayEvents = events
     .filter((e) => {
       if (e.isOvertimeOnly) return false;
       const start = new Date(e.startDate);
       const end = new Date(e.endDate);
-      const todayStart = new Date(today);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(today);
-      todayEnd.setHours(23, 59, 59, 999);
-      return start <= todayEnd && end >= todayStart;
+      return start <= todayRange.end && end >= todayRange.start;
     })
     .sort((a, b) => {
       if (a.allDay && !b.allDay) return -1;
@@ -170,7 +171,7 @@ function TodayView({
         }}
       >
         <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-          {format(today, "M월 d일 (E)", { locale: ko })}
+          {formatSeoulMonthDayWeekdayLabel(today)}
         </p>
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: 2 }}>
           {todayEvents.length === 0 ? "오늘 일정 없음" : `${todayEvents.length}개 일정`}
@@ -333,7 +334,7 @@ function TodayView({
                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                       <Clock style={{ width: 11, height: 11, color: "var(--text-tertiary)", flexShrink: 0 }} />
                       <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                        {`${format(start, "HH:mm")} – ${format(end, "HH:mm")}`}
+                        {`${formatSeoulTimeLabel(start)} – ${formatSeoulTimeLabel(end)}`}
                       </span>
                     </div>
                   )}
@@ -378,7 +379,7 @@ function TodayView({
         <EquipmentStockModal
           stock={equipmentStock}
           title="장비 현황"
-          subtitle={format(today, "오늘 일정 기준", { locale: ko })}
+          subtitle={`${formatSeoulMonthDayWeekdayLabel(today)} 일정 기준`}
           onClose={() => setShowEquipmentStockModal(false)}
         />
       )}
@@ -386,7 +387,7 @@ function TodayView({
         <PersonnelAvailabilityModal
           availability={personnelAvailability}
           title="인원 현황"
-          subtitle={format(today, "오늘 일정 기준", { locale: ko })}
+          subtitle={`${formatSeoulMonthDayWeekdayLabel(today)} 일정 기준`}
           onClose={() => setShowPersonnelAvailabilityModal(false)}
         />
       )}
@@ -416,7 +417,7 @@ export default function CalendarView({
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
   const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
   const [currentMonthLabel, setCurrentMonthLabel] = useState(() =>
-    format(new Date(), "yyyy년 M월", { locale: ko })
+    formatSeoulYearMonthLabel(new Date())
   );
   const eventDisplayLimit = Math.max(1, Math.min(10, group?.eventDisplayLimit ?? 3));
   const calendarRef = useRef<FullCalendar>(null);
@@ -470,16 +471,16 @@ export default function CalendarView({
   const calendarEvents: EventInput[] = events
     .filter((e) => !e.isOvertimeOnly && (e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE")
     .map((e) => {
+      let startValue: Date | string = e.startDate;
       let endValue: Date | string = e.endDate;
       if (e.allDay) {
-        const d = new Date(e.endDate);
-        d.setDate(d.getDate() + 1);
-        endValue = d;
+        startValue = formatSeoulDateKey(e.startDate);
+        endValue = formatSeoulDateKey(addSeoulDays(e.endDate, 1));
       }
       return {
         id: e.id,
         title: e.title,
-        start: e.startDate,
+        start: startValue,
         end: endValue,
         allDay: e.allDay,
         backgroundColor: e.color + "28",
@@ -490,10 +491,7 @@ export default function CalendarView({
     });
 
   const openDayPopup = useCallback((date: Date) => {
-    const s = new Date(date);
-    s.setHours(0, 0, 0, 0);
-    const e = new Date(date);
-    e.setHours(23, 59, 59, 999);
+    const { start: s, end: e } = getSeoulDayRange(date);
     const dayEvents = events
       .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
       .sort((a, b) => {
@@ -520,10 +518,7 @@ export default function CalendarView({
     const timeoutId = window.setTimeout(() => {
       setDayPopup((prev) => {
         if (!prev) return null;
-        const s = new Date(prev.date);
-        s.setHours(0, 0, 0, 0);
-        const e = new Date(prev.date);
-        e.setHours(23, 59, 59, 999);
+        const { start: s, end: e } = getSeoulDayRange(prev.date);
         const updated = events
           .filter((ev) => new Date(ev.startDate) <= e && new Date(ev.endDate) >= s)
           .sort((a, b) => {
@@ -623,7 +618,7 @@ export default function CalendarView({
   };
 
   const handleDatesSet = (arg: DatesSetArg) => {
-    setCurrentMonthLabel(format(arg.view.currentStart, "yyyy년 M월", { locale: ko }));
+    setCurrentMonthLabel(formatSeoulYearMonthLabel(arg.view.currentStart));
   };
 
   const toolbarButtonStyle: CSSProperties = {
@@ -740,9 +735,7 @@ export default function CalendarView({
         {viewMode === "today" ? (
           <TodayView
             events={events}
-            userId={userId}
             group={group}
-            isLeader={isLeader}
             onEventClick={(e) => {
               setSelectedEvent(e);
               setSelectedDates(null);
@@ -760,6 +753,7 @@ export default function CalendarView({
             initialView="dayGridMonth"
             headerToolbar={false}
             locale="ko"
+            timeZone="Asia/Seoul"
             datesSet={handleDatesSet}
             dayHeaderContent={(arg) => {
               const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
@@ -774,7 +768,7 @@ export default function CalendarView({
             height="100%"
             dayCellClassNames={(arg) => {
               const classes: string[] = [];
-              const ds = format(arg.date, "yyyy-MM-dd");
+              const ds = formatSeoulDateKey(arg.date);
               const custom = customHolidays.find((h) => h.date === ds);
               if (custom?.type === "holiday") {
                 classes.push("fc-day-gray", "fc-day-custom-holiday");
@@ -786,16 +780,12 @@ export default function CalendarView({
               const hasOvertime = events.some((e) => {
                 if (!e.overtimeAvailable) return false;
                 if (!isLeader && e.creatorId !== userId) return false;
-                const s = format(new Date(e.startDate), "yyyy-MM-dd");
-                const en = format(new Date(e.endDate), "yyyy-MM-dd");
-                return ds >= s && ds <= en;
+                return compareSeoulDateKeys(ds, e.startDate) >= 0 && compareSeoulDateKeys(ds, e.endDate) <= 0;
               });
               const hasAttendance = events.some((e) => {
                 if (e.isOvertimeOnly) return false;
                 if ((e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE") return false;
-                const s = format(new Date(e.startDate), "yyyy-MM-dd");
-                const en = format(new Date(e.endDate), "yyyy-MM-dd");
-                return ds >= s && ds <= en;
+                return compareSeoulDateKeys(ds, e.startDate) >= 0 && compareSeoulDateKeys(ds, e.endDate) <= 0;
               });
               if (hasOvertime) classes.push("fc-day-overtime");
               if (hasAttendance) classes.push("fc-day-attendance");

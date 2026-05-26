@@ -109,10 +109,32 @@ model Group {
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]
   events      Event[]
+  notifications Notification[]
   schedules   NotificationSchedule[]
   qrInviteTokens QrInviteToken[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  groupId       String
+  type          String
+  actorUserId   String?
+  eventId       String?
+  groupMemberId String?
+  targetDate    String?
+  sourceKey     String   @unique
+  title         String
+  body          String
+  readAt        DateTime?
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@index([type, resolvedAt])
 }
 
 model QrInviteToken {

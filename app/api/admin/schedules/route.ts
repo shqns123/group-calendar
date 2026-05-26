@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageGroupNotifications } from "@/lib/groupPermissions";
+import { canManageGroupNotifications } from "@/lib/groupPermissions.server";
 
 function normalizeScheduleMessage(value: unknown): string | null {
   if (typeof value !== "string") return null;

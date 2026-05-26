@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-
-const SESSION_COOKIE_CANDIDATES = [
-  "__Secure-authjs.session-token",
-  "authjs.session-token",
-  "__Secure-next-auth.session-token",
-  "next-auth.session-token",
-];
+import { getSessionCookieCandidates } from "@/lib/authCookies";
 
 export async function GET(request: NextRequest) {
   const redirectUri = request.nextUrl.searchParams.get("redirect_uri");
@@ -31,7 +25,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(appUrl);
   }
 
-  const cookieName = SESSION_COOKIE_CANDIDATES.find((name) =>
+  const cookieName = getSessionCookieCandidates({
+    protocol: request.nextUrl.protocol,
+    forwardedProto: request.headers.get("x-forwarded-proto"),
+  }).find((name) =>
     request.cookies.has(name),
   );
   const sessionToken = cookieName ? request.cookies.get(cookieName)?.value : null;

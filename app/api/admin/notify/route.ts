@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageGroupNotifications } from "@/lib/groupPermissions";
+import { canManageGroupNotifications } from "@/lib/groupPermissions.server";
 import { sendMobilePushToTokens } from "@/lib/mobilepush";
 import { sendPushToUser } from "@/lib/webpush";
 

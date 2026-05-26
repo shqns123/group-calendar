@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  ctx: RouteContext<"/api/admin/users/[userId]/groups">
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -19,7 +19,7 @@ export async function POST(
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { userId } = await ctx.params;
+  const { userId } = await params;
   const body = await request.json().catch(() => null);
   const groupId = typeof body?.groupId === "string" ? body.groupId.trim() : "";
 

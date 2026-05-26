@@ -1,9 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { format, isPast, isThisMonth, isToday, isTomorrow, startOfDay } from "date-fns";
-import { ko } from "date-fns/locale";
+import { isPast } from "date-fns";
 import { Clock, MapPin, PanelLeftClose, RefreshCw } from "lucide-react";
+import {
+  addSeoulDays,
+  formatSeoulDateKey,
+  formatSeoulSlashMonthDayLabel,
+  formatSeoulSlashMonthDayTimeLabel,
+  formatSeoulSlashMonthDayWeekdayLabel,
+  formatSeoulTimeLabel,
+  getSeoulDayRange,
+  isSameSeoulDate,
+} from "@/lib/seoulTime";
 
 type CalEvent = {
   id: string;
@@ -55,22 +64,23 @@ type GroupedEvents = {
 };
 
 function getDateLabel(date: Date): string {
-  const today = startOfDay(new Date());
-  const eventDay = startOfDay(date);
-  const diffDays = Math.round((eventDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const todayStart = getSeoulDayRange(new Date()).start;
+  const eventStart = getSeoulDayRange(date).start;
+  const diffDays = Math.round((eventStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (isToday(date)) return "오늘";
-  if (isTomorrow(date)) return "내일";
+  if (diffDays === 0) return "오늘";
+  if (diffDays === 1) return "내일";
   if (diffDays >= 2 && diffDays <= 6) return "이번 주";
-  if (isThisMonth(date) && diffDays > 6) return "이번 달";
+  if (formatSeoulDateKey(date).slice(0, 7) === formatSeoulDateKey(todayStart).slice(0, 7) && diffDays > 6) {
+    return "이번 달";
+  }
   if (diffDays > 31) return "다음 달 이후";
-  return format(date, "M월", { locale: ko });
+
+  return `${Number(formatSeoulDateKey(date).slice(5, 7))}월`;
 }
 
 export default function EventSummary({
-  userId,
   group,
-  isLeader,
   onEventClick,
   refreshKey,
   onClose,
@@ -81,14 +91,12 @@ export default function EventSummary({
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const future = new Date(today);
-      future.setDate(future.getDate() + 365);
+      const todayRange = getSeoulDayRange(new Date());
+      const futureRange = getSeoulDayRange(addSeoulDays(todayRange.start, 365));
 
       const params = new URLSearchParams({
-        start: today.toISOString(),
-        end: future.toISOString(),
+        start: todayRange.start.toISOString(),
+        end: futureRange.end.toISOString(),
       });
       if (group) params.set("groupId", group.id);
 
@@ -106,14 +114,14 @@ export default function EventSummary({
   }, [group]);
 
   useEffect(() => {
-    fetchEvents();
+    void fetchEvents();
   }, [fetchEvents, refreshKey]);
 
   const grouped: GroupedEvents[] = [];
   const labelMap = new Map<string, CalEvent[]>();
   const labelOrder: string[] = [];
 
-  for (const event of events.filter((e) => !e.isOvertimeOnly)) {
+  for (const event of events.filter((item) => !item.isOvertimeOnly)) {
     const label = getDateLabel(new Date(event.startDate));
     if (!labelMap.has(label)) {
       labelMap.set(label, []);
@@ -123,8 +131,8 @@ export default function EventSummary({
   }
 
   const labelAccents: Record<string, string> = {
-    오늘: "var(--accent)",
-    내일: "#6366F1",
+    "오늘": "var(--accent)",
+    "내일": "#6366F1",
     "이번 주": "#8B5CF6",
     "이번 달": "var(--text-secondary)",
     "다음 달 이후": "var(--text-tertiary)",
@@ -140,7 +148,7 @@ export default function EventSummary({
 
   const getCreatorName = (event: CalEvent) => {
     if (!group) return null;
-    const member = group.members.find((member) => member.userId === event.creatorId);
+    const member = group.members.find((memberItem) => memberItem.userId === event.creatorId);
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0];
   };
 
@@ -178,12 +186,12 @@ export default function EventSummary({
             일정 요약
           </h3>
           <p style={{ fontSize: "0.68rem", color: "var(--text-tertiary)", marginTop: 1 }}>
-            향후 일정 총 {events.filter((e) => !e.isOvertimeOnly).length}건
+            이후 일정 총 {events.filter((item) => !item.isOvertimeOnly).length}건
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <button
-            onClick={fetchEvents}
+            onClick={() => void fetchEvents()}
             disabled={loading}
             title="새로고침"
             style={{
@@ -245,8 +253,8 @@ export default function EventSummary({
           </div>
         )}
 
-        {grouped.map((grp, grpIdx) => (
-          <div key={grp.label}>
+        {grouped.map((groupedItem, groupedIndex) => (
+          <div key={groupedItem.label}>
             <div
               style={{
                 position: "sticky",
@@ -266,21 +274,21 @@ export default function EventSummary({
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: grp.accent,
+                  color: groupedItem.accent,
                 }}
               >
-                {grp.label}
+                {groupedItem.label}
               </span>
               <span style={{ fontSize: "0.62rem", color: "var(--text-tertiary)" }}>
-                ({grp.events.length})
+                ({groupedItem.events.length})
               </span>
             </div>
 
-            {grp.events.map((event, evIdx) => {
+            {groupedItem.events.map((event, eventIndex) => {
               const creatorName = getCreatorName(event);
               const start = new Date(event.startDate);
               const end = new Date(event.endDate);
-              const isPastEvent = isPast(end) && !isToday(end);
+              const isPastEvent = isPast(end) && !isSameSeoulDate(end, new Date());
 
               return (
                 <button
@@ -288,7 +296,7 @@ export default function EventSummary({
                   className="stagger-item"
                   onClick={() => onEventClick(event)}
                   style={{
-                    animationDelay: `${(grpIdx * 3 + evIdx) * 30}ms`,
+                    animationDelay: `${(groupedIndex * 3 + eventIndex) * 30}ms`,
                     width: "100%",
                     textAlign: "left",
                     padding: "10px 16px",
@@ -369,18 +377,12 @@ export default function EventSummary({
                         />
                         <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
                           {event.allDay
-                            ? format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                              ? format(start, "MM/dd (E)", { locale: ko })
-                              : `${format(start, "MM/dd", { locale: ko })} ~ ${format(end, "MM/dd", {
-                                  locale: ko,
-                                })}`
-                            : format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                              ? `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(end, "HH:mm")}`
-                              : `${format(start, "MM/dd HH:mm", { locale: ko })} ~ ${format(
-                                  end,
-                                  "MM/dd HH:mm",
-                                  { locale: ko }
-                                )}`}
+                            ? isSameSeoulDate(start, end)
+                              ? formatSeoulSlashMonthDayWeekdayLabel(start)
+                              : `${formatSeoulSlashMonthDayLabel(start)} ~ ${formatSeoulSlashMonthDayLabel(end)}`
+                            : isSameSeoulDate(start, end)
+                              ? `${formatSeoulSlashMonthDayTimeLabel(start)} ~ ${formatSeoulTimeLabel(end)}`
+                              : `${formatSeoulSlashMonthDayTimeLabel(start)} ~ ${formatSeoulSlashMonthDayTimeLabel(end)}`}
                         </span>
                       </div>
 

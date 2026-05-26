@@ -2,6 +2,11 @@ import { auth } from "@/lib/auth";
 import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
+import {
+  deleteEventNotifications,
+  syncEventNotifications,
+} from "@/lib/notificationStore";
+import { parseEventDateInput } from "@/lib/seoulTime";
 import { NextRequest } from "next/server";
 
 async function resolveDefaultPersonnel(userId: string, groupId?: string | null) {
@@ -91,8 +96,8 @@ export async function PATCH(
     ...(category !== undefined && { category: eventCategory }),
     ...(title?.trim() && { title: title.trim() }),
     ...(description !== undefined && { description: description?.trim() }),
-    ...(startDate && { startDate: new Date(startDate) }),
-    ...(endDate && { endDate: new Date(endDate) }),
+    ...(startDate && { startDate: parseEventDateInput(startDate) }),
+    ...(endDate && { endDate: parseEventDateInput(endDate) }),
     ...(allDay !== undefined && { allDay }),
     ...(color && { color }),
     ...(overtimeAvailable !== undefined && { overtimeAvailable }),
@@ -111,6 +116,17 @@ export async function PATCH(
     include: {
       creator: { select: { id: true, name: true, email: true, image: true } },
     },
+  });
+
+  await syncEventNotifications({
+    id: updated.id,
+    groupId: updated.groupId,
+    creatorId: updated.creatorId,
+    title: updated.title,
+    personnel: updated.personnel,
+    overtimeAvailable: updated.overtimeAvailable,
+    isOvertimeOnly: updated.isOvertimeOnly,
+    startDate: updated.startDate,
   });
 
   if (updated.groupId) eventBus.notify(updated.groupId);
@@ -153,6 +169,7 @@ export async function DELETE(
   }
 
   await prisma.event.delete({ where: { id: eventId } });
+  await deleteEventNotifications(eventId);
 
   if (event.groupId) eventBus.notify(event.groupId);
   return Response.json({ success: true });
