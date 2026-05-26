@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
     title: event.title,
     personnel: event.personnel,
     overtimeAvailable: event.overtimeAvailable,
+    isOvertimeOnly: event.isOvertimeOnly,
     startDate: event.startDate,
   });
 

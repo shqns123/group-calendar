@@ -3,6 +3,7 @@ import {
   buildEventNotificationBody,
   buildOvertimeNotificationBody,
   getEventNotificationNames,
+  shouldCreateEventCreatedNotification,
   type NotificationType,
 } from "@/lib/notifications";
 import { formatSeoulMonthDayWeekdayLabel, toSeoulDateInput } from "@/lib/seoulTime";
@@ -14,6 +15,7 @@ type EventNotificationPayload = {
   title: string;
   personnel: string | null;
   overtimeAvailable: boolean;
+  isOvertimeOnly: boolean;
   startDate: Date;
 };
 
@@ -45,7 +47,7 @@ async function resolveActorName(userId: string, groupId?: string | null) {
     select: { name: true, email: true },
   });
 
-  return user?.name?.trim() || user?.email?.split("@")[0] || "사용자";
+  return user?.name?.trim() || user?.email?.split("@")[0] || "\uC0AC\uC6A9\uC790";
 }
 
 function getSourceKey(type: NotificationType, entityId: string) {
@@ -94,20 +96,27 @@ export async function syncEventNotifications(event: EventNotificationPayload) {
   if (!event.groupId) return;
 
   const actorName = await resolveActorName(event.creatorId, event.groupId);
-  const names = getEventNotificationNames({
-    personnel: event.personnel,
-    actorName,
-  });
 
-  await upsertNotification({
-    sourceKey: getSourceKey("EVENT_CREATED", event.id),
-    groupId: event.groupId,
-    type: "EVENT_CREATED",
-    actorUserId: event.creatorId,
-    eventId: event.id,
-    title: "일정 등록",
-    body: buildEventNotificationBody({ title: event.title, names }),
-  });
+  if (shouldCreateEventCreatedNotification(event.isOvertimeOnly)) {
+    const names = getEventNotificationNames({
+      personnel: event.personnel,
+      actorName,
+    });
+
+    await upsertNotification({
+      sourceKey: getSourceKey("EVENT_CREATED", event.id),
+      groupId: event.groupId,
+      type: "EVENT_CREATED",
+      actorUserId: event.creatorId,
+      eventId: event.id,
+      title: "\uC77C\uC815 \uB4F1\uB85D",
+      body: buildEventNotificationBody({ title: event.title, names }),
+    });
+  } else {
+    await prisma.notification.deleteMany({
+      where: { sourceKey: getSourceKey("EVENT_CREATED", event.id) },
+    });
+  }
 
   if (event.overtimeAvailable) {
     await upsertNotification({
@@ -117,7 +126,7 @@ export async function syncEventNotifications(event: EventNotificationPayload) {
       actorUserId: event.creatorId,
       eventId: event.id,
       targetDate: toSeoulDateInput(event.startDate),
-      title: "특근 가능",
+      title: "\uD2B9\uADFC \uAC00\uB2A5",
       body: buildOvertimeNotificationBody({
         actorName,
         dateLabel: formatSeoulMonthDayWeekdayLabel(event.startDate),
@@ -152,8 +161,8 @@ export async function createJoinRequestNotification(input: JoinRequestPayload) {
     type: "JOIN_REQUEST_PENDING",
     actorUserId: input.userId,
     groupMemberId: input.id,
-    title: "승인 대기",
-    body: `${actorName}님이 그룹 참가를 요청했습니다.`,
+    title: "\uC2B9\uC778 \uB300\uAE30",
+    body: `${actorName}\uB2D8\uC774 \uADF8\uB8F9 \uCC38\uAC00\uB97C \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4.`,
   });
 }
 
@@ -219,5 +228,15 @@ export async function markNotificationsRead(notificationIds: string[]) {
   return prisma.notification.updateMany({
     where: { id: { in: notificationIds } },
     data: { readAt: new Date() },
+  });
+}
+
+export async function deleteNotifications(notificationIds: string[]) {
+  if (notificationIds.length === 0) {
+    return { count: 0 };
+  }
+
+  return prisma.notification.deleteMany({
+    where: { id: { in: notificationIds } },
   });
 }

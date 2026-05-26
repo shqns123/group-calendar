@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Calendar } from "lucide-react";
+import { applyDateRangeSelection, formatDateRangeLabel, type DateRangeSelectionPhase } from "@/lib/dateRange";
 import { shouldCountTowardTotals } from "@/lib/groupPermissions";
 import {
   formatSeoulMonthDayWeekdayLabel,
@@ -72,6 +73,7 @@ const UI = {
   personnelHint: "\uD544\uC694\uD55C \uBA64\uBC84\uB9CC \uD0ED\uD574\uC11C \uC120\uD0DD\uD558\uC138\uC694.",
   defaultSuffix: "\uAE30\uBCF8\uAC12",
   defaultPersonnelPrefix: "\uC778\uC6D0 \uAE30\uBCF8\uAC12: ",
+  dateRange: "\uAE30\uAC04",
   start: "\uC2DC\uC791",
   end: "\uC885\uB8CC",
   equipment: "\uC7A5\uBE44 \uC120\uD0DD",
@@ -187,6 +189,7 @@ export default function EventModal({
   const attendanceTitleRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const equipmentRef = useRef<HTMLDivElement>(null);
+  const rangePickerRef = useRef<HTMLInputElement>(null);
   const touchStartXRef = useRef<number | null>(null);
 
   const now = new Date();
@@ -201,6 +204,8 @@ export default function EventModal({
   );
   const [startDate, setStartDate] = useState(toSeoulDateInput(defaultStart));
   const [endDate, setEndDate] = useState(toSeoulDateInput(defaultEnd));
+  const [rangeSelectionPhase, setRangeSelectionPhase] =
+    useState<DateRangeSelectionPhase>("start");
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [personnelOpen, setPersonnelOpen] = useState(false);
@@ -322,20 +327,39 @@ export default function EventModal({
     });
   };
 
-  const handleStartDateChange = (value: string) => {
-    setStartDate(value);
-    if (value && endDate && value > endDate) {
-      setEndDate(value);
+  const openRangePicker = (phase: DateRangeSelectionPhase = "start") => {
+    setRangeSelectionPhase(phase);
+    const picker = rangePickerRef.current as (HTMLInputElement & {
+      showPicker?: () => void;
+    }) | null;
+    if (!picker) return;
+
+    picker.value = phase === "end" ? endDate || startDate : startDate;
+    if (typeof picker.showPicker === "function") {
+      picker.showPicker();
+      return;
     }
-    setError("");
+
+    picker.click();
   };
 
-  const handleEndDateChange = (value: string) => {
-    setEndDate(value);
-    if (value && startDate && value < startDate) {
-      setError(UI.endBeforeStart);
-    } else {
-      setError("");
+  const handleRangeDateChange = (value: string) => {
+    if (!value) return;
+
+    const next = applyDateRangeSelection({
+      currentStart: startDate,
+      currentEnd: endDate,
+      pickedDate: value,
+      phase: rangeSelectionPhase,
+    });
+
+    setStartDate(next.startDate);
+    setEndDate(next.endDate);
+    setRangeSelectionPhase(next.nextPhase);
+    setError("");
+
+    if (next.nextPhase === "end") {
+      requestAnimationFrame(() => openRangePicker("end"));
     }
   };
 
@@ -925,28 +949,27 @@ export default function EventModal({
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">{UI.start}</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">{UI.end}</label>
-              <input
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => handleEndDateChange(e.target.value)}
-                className={`w-full rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  error.includes(UI.end) ? "border-red-400 bg-red-50" : "border-slate-200"
-                }`}
-              />
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">{UI.dateRange}</label>
+            <button
+              type="button"
+              onClick={() => openRangePicker("start")}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                error.includes(UI.end) ? "border-red-400 bg-red-50" : "border-slate-200"
+              }`}
+            >
+              <span>{formatDateRangeLabel(startDate, endDate)}</span>
+              <span className="text-xs text-slate-400">1회 시작, 2회 종료</span>
+            </button>
+            <input
+              ref={rangePickerRef}
+              type="date"
+              value={rangeSelectionPhase === "end" ? endDate : startDate}
+              onChange={(e) => handleRangeDateChange(e.target.value)}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
           </div>
 
           <div>

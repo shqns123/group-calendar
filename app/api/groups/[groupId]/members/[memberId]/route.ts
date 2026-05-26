@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { eventBus } from "@/lib/eventBus";
 import { isObserverRole } from "@/lib/groupPermissions";
 import { resolveJoinRequestNotification } from "@/lib/notificationStore";
 import { prisma } from "@/lib/prisma";
@@ -6,13 +7,13 @@ import { NextRequest } from "next/server";
 
 export async function PATCH(
   request: NextRequest,
-  ctx: RouteContext<"/api/groups/[groupId]/members/[memberId]">
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { groupId, memberId } = await ctx.params;
+  const { groupId, memberId } = await params;
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) {
@@ -47,6 +48,7 @@ export async function PATCH(
     if (status === "REJECTED") {
       await resolveJoinRequestNotification(memberId);
       await prisma.groupMember.delete({ where: { id: memberId } });
+      eventBus.notify(groupId);
       return Response.json({ success: true });
     }
     if (status !== "ACTIVE") {
@@ -58,6 +60,7 @@ export async function PATCH(
       include: { user: { select: { id: true, name: true, email: true, image: true } } },
     });
     await resolveJoinRequestNotification(memberId);
+    eventBus.notify(groupId);
     return Response.json(updated);
   }
 
@@ -110,13 +113,13 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  ctx: RouteContext<"/api/groups/[groupId]/members/[memberId]">
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const { groupId, memberId } = await ctx.params;
+  const { groupId, memberId } = await params;
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) {

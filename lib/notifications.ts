@@ -73,6 +73,10 @@ export function buildOvertimeNotificationBody({
   return `${actorName}님이 ${dateLabel} 특근 가능으로 표시했습니다.`;
 }
 
+export function shouldCreateEventCreatedNotification(isOvertimeOnly: boolean) {
+  return !isOvertimeOnly;
+}
+
 export function filterNotificationsByTab(
   notifications: NotificationListItem[],
   tab: NotificationTab,

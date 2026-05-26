@@ -7,6 +7,7 @@ import {
   canViewNotificationBell,
   filterNotificationsByTab,
   getEventNotificationNames,
+  shouldCreateEventCreatedNotification,
   type NotificationListItem,
 } from "../lib/notifications.ts";
 
@@ -98,4 +99,9 @@ test("allows bell only for operator, leader/admin, or canNotify member", () => {
     canViewNotificationBell({ memberRole: "MEMBER", canNotify: false }),
     false,
   );
+});
+
+test("skips schedule notifications for overtime-only entries", () => {
+  assert.equal(shouldCreateEventCreatedNotification(false), true);
+  assert.equal(shouldCreateEventCreatedNotification(true), false);
 });

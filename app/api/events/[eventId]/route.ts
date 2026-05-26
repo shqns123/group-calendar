@@ -125,6 +125,7 @@ export async function PATCH(
     title: updated.title,
     personnel: updated.personnel,
     overtimeAvailable: updated.overtimeAvailable,
+    isOvertimeOnly: updated.isOvertimeOnly,
     startDate: updated.startDate,
   });
 
