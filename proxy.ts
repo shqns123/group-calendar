@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -10,12 +10,16 @@ export async function proxy(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
-  const session = await auth();
-  if (!session?.user?.id) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+  });
+
+  if (!token?.sub) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const status = (session.user as Record<string, unknown>).status;
+  const status = token.status;
   if (status === "PENDING") {
     return NextResponse.redirect(new URL("/pending", request.url));
   }
