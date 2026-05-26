@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash2, Calendar } from "lucide-react";
-import { applyDateRangeSelection, formatDateRangeLabel, type DateRangeSelectionPhase } from "@/lib/dateRange";
+import {
+  applyDateRangeSelection,
+  buildDateRangeCalendar,
+  formatDateRangeLabel,
+  getDateRangePhaseLabel,
+  shiftDateRangeMonth,
+  type DateRangeSelectionPhase,
+} from "@/lib/dateRange";
 import { shouldCountTowardTotals } from "@/lib/groupPermissions";
 import {
   formatSeoulMonthDayWeekdayLabel,
@@ -130,6 +137,8 @@ const EQUIPMENT_GROUPS = [
   },
 ] as const;
 
+const DATE_RANGE_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
 function parseEquipment(raw?: string | null) {
   if (!raw) return [] as string[];
   return raw
@@ -189,7 +198,7 @@ export default function EventModal({
   const attendanceTitleRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const equipmentRef = useRef<HTMLDivElement>(null);
-  const rangePickerRef = useRef<HTMLInputElement>(null);
+  const dateRangeRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number | null>(null);
 
   const now = new Date();
@@ -206,6 +215,8 @@ export default function EventModal({
   const [endDate, setEndDate] = useState(toSeoulDateInput(defaultEnd));
   const [rangeSelectionPhase, setRangeSelectionPhase] =
     useState<DateRangeSelectionPhase>("start");
+  const [rangePickerOpen, setRangePickerOpen] = useState(false);
+  const [rangeViewMonth, setRangeViewMonth] = useState(toSeoulDateInput(defaultStart).slice(0, 7));
   const [color, setColor] = useState(event?.color ?? "#3B82F6");
   const [overtimeAvailable] = useState(event?.overtimeAvailable ?? false);
   const [personnelOpen, setPersonnelOpen] = useState(false);
@@ -293,6 +304,9 @@ export default function EventModal({
       if (!equipmentRef.current?.contains(mouseEvent.target as Node)) {
         setEquipmentOpen(false);
       }
+      if (!dateRangeRef.current?.contains(mouseEvent.target as Node)) {
+        setRangePickerOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -317,6 +331,19 @@ export default function EventModal({
     ...(targetEnabled && Number(targetQuantity) > 0 ? [`Target x${targetQuantity}`] : []),
   ];
   const activeEquipmentGroup = equipmentGroups[equipmentGroupIndex];
+  const calendarDays = useMemo(
+    () =>
+      buildDateRangeCalendar({
+        viewMonth: rangeViewMonth,
+        startDate,
+        endDate,
+      }),
+    [endDate, rangeViewMonth, startDate]
+  );
+  const rangeMonthLabel = useMemo(() => {
+    const [year, month] = rangeViewMonth.split("-");
+    return `${year}년 ${Number(month)}월`;
+  }, [rangeViewMonth]);
 
   const cycleEquipmentGroup = (direction: "prev" | "next") => {
     setEquipmentGroupIndex((current) => {
@@ -328,23 +355,19 @@ export default function EventModal({
   };
 
   const openRangePicker = (phase: DateRangeSelectionPhase = "start") => {
-    setRangeSelectionPhase(phase);
-    const picker = rangePickerRef.current as (HTMLInputElement & {
-      showPicker?: () => void;
-    }) | null;
-    if (!picker) return;
-
-    picker.value = phase === "end" ? endDate || startDate : startDate;
-    if (typeof picker.showPicker === "function") {
-      picker.showPicker();
+    if (rangePickerOpen && phase === "start") {
+      setRangePickerOpen(false);
       return;
     }
 
-    picker.click();
+    setRangeSelectionPhase(phase);
+    setRangeViewMonth((phase === "end" ? endDate : startDate).slice(0, 7));
+    setRangePickerOpen(true);
   };
 
   const handleRangeDateChange = (value: string) => {
     if (!value) return;
+    const previousPhase = rangeSelectionPhase;
 
     const next = applyDateRangeSelection({
       currentStart: startDate,
@@ -356,11 +379,16 @@ export default function EventModal({
     setStartDate(next.startDate);
     setEndDate(next.endDate);
     setRangeSelectionPhase(next.nextPhase);
+    setRangeViewMonth(next.startDate.slice(0, 7));
     setError("");
 
-    if (next.nextPhase === "end") {
-      requestAnimationFrame(() => openRangePicker("end"));
+    if (previousPhase === "start") {
+      setRangePickerOpen(true);
+      setRangeSelectionPhase("end");
+      return;
     }
+
+    setRangePickerOpen(false);
   };
 
   const togglePersonnel = (label: string) => {
@@ -473,14 +501,14 @@ export default function EventModal({
   if (isEdit && !canEdit) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+        <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="shrink-0 flex items-center justify-between border-b border-slate-100 p-6">
             <h3 className="text-lg font-semibold text-slate-800">{UI.detail}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="space-y-4 p-6">
+          <div className="min-h-0 space-y-4 overflow-y-auto p-6">
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 rounded-full" style={{ backgroundColor: event.color }} />
               <h4 className="text-xl font-semibold text-slate-800">{event.title}</h4>
@@ -511,14 +539,14 @@ export default function EventModal({
   if (!isEdit && !selectedCategory) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-        <div className="modal-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+        <div className="modal-scale-in flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="shrink-0 flex items-center justify-between border-b border-slate-100 p-6">
             <h3 className="text-lg font-semibold text-slate-800">{UI.create}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="space-y-3 p-6">
+          <div className="min-h-0 space-y-3 overflow-y-auto p-6">
             <p className="text-sm font-medium text-slate-700">일정 유형을 선택해주세요.</p>
             <button
               type="button"
@@ -551,8 +579,8 @@ export default function EventModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="modal-scale-in w-full max-w-md rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 p-6">
+      <div className="modal-scale-in flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-100 p-6">
           <h3 className="text-lg font-semibold text-slate-800">
             {isEdit ? UI.edit : UI.create}
           </h3>
@@ -561,7 +589,8 @@ export default function EventModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
           {isAttendance ? (
             <div ref={attendanceTitleRef} className="relative">
               <button
@@ -839,7 +868,7 @@ export default function EventModal({
                         </div>
                       ) : activeEquipmentGroup.items.length === 0 ? (
                         <p className="w-full rounded-xl border border-dashed border-[var(--accent-muted)] bg-white/70 px-3 py-4 text-center text-sm text-stone-500">
-                          {activeEquipmentGroup.label} ??ぉ???놁뒿?덈떎. 洹몃９ 愿由ъ뿉??異붽???二쇱꽭??
+                          {activeEquipmentGroup.label} 목록이 없습니다. 그룹 관리에서 추가해 주세요.
                         </p>
                       ) : activeEquipmentGroup.items.map((item) => {
                         const checked = selectedEquipment.includes(item);
@@ -949,27 +978,110 @@ export default function EventModal({
             )}
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500">{UI.dateRange}</label>
+          <div ref={dateRangeRef} className="relative">
             <button
               type="button"
               onClick={() => openRangePicker("start")}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                error.includes(UI.end) ? "border-red-400 bg-red-50" : "border-slate-200"
+              className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 ${
+                rangePickerOpen
+                  ? "border-[var(--accent-muted)] bg-[var(--accent-light)]"
+                  : error.includes(UI.end)
+                    ? "border-red-400 bg-red-50"
+                    : "border-slate-200 bg-white hover:border-[var(--accent-muted)]"
               }`}
             >
-              <span>{formatDateRangeLabel(startDate, endDate)}</span>
-              <span className="text-xs text-slate-400">1회 시작, 2회 종료</span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+                    {UI.dateRange}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">
+                    {formatDateRangeLabel(startDate, endDate)}
+                  </p>
+                </div>
+                <span className="inline-flex shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[var(--accent)] ring-1 ring-[var(--accent-muted)]">
+                  {getDateRangePhaseLabel(rangeSelectionPhase)}
+                </span>
+              </div>
             </button>
-            <input
-              ref={rangePickerRef}
-              type="date"
-              value={rangeSelectionPhase === "end" ? endDate : startDate}
-              onChange={(e) => handleRangeDateChange(e.target.value)}
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden="true"
-            />
+
+            {rangePickerOpen && (
+              <div className="mt-3 rounded-2xl border border-[var(--accent-muted)] bg-[color-mix(in_srgb,var(--surface)_90%,var(--accent-light))] p-3 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setRangeViewMonth((current) => shiftDateRangeMonth(current, -1))}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent-muted)] bg-white text-sm font-semibold text-[var(--accent)]"
+                  >
+                    {"<"}
+                  </button>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-[var(--accent-hover)]">{rangeMonthLabel}</p>
+                    <p className="mt-0.5 text-[11px] text-[var(--accent)]">
+                      {getDateRangePhaseLabel(rangeSelectionPhase)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRangeViewMonth((current) => shiftDateRangeMonth(current, 1))}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent-muted)] bg-white text-sm font-semibold text-[var(--accent)]"
+                  >
+                    {">"}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 gap-x-0 gap-y-2">
+                  {DATE_RANGE_WEEKDAYS.map((weekday) => (
+                    <div
+                      key={weekday}
+                      className="pb-1 text-center text-[11px] font-semibold text-stone-400"
+                    >
+                      {weekday}
+                    </div>
+                  ))}
+
+                  {calendarDays.map((day) => {
+                    const isSingleDay = day.isRangeStart && day.isRangeEnd;
+
+                    return (
+                      <button
+                        key={day.dateKey}
+                        type="button"
+                        onClick={() => handleRangeDateChange(day.dateKey)}
+                        className={`relative h-11 border-0 bg-transparent p-0 text-sm ${
+                          day.isCurrentMonth ? "text-slate-700" : "text-stone-300"
+                        }`}
+                      >
+                        {day.isInRange && (
+                          <span
+                            className={`absolute inset-y-1 -z-0 bg-[var(--accent-light)] ${
+                              isSingleDay
+                                ? "left-1 right-1 rounded-2xl"
+                                : day.isRangeStart
+                                  ? "left-1 right-0 rounded-l-2xl"
+                                  : day.isRangeEnd
+                                    ? "left-0 right-1 rounded-r-2xl"
+                                    : "left-0 right-0"
+                            }`}
+                          />
+                        )}
+                        <span
+                          className={`relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+                            day.isRangeStart || day.isRangeEnd
+                              ? "bg-[var(--accent)] font-semibold text-white shadow-[0_10px_20px_rgba(37,99,235,0.22)]"
+                              : day.isInRange
+                                ? "text-[var(--accent-hover)]"
+                                : ""
+                          }`}
+                        >
+                          {day.dayOfMonth}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -994,8 +1106,10 @@ export default function EventModal({
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>
           )}
+          </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-4">
+          <div className="flex gap-3">
             {isEdit && (
               <button
                 type="button"
@@ -1034,6 +1148,7 @@ export default function EventModal({
             >
               {loading ? UI.saving : isEdit ? UI.editSave : UI.save}
             </button>
+          </div>
           </div>
         </form>
       </div>
