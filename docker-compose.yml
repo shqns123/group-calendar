@@ -1,6 +1,8 @@
 services:
   group-calendar:
-    build: .
+    build:
+      context: .
+      network: host
     container_name: group-calendar
     restart: unless-stopped
     ports:

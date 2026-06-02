@@ -1199,6 +1199,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 selectedGroup?.leaderId === user.id ||
                 isLeaderRole(selectedGroup?.members.find((m) => m.userId === user.id)?.role)
               }
+              isOperator={user.isOperator}
               customHolidays={customHolidays}
               pendingEvent={pendingEvent}
               onPendingEventHandled={() => setPendingEvent(null)}

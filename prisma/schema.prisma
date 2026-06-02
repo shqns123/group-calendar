@@ -52,6 +52,8 @@ model User {
   pushSubscriptions PushSubscription[]
   mobileDeviceTokens MobileDeviceToken[]
   qrInviteTokens QrInviteToken[]
+  dayNotesCreated GroupDayNote[] @relation("GroupDayNoteCreatedBy")
+  dayNotesUpdated GroupDayNote[] @relation("GroupDayNoteUpdatedBy")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -112,6 +114,7 @@ model Group {
   notifications Notification[]
   schedules   NotificationSchedule[]
   qrInviteTokens QrInviteToken[]
+  dayNotes    GroupDayNote[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }
@@ -190,4 +193,21 @@ model Event {
   group       Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model GroupDayNote {
+  id          String   @id @default(cuid())
+  groupId      String
+  date        String
+  content     String
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("GroupDayNoteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  updatedBy   User     @relation("GroupDayNoteUpdatedBy", fields: [updatedById], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, date])
+  @@index([groupId, date])
 }
