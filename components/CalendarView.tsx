@@ -75,6 +75,7 @@ type Props = {
   userId: string;
   group: Group | null;
   isLeader: boolean;
+  isOperator: boolean;
   customHolidays?: CustomHoliday[];
   pendingEvent?: CalEvent | null;
   onPendingEventHandled?: () => void;
@@ -400,6 +401,7 @@ export default function CalendarView({
   userId,
   group,
   isLeader,
+  isOperator,
   customHolidays = [],
   pendingEvent,
   onPendingEventHandled,
@@ -826,6 +828,7 @@ export default function CalendarView({
           userId={userId}
           group={group}
           isLeader={isLeader}
+          isOperator={isOperator}
           isObserver={isObserver}
           customHolidays={customHolidays}
           onEventClick={(e) => {
