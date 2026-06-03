@@ -137,7 +137,10 @@ function TodayView({
 }) {
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
   const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
+  const [dayNoteItems, setDayNoteItems] = useState<Array<{ id: string; text: string; startDate: string; endDate: string }>>([]);
+  const [isDayNoteExpanded, setIsDayNoteExpanded] = useState(false);
   const today = new Date();
+  const todayDateKey = formatSeoulDateKey(today);
   const todayRange = getSeoulDayRange(today);
   const todayEvents = events
     .filter((e) => {
@@ -153,12 +156,44 @@ function TodayView({
     });
   const equipmentStock = getEquipmentStock(group, todayEvents);
   const personnelAvailability = getPersonnelAvailability(group, todayEvents);
+  const effectiveDayNoteItems = group ? dayNoteItems : [];
+  const hasDayNote = effectiveDayNoteItems.length > 0;
+  const visibleDayNoteItems = isDayNoteExpanded ? effectiveDayNoteItems : effectiveDayNoteItems.slice(0, 1);
+  const hiddenDayNoteCount = Math.max(effectiveDayNoteItems.length - visibleDayNoteItems.length, 0);
 
   const getMemberName = (event: CalEvent): string => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
     const member = group.members.find((m) => m.userId === event.creatorId);
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
   };
+
+  useEffect(() => {
+    if (!group) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch(`/api/day-notes?groupId=${group.id}&date=${todayDateKey}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("failed to load day note");
+        return response.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setDayNoteItems(data?.note?.items ?? []);
+        setIsDayNoteExpanded(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDayNoteItems([]);
+        setIsDayNoteExpanded(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [group, todayDateKey]);
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
@@ -231,6 +266,93 @@ function TodayView({
         </button>
       )}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" as never, touchAction: "pan-y" }}>
+        {hasDayNote && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "12px",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: "var(--surface-raised)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              업무내용
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsDayNoteExpanded((current) => !current)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                padding: 0,
+                border: "none",
+                background: "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {visibleDayNoteItems.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-subtle)",
+                    background: "var(--surface)",
+                  }}
+                >
+                  <span
+                    style={{
+                      marginTop: 6,
+                      width: 5,
+                      height: 5,
+                      borderRadius: 999,
+                      background: "var(--accent)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <p
+                    style={{
+                      fontSize: "0.78rem",
+                      color: "var(--text-secondary)",
+                      lineHeight: 1.5,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+              {(hiddenDayNoteCount > 0 || effectiveDayNoteItems.length > 1) && (
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    color: "var(--text-tertiary)",
+                    paddingLeft: 2,
+                  }}
+                >
+                  {isDayNoteExpanded ? "접기" : `외 ${hiddenDayNoteCount}개 더보기`}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
         {todayEvents.length === 0 ? (
           <div
             style={{

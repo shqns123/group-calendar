@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Clock, FileText, Plus, X } from "lucide-react";
+import { CalendarClock, Clock, Plus, X } from "lucide-react";
 import DayNoteModal from "./DayNoteModal";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import EquipmentStockModal from "./EquipmentStockModal";
@@ -9,7 +9,6 @@ import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getEquipmentStock } from "./equipmentStock";
 import { getPersonnelAvailability } from "./personnelAvailability";
-import { hasDayNoteContent } from "@/lib/dayNotes";
 import {
   formatSeoulDateKey,
   formatSeoulMonthDayKey,
@@ -145,6 +144,7 @@ export default function DayEventsModal({
   const [dayNoteCanEdit, setDayNoteCanEdit] = useState(false);
   const [dayNoteLoading, setDayNoteLoading] = useState(false);
   const [dayNoteSaving, setDayNoteSaving] = useState(false);
+  const [isDayNoteExpanded, setIsDayNoteExpanded] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
     if (!group) return event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
@@ -236,7 +236,14 @@ export default function DayEventsModal({
   const customEntry = customHolidays.find((holiday) => holiday.date === dateStr);
   const holidayName =
     customEntry?.type === "workday" ? "대체 근무일" : customEntry?.name ?? getHolidayName(date);
-  const hasDayNote = hasDayNoteContent(dayNote?.content);
+  const dayNoteItems = dayNote?.items ?? [];
+  const hasDayNote = dayNoteItems.length > 0;
+  const visibleDayNoteItems = isDayNoteExpanded ? dayNoteItems : dayNoteItems.slice(0, 1);
+  const hiddenDayNoteCount = Math.max(dayNoteItems.length - visibleDayNoteItems.length, 0);
+
+  useEffect(() => {
+    setIsDayNoteExpanded(false);
+  }, [dateStr, group?.id]);
 
   useEffect(() => {
     if (!group) {
@@ -411,53 +418,6 @@ export default function DayEventsModal({
                   }}
                 >
                   <PersonnelAvailabilityIcon size={16} />
-                </button>
-              )}
-              {group && (
-                <button
-                  type="button"
-                  onClick={() => setShowDayNoteModal(true)}
-                  title={hasDayNote ? "업무내용 보기" : "업무내용 등록"}
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    border: `1px solid ${hasDayNote ? "var(--accent-muted)" : "var(--border)"}`,
-                    background: hasDayNote ? "var(--accent-light)" : "var(--surface)",
-                    color: hasDayNote ? "var(--accent)" : "var(--text-tertiary)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    opacity: dayNoteLoading ? 0.7 : 1,
-                  }}
-                >
-                  <FileText style={{ width: 15, height: 15 }} />
-                  {hasDayNote && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -3,
-                        right: -2,
-                        width: 14,
-                        height: 14,
-                        borderRadius: 999,
-                        background: "#2563EB",
-                        color: "#fff",
-                        fontSize: "0.65rem",
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 0 0 2px var(--surface)",
-                      }}
-                    >
-                      !
-                    </span>
-                  )}
                 </button>
               )}
             </div>
@@ -756,6 +716,119 @@ export default function DayEventsModal({
           </div>
         )}
 
+        {group && (
+          <div
+            style={{
+              padding: "14px 20px 12px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <p
+                style={{
+                  fontSize: "0.84rem",
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                업무내용
+              </p>
+              {dayNoteCanEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowDayNoteModal(true)}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 999,
+                    border: "1px solid var(--accent-muted)",
+                    background: "var(--surface)",
+                    color: "var(--accent)",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    flexShrink: 0,
+                    opacity: dayNoteLoading ? 0.7 : 1,
+                  }}
+                >
+                  수정
+                </button>
+              )}
+            </div>
+
+            {hasDayNote && (
+              <button
+                type="button"
+                onClick={() => setIsDayNoteExpanded((current) => !current)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                {visibleDayNoteItems.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface-raised)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        marginTop: 6,
+                        width: 5,
+                        height: 5,
+                        borderRadius: 999,
+                        background: "var(--accent)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <p
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.55,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
+
+                {(hiddenDayNoteCount > 0 || dayNoteItems.length > 1) && (
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      color: "var(--text-tertiary)",
+                      paddingLeft: 2,
+                    }}
+                  >
+                    {isDayNoteExpanded ? "접기" : `외 ${hiddenDayNoteCount}개 더보기`}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
         <div
           style={{
             padding: "12px 20px",
@@ -916,39 +989,43 @@ export default function DayEventsModal({
           )}
         </div>
 
-        {!isObserver && (
+        {group && (
           <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
-            <button
-              onClick={onAddClick}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: 9,
-                border: "1.5px dashed var(--border)",
-                background: "none",
-                color: "var(--text-tertiary)",
-                fontSize: "0.825rem",
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                transition: "all 0.12s",
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.borderColor = "var(--accent)";
-                event.currentTarget.style.color = "var(--accent)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.borderColor = "var(--border)";
-                event.currentTarget.style.color = "var(--text-tertiary)";
-              }}
-            >
-              <Plus style={{ width: 14, height: 14 }} />
-              일정 추가
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {!isObserver && (
+                <button
+                  onClick={onAddClick}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: 9,
+                    border: "1.5px dashed var(--border)",
+                    background: "none",
+                    color: "var(--text-tertiary)",
+                    fontSize: "0.825rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    transition: "all 0.12s",
+                  }}
+                  onMouseEnter={(event) => {
+                    event.currentTarget.style.borderColor = "var(--accent)";
+                    event.currentTarget.style.color = "var(--accent)";
+                  }}
+                  onMouseLeave={(event) => {
+                    event.currentTarget.style.borderColor = "var(--border)";
+                    event.currentTarget.style.color = "var(--text-tertiary)";
+                  }}
+                >
+                  <Plus style={{ width: 14, height: 14 }} />
+                  일정 추가
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
