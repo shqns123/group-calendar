@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatDateRangeLabel } from "@/lib/dateRange";
 import {
   buildEventNotificationBody,
   buildOvertimeNotificationBody,
@@ -17,6 +18,7 @@ type EventNotificationPayload = {
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
   startDate: Date;
+  endDate: Date;
 };
 
 type JoinRequestPayload = {
@@ -110,7 +112,14 @@ export async function syncEventNotifications(event: EventNotificationPayload) {
       actorUserId: event.creatorId,
       eventId: event.id,
       title: "\uC77C\uC815 \uB4F1\uB85D",
-      body: buildEventNotificationBody({ title: event.title, names }),
+      body: buildEventNotificationBody({
+        title: event.title,
+        dateLabel: formatDateRangeLabel(
+          toSeoulDateInput(event.startDate),
+          toSeoulDateInput(event.endDate),
+        ),
+        names,
+      }),
     });
   } else {
     await prisma.notification.deleteMany({

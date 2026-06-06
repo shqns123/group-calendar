@@ -25,9 +25,10 @@ test("uses personnel names and truncates long event notification bodies", () => 
   assert.equal(
     buildEventNotificationBody({
       title: "야간 점검",
+      dateLabel: "26.05.26 ~ 26.05.28",
       names: ["홍길동", "김철수", "이영희", "박민수"],
     }),
-    "\"야간 점검\" 일정 등록 · 홍길동, 김철수 외 2명",
+    "\"야간 점검\" 26.05.26 ~ 26.05.28 일정 등록 · 홍길동, 김철수 외 2명",
   );
 });
 

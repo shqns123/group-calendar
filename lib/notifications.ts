@@ -22,6 +22,7 @@ type EventNotificationNamesInput = {
 
 type EventNotificationBodyInput = {
   title: string;
+  dateLabel: string;
   names: string[];
 };
 
@@ -56,6 +57,7 @@ export function getEventNotificationNames({
 
 export function buildEventNotificationBody({
   title,
+  dateLabel,
   names,
 }: EventNotificationBodyInput) {
   const normalizedNames = names.map((value) => value.trim()).filter(Boolean);
@@ -63,7 +65,7 @@ export function buildEventNotificationBody({
   const remainder = Math.max(0, normalizedNames.length - 2);
   const suffix = remainder > 0 ? ` 외 ${remainder}명` : "";
 
-  return `"${title}" 일정 등록 · ${visibleNames}${suffix}`;
+  return `"${title}" ${dateLabel} 일정 등록 · ${visibleNames}${suffix}`;
 }
 
 export function buildOvertimeNotificationBody({
