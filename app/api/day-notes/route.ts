@@ -42,6 +42,7 @@ function normalizeIncomingEntries(rawEntries: unknown[], fallbackDate: string): 
       createDayNoteEntry(fallbackDate, {
         id: typeof candidate.id === "string" ? candidate.id : `entry-${index}-${Date.now()}`,
         text: typeof candidate.text === "string" ? candidate.text : "",
+        assignee: typeof candidate.assignee === "string" ? candidate.assignee : "",
         startDate: typeof candidate.startDate === "string" ? candidate.startDate : fallbackDate,
         endDate: typeof candidate.endDate === "string" ? candidate.endDate : fallbackDate,
       }),

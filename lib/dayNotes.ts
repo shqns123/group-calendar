@@ -4,6 +4,7 @@ const MAX_DAY_NOTE_ITEMS = 20;
 export type DayNoteEntry = {
   id: string;
   text: string;
+  assignee: string;
   startDate: string;
   endDate: string;
 };
@@ -17,6 +18,7 @@ type DayNotePermissionInput = {
 type ParsedEntryObject = {
   id?: unknown;
   text?: unknown;
+  assignee?: unknown;
   startDate?: unknown;
   endDate?: unknown;
 };
@@ -48,6 +50,7 @@ export function normalizeDayNoteContent(content: string | null | undefined): str
 
 export function createDayNoteEntry(dateKey: string, overrides: Partial<DayNoteEntry> = {}): DayNoteEntry {
   const baseText = typeof overrides.text === "string" ? overrides.text : "";
+  const baseAssignee = typeof overrides.assignee === "string" ? overrides.assignee : "";
   const startDate = isDateKey(overrides.startDate) ? overrides.startDate : dateKey;
   const endDate = isDateKey(overrides.endDate) ? overrides.endDate : dateKey;
   const range = normalizeRange(startDate, endDate);
@@ -55,6 +58,7 @@ export function createDayNoteEntry(dateKey: string, overrides: Partial<DayNoteEn
   return {
     id: overrides.id?.trim() || `day-note-${Math.random().toString(36).slice(2, 10)}`,
     text: baseText,
+    assignee: baseAssignee,
     startDate: range.startDate,
     endDate: range.endDate,
   };
@@ -64,9 +68,11 @@ export function normalizeDayNoteEntries(entries: DayNoteEntry[], fallbackDate: s
   return entries
     .map((entry) => {
       const normalizedText = normalizeDayNoteContent(entry.text) ?? "";
+      const normalizedAssignee = normalizeDayNoteContent(entry.assignee) ?? "";
       return createDayNoteEntry(fallbackDate, {
         ...entry,
         text: normalizedText,
+        assignee: normalizedAssignee,
       });
     })
     .filter((entry) => entry.text.length > 0)
@@ -82,10 +88,7 @@ export function serializeDayNoteEntries(entries: DayNoteEntry[], fallbackDate: s
   return normalized.length > 0 ? JSON.stringify(normalized) : null;
 }
 
-export function parseDayNoteEntries(
-  content: string | null | undefined,
-  fallbackDate: string,
-): DayNoteEntry[] {
+export function parseDayNoteEntries(content: string | null | undefined, fallbackDate: string): DayNoteEntry[] {
   const normalized = normalizeDayNoteContent(content);
   if (!normalized) return [];
 
@@ -98,6 +101,7 @@ export function parseDayNoteEntries(
             createDayNoteEntry(fallbackDate, {
               id: `legacy-${fallbackDate}-${index}`,
               text: item,
+              assignee: "",
             }),
           ];
         }
@@ -108,6 +112,7 @@ export function parseDayNoteEntries(
             createDayNoteEntry(fallbackDate, {
               id: typeof candidate.id === "string" ? candidate.id : `entry-${fallbackDate}-${index}`,
               text: typeof candidate.text === "string" ? candidate.text : "",
+              assignee: typeof candidate.assignee === "string" ? candidate.assignee : "",
               startDate: typeof candidate.startDate === "string" ? candidate.startDate : fallbackDate,
               endDate: typeof candidate.endDate === "string" ? candidate.endDate : fallbackDate,
             }),
@@ -127,6 +132,7 @@ export function parseDayNoteEntries(
     createDayNoteEntry(fallbackDate, {
       id: `legacy-${fallbackDate}-0`,
       text: normalized,
+      assignee: "",
     }),
   ];
 }
