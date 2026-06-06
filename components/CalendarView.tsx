@@ -137,7 +137,9 @@ function TodayView({
 }) {
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
   const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
-  const [dayNoteItems, setDayNoteItems] = useState<Array<{ id: string; text: string; startDate: string; endDate: string }>>([]);
+  const [dayNoteItems, setDayNoteItems] = useState<
+    Array<{ id: string; text: string; assignee: string; startDate: string; endDate: string }>
+  >([]);
   const [isDayNoteExpanded, setIsDayNoteExpanded] = useState(false);
   const today = new Date();
   const todayDateKey = formatSeoulDateKey(today);
@@ -326,17 +328,29 @@ function TodayView({
                       flexShrink: 0,
                     }}
                   />
-                  <p
-                    style={{
-                      fontSize: "0.78rem",
-                      color: "var(--text-secondary)",
-                      lineHeight: 1.5,
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {item.text}
-                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: 1 }}>
+                    <p
+                      style={{
+                        fontSize: "0.78rem",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {item.text}
+                    </p>
+                    {item.assignee && (
+                      <p
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "var(--text-tertiary)",
+                        }}
+                      >
+                        담당자 {item.assignee}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
               {(hiddenDayNoteCount > 0 || effectiveDayNoteItems.length > 1) && (

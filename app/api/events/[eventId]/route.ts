@@ -127,6 +127,7 @@ export async function PATCH(
     overtimeAvailable: updated.overtimeAvailable,
     isOvertimeOnly: updated.isOvertimeOnly,
     startDate: updated.startDate,
+    endDate: updated.endDate,
   });
 
   if (updated.groupId) eventBus.notify(updated.groupId);

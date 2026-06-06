@@ -6,9 +6,9 @@ import {
   createDayNoteEntry,
   expandDayNoteDateRange,
   hasDayNoteContent,
+  normalizeDayNoteContent,
   normalizeDayNoteEntries,
   normalizeDayNoteItems,
-  normalizeDayNoteContent,
   parseDayNoteEntries,
   parseDayNoteItems,
   serializeDayNoteEntries,
@@ -30,7 +30,7 @@ test("rejects editing for regular members and observers", () => {
 });
 
 test("normalizes day note content and stores empty values as null", () => {
-  assert.equal(normalizeDayNoteContent("  현장 출발 8시  "), "현장 출발 8시");
+  assert.equal(normalizeDayNoteContent("  현장 출발 8시 "), "현장 출발 8시");
   assert.equal(normalizeDayNoteContent("   "), null);
   assert.equal(normalizeDayNoteContent(null), null);
 });
@@ -42,23 +42,22 @@ test("detects whether a day note should activate the icon", () => {
 });
 
 test("normalizes legacy plain-text items by trimming and removing empty rows", () => {
-  assert.deepEqual(
-    normalizeDayNoteItems(["  첫 업무  ", " ", "", "두번째 업무"]),
-    ["첫 업무", "두번째 업무"],
-  );
+  assert.deepEqual(normalizeDayNoteItems(["  첫 업무  ", " ", "", "두번째 업무"]), ["첫 업무", "두번째 업무"]);
 });
 
-test("creates entry objects with sorted ranges while preserving draft text", () => {
+test("creates entry objects with sorted ranges while preserving draft fields", () => {
   assert.deepEqual(
     createDayNoteEntry("2026-06-02", {
       id: "entry-1",
       text: "  장비 점검 ",
+      assignee: "  김대리 ",
       startDate: "2026-06-04",
       endDate: "2026-06-02",
     }),
     {
       id: "entry-1",
       text: "  장비 점검 ",
+      assignee: "  김대리 ",
       startDate: "2026-06-02",
       endDate: "2026-06-04",
     },
@@ -69,25 +68,29 @@ test("preserves in-progress spaces while editing and trims on normalization", ()
   const draft = createDayNoteEntry("2026-06-02", {
     id: "entry-1",
     text: "현장 출발 ",
+    assignee: "  박주임 ",
   });
 
   assert.equal(draft.text, "현장 출발 ");
+  assert.equal(draft.assignee, "  박주임 ");
   assert.deepEqual(normalizeDayNoteEntries([draft], "2026-06-02"), [
     {
       id: "entry-1",
       text: "현장 출발",
+      assignee: "박주임",
       startDate: "2026-06-02",
       endDate: "2026-06-02",
     },
   ]);
 });
 
-test("serializes and parses entry-based day notes", () => {
+test("serializes and parses entry-based day notes with assignee", () => {
   const serialized = serializeDayNoteEntries(
     [
       {
         id: "entry-1",
         text: "출발 8시",
+        assignee: "정이사",
         startDate: "2026-06-02",
         endDate: "2026-06-04",
       },
@@ -99,6 +102,7 @@ test("serializes and parses entry-based day notes", () => {
     {
       id: "entry-1",
       text: "출발 8시",
+      assignee: "정이사",
       startDate: "2026-06-02",
       endDate: "2026-06-04",
     },
@@ -110,6 +114,7 @@ test("parses legacy string arrays into dated entries", () => {
     {
       id: "legacy-2026-06-02-0",
       text: "기존 메모",
+      assignee: "",
       startDate: "2026-06-02",
       endDate: "2026-06-02",
     },
@@ -124,20 +129,21 @@ test("normalizes entry objects and drops empty text rows", () => {
   assert.deepEqual(
     normalizeDayNoteEntries(
       [
-        { id: "a", text: " 첫 업무 ", startDate: "2026-06-02", endDate: "2026-06-02" },
-        { id: "b", text: "   ", startDate: "2026-06-02", endDate: "2026-06-03" },
+        { id: "a", text: " 첫 업무 ", assignee: "  담당자A ", startDate: "2026-06-02", endDate: "2026-06-02" },
+        { id: "b", text: "   ", assignee: " 담당자B ", startDate: "2026-06-02", endDate: "2026-06-03" },
       ],
       "2026-06-02",
     ),
     [
-      { id: "a", text: "첫 업무", startDate: "2026-06-02", endDate: "2026-06-02" },
+      { id: "a", text: "첫 업무", assignee: "담당자A", startDate: "2026-06-02", endDate: "2026-06-02" },
     ],
   );
 });
 
 test("expands a date range into inclusive Seoul date keys", () => {
-  assert.deepEqual(
-    expandDayNoteDateRange("2026-06-02", "2026-06-04"),
-    ["2026-06-02", "2026-06-03", "2026-06-04"],
-  );
+  assert.deepEqual(expandDayNoteDateRange("2026-06-02", "2026-06-04"), [
+    "2026-06-02",
+    "2026-06-03",
+    "2026-06-04",
+  ]);
 });

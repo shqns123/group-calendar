@@ -115,6 +115,7 @@ type DayNote = {
   items: Array<{
     id: string;
     text: string;
+    assignee: string;
     startDate: string;
     endDate: string;
   }>;
@@ -287,6 +288,7 @@ export default function DayEventsModal({
     entries: Array<{
       id: string;
       text: string;
+      assignee: string;
       startDate: string;
       endDate: string;
     }>;
@@ -340,6 +342,9 @@ export default function DayEventsModal({
           borderRadius: 16,
           width: "100%",
           maxWidth: 420,
+          maxHeight: "86vh",
+          display: "flex",
+          flexDirection: "column",
           overflow: "hidden",
           boxShadow: "0 20px 60px rgba(15,23,42,0.18)",
         }}
@@ -448,6 +453,7 @@ export default function DayEventsModal({
           </button>
         </div>
 
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {group && (
           <div
             style={{
@@ -799,17 +805,29 @@ export default function DayEventsModal({
                         flexShrink: 0,
                       }}
                     />
-                    <p
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "var(--text-secondary)",
-                        lineHeight: 1.55,
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {item.text}
-                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: 1 }}>
+                      <p
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "var(--text-secondary)",
+                          lineHeight: 1.55,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {item.text}
+                      </p>
+                      {item.assignee && (
+                        <p
+                          style={{
+                            fontSize: "0.72rem",
+                            color: "var(--text-tertiary)",
+                          }}
+                        >
+                          담당자 {item.assignee}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -835,8 +853,6 @@ export default function DayEventsModal({
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            maxHeight: 320,
-            overflowY: "auto",
           }}
         >
           {sorted.length === 0 ? (
@@ -1028,6 +1044,7 @@ export default function DayEventsModal({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {showEquipmentStockModal && equipmentStock && (

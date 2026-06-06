@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
     overtimeAvailable: event.overtimeAvailable,
     isOvertimeOnly: event.isOvertimeOnly,
     startDate: event.startDate,
+    endDate: event.endDate,
   });
 
   if (event.groupId) eventBus.notify(event.groupId);

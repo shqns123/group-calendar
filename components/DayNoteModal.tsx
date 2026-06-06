@@ -330,6 +330,37 @@ export default function DayNoteModal({
                           outline: "none",
                         }}
                       />
+                      {isEditable ? (
+                        <input
+                          value={entry.assignee}
+                          onChange={(event) => updateEntry(index, { assignee: event.target.value })}
+                          placeholder="담당자"
+                          style={{
+                            width: "100%",
+                            height: 34,
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            background: "var(--surface)",
+                            padding: "0 12px",
+                            fontFamily: "inherit",
+                            fontSize: "0.78rem",
+                            color: "var(--text-secondary)",
+                            outline: "none",
+                          }}
+                        />
+                      ) : (
+                        entry.assignee && (
+                          <p
+                            style={{
+                              marginTop: -2,
+                              fontSize: "0.72rem",
+                              color: "var(--text-tertiary)",
+                            }}
+                          >
+                            담당자 {entry.assignee}
+                          </p>
+                        )
+                      )}
 
                       {isEditable && (
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
