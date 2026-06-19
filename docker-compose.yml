@@ -1,0 +1,15 @@
+services:
+  group-calendar:
+    build:
+      context: .
+      network: host
+    container_name: group-calendar
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data:/app/data

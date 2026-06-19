@@ -1,0 +1,15 @@
+services:
+  group-calendar-test:
+    build:
+      context: .
+      network: host
+    container_name: group-calendar-test
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env.test
+    environment:
+      - PORT=3001
+      - TZ=Asia/Seoul
+    volumes:
+      - ./data:/app/data

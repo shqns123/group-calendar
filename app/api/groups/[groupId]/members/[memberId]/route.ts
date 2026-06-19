@@ -1,0 +1,154 @@
+import { auth } from "@/lib/auth";
+import { eventBus } from "@/lib/eventBus";
+import { isObserverRole } from "@/lib/groupPermissions";
+import { resolveJoinRequestNotification } from "@/lib/notificationStore";
+import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { groupId, memberId } = await params;
+
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) {
+    return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  const member = await prisma.groupMember.findUnique({
+    where: { id: memberId },
+  });
+  if (!member || member.groupId !== groupId) {
+    return Response.json({ error: "멤버를 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  const myMember = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId: session.user.id } },
+  });
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isOperator: true },
+  });
+  const isAdmin = group.leaderId === session.user.id || !!me?.isOperator;
+  const isLeader = myMember?.role === "그룹장" || myMember?.role === "파트장";
+  const isSelf = member.userId === session.user.id;
+
+  const body = await request.json();
+
+  if ("status" in body) {
+    if (!isAdmin && !isLeader) {
+      return Response.json({ error: "권한이 없습니다" }, { status: 403 });
+    }
+    const { status } = body;
+    if (status === "REJECTED") {
+      await resolveJoinRequestNotification(memberId);
+      await prisma.groupMember.delete({ where: { id: memberId } });
+      eventBus.notify(groupId);
+      return Response.json({ success: true });
+    }
+    if (status !== "ACTIVE") {
+      return Response.json({ error: "유효하지 않은 상태입니다" }, { status: 400 });
+    }
+    const updated = await prisma.groupMember.update({
+      where: { id: memberId },
+      data: { status: "ACTIVE" },
+      include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    });
+    await resolveJoinRequestNotification(memberId);
+    eventBus.notify(groupId);
+    return Response.json(updated);
+  }
+
+  if ("role" in body) {
+    if (!isAdmin) {
+      return Response.json({ error: "관리자만 역할을 변경할 수 있습니다" }, { status: 403 });
+    }
+    const { role } = body;
+    if (role !== "그룹장" && role !== "파트장" && role !== "MEMBER" && role !== "OBSERVER") {
+      return Response.json({ error: "유효하지 않은 역할입니다" }, { status: 400 });
+    }
+    if (member.userId === group.leaderId) {
+      return Response.json({ error: "관리자의 역할은 변경할 수 없습니다" }, { status: 400 });
+    }
+    const updated = await prisma.groupMember.update({
+      where: { id: memberId },
+      data: {
+        role,
+        ...(isObserverRole(role) ? { canNotify: false } : {}),
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+    });
+    return Response.json(updated);
+  }
+
+  if (!isAdmin && !isLeader && !isSelf) {
+    return Response.json({ error: "권한이 없습니다" }, { status: 403 });
+  }
+  if (isSelf && !isAdmin && !isLeader && myMember?.status !== "ACTIVE") {
+    return Response.json({ error: "승인 대기 중에는 변경할 수 없습니다" }, { status: 403 });
+  }
+
+  const { nickname } = body;
+  if (nickname && nickname.trim().length > 30) {
+    return Response.json({ error: "닉네임은 30자 이하여야 합니다" }, { status: 400 });
+  }
+
+  const updated = await prisma.groupMember.update({
+    where: { id: memberId },
+    data: { nickname: nickname?.trim() || null },
+    include: {
+      user: { select: { id: true, name: true, email: true, image: true } },
+    },
+  });
+
+  return Response.json(updated);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { groupId, memberId } = await params;
+
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) {
+    return Response.json({ error: "그룹을 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  const member = await prisma.groupMember.findUnique({ where: { id: memberId } });
+  if (!member || member.groupId !== groupId) {
+    return Response.json({ error: "멤버를 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  const isSelfLeave = member.userId === session.user.id;
+  if (isSelfLeave) {
+    if (member.userId === group.leaderId) {
+      return Response.json({ error: "그룹 관리자는 나갈 수 없습니다. 그룹 삭제를 이용하세요." }, { status: 400 });
+    }
+    await prisma.groupMember.delete({ where: { id: memberId } });
+    return Response.json({ success: true });
+  }
+
+  const me = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } });
+  if (group.leaderId !== session.user.id && !me?.isOperator) {
+    return Response.json({ error: "관리자만 멤버를 제거할 수 있습니다" }, { status: 403 });
+  }
+  if (member.userId === session.user.id) {
+    return Response.json({ error: "관리자는 스스로를 제거할 수 없습니다" }, { status: 400 });
+  }
+
+  await prisma.groupMember.delete({ where: { id: memberId } });
+
+  return Response.json({ success: true });
+}

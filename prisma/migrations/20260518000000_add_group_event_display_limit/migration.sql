@@ -1,0 +1,2 @@
+ALTER TABLE "Group"
+ADD COLUMN "eventDisplayLimit" INTEGER NOT NULL DEFAULT 3;

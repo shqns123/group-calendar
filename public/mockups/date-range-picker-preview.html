@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>기간 선택 시안</title>
+    <style>
+      :root {
+        --bg: #f4f6fb;
+        --card: #ffffff;
+        --border: #dbe3f1;
+        --text: #1e293b;
+        --muted: #64748b;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --accent-mid: #93c5fd;
+        --accent-strong: #1d4ed8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Pretendard", "Noto Sans KR", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 28%),
+          linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .panel {
+        width: min(100%, 420px);
+        background: var(--card);
+        border: 1px solid rgba(219, 227, 241, 0.9);
+        border-radius: 28px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+        padding: 22px;
+      }
+
+      .section-title {
+        margin: 0 0 14px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .field {
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: #fff;
+        padding: 15px 16px;
+      }
+
+      .field-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .field-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .field-phase {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 82px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .field-value {
+        margin-top: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .calendar-card {
+        margin-top: 14px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+        padding: 16px;
+      }
+
+      .calendar-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .month-label {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .nav-btn {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--text);
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      .weekdays,
+      .days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+      }
+
+      .weekdays {
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+
+      .days {
+        column-gap: 0;
+        row-gap: 6px;
+      }
+
+      .weekday {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        padding: 6px 0;
+      }
+
+      .day {
+        position: relative;
+        border: none;
+        background: transparent;
+        height: 42px;
+        border-radius: 14px;
+        font-size: 14px;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .day.outside {
+        color: #c0c8d6;
+      }
+
+      .day.range::before {
+        content: "";
+        position: absolute;
+        inset: 5px 0;
+        background: var(--accent-soft);
+        z-index: 0;
+      }
+
+      .day.range-start::before {
+        border-radius: 14px 0 0 14px;
+      }
+
+      .day.range-end::before {
+        border-radius: 0 14px 14px 0;
+      }
+
+      .day.range-single::before {
+        border-radius: 14px;
+      }
+
+      .day span {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+      }
+
+      .day.range-start span,
+      .day.range-end span {
+        background: var(--accent);
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
+      }
+
+      .day:hover span {
+        background: rgba(37, 99, 235, 0.1);
+      }
+
+      .day.range-start:hover span,
+      .day.range-end:hover span {
+        background: var(--accent);
+      }
+
+      .legend {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+      }
+
+      .dot.start-end {
+        background: var(--accent);
+      }
+
+      .dot.range {
+        background: var(--accent-soft);
+      }
+
+      @media (max-width: 480px) {
+        .wrap {
+          padding: 12px;
+          align-items: stretch;
+        }
+
+        .panel {
+          width: 100%;
+          border-radius: 24px;
+          padding: 18px;
+        }
+
+        .field,
+        .calendar-card {
+          border-radius: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="panel">
+        <h2 class="section-title">Date Range Preview</h2>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">기간</span>
+            <span class="field-phase" id="phaseLabel">시작일 선택 중</span>
+          </div>
+          <div class="field-value" id="selectedLabel">26.05.26 ~ 26.05.29</div>
+        </div>
+
+        <div class="calendar-card" id="calendarCard">
+          <div class="calendar-head">
+            <button class="nav-btn" id="prevBtn" type="button">‹</button>
+            <div class="month-label" id="monthLabel"></div>
+            <button class="nav-btn" id="nextBtn" type="button">›</button>
+          </div>
+
+          <div class="weekdays">
+            <div class="weekday">일</div>
+            <div class="weekday">월</div>
+            <div class="weekday">화</div>
+            <div class="weekday">수</div>
+            <div class="weekday">목</div>
+            <div class="weekday">금</div>
+            <div class="weekday">토</div>
+          </div>
+
+          <div class="days" id="daysGrid"></div>
+
+          <div class="legend">
+            <span class="legend-item"><span class="dot start-end"></span> 시작/종료일</span>
+            <span class="legend-item"><span class="dot range"></span> 선택된 기간</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const monthLabel = document.getElementById("monthLabel");
+      const daysGrid = document.getElementById("daysGrid");
+      const selectedLabel = document.getElementById("selectedLabel");
+      const phaseLabel = document.getElementById("phaseLabel");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const calendarCard = document.getElementById("calendarCard");
+      const selectedField = document.querySelector(".field");
+
+      let viewYear = 2026;
+      let viewMonth = 4;
+      let startDate = "2026-05-26";
+      let endDate = "2026-05-29";
+      let selectionPhase = "start";
+
+      function toDateKey(year, month, day) {
+        const mm = String(month + 1).padStart(2, "0");
+        const dd = String(day).padStart(2, "0");
+        return `${year}-${mm}-${dd}`;
+      }
+
+      function formatShortDate(value) {
+        return value.slice(2).replaceAll("-", ".");
+      }
+
+      function formatRangeLabel(start, end) {
+        return start === end
+          ? formatShortDate(start)
+          : `${formatShortDate(start)} ~ ${formatShortDate(end)}`;
+      }
+
+      function updateHeader() {
+        monthLabel.textContent = `${viewYear}년 ${viewMonth + 1}월`;
+        selectedLabel.textContent = formatRangeLabel(startDate, endDate);
+        phaseLabel.textContent = selectionPhase === "start" ? "시작일 선택 중" : "종료일 선택 중";
+      }
+
+      function isBetween(dateKey, start, end) {
+        return dateKey >= start && dateKey <= end;
+      }
+
+      function applySelection(dateKey) {
+        if (selectionPhase === "start") {
+          startDate = dateKey;
+          endDate = dateKey;
+          selectionPhase = "end";
+          return;
+        }
+
+        if (dateKey < startDate) {
+          endDate = startDate;
+          startDate = dateKey;
+        } else {
+          endDate = dateKey;
+        }
+
+        selectionPhase = "start";
+      }
+
+      function renderCalendar() {
+        updateHeader();
+        calendarCard.hidden = !window.rangePickerOpen;
+        daysGrid.innerHTML = "";
+
+        const firstDay = new Date(viewYear, viewMonth, 1);
+        const firstWeekday = firstDay.getDay();
+        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+        const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+        for (let i = 0; i < totalCells; i += 1) {
+          let year = viewYear;
+          let month = viewMonth;
+          let day = i - firstWeekday + 1;
+          let outside = false;
+
+          if (day <= 0) {
+            month = viewMonth - 1;
+            if (month < 0) {
+              month = 11;
+              year -= 1;
+            }
+            day = prevMonthDays + day;
+            outside = true;
+          } else if (day > daysInMonth) {
+            month = viewMonth + 1;
+            if (month > 11) {
+              month = 0;
+              year += 1;
+            }
+            day -= daysInMonth;
+            outside = true;
+          }
+
+          const dateKey = toDateKey(year, month, day);
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "day";
+          if (outside) button.classList.add("outside");
+
+          const inRange = isBetween(dateKey, startDate, endDate);
+          const isStart = dateKey === startDate;
+          const isEnd = dateKey === endDate;
+
+          if (inRange) button.classList.add("range");
+          if (isStart) button.classList.add("range-start");
+          if (isEnd) button.classList.add("range-end");
+          if (isStart && isEnd) button.classList.add("range-single");
+
+          button.innerHTML = `<span>${day}</span>`;
+          button.addEventListener("click", () => {
+            applySelection(dateKey);
+            renderCalendar();
+          });
+
+          daysGrid.appendChild(button);
+        }
+      }
+
+      window.rangePickerOpen = true;
+
+      selectedField.addEventListener("click", () => {
+        window.rangePickerOpen = !window.rangePickerOpen;
+        if (window.rangePickerOpen) {
+          selectionPhase = "start";
+        }
+        renderCalendar();
+      });
+
+      prevBtn.addEventListener("click", () => {
+        window.rangePickerOpen = true;
+        viewMonth -= 1;
+        if (viewMonth < 0) {
+          viewMonth = 11;
+          viewYear -= 1;
+        }
+        renderCalendar();
+      });
+
+      nextBtn.addEventListener("click", () => {
+        window.rangePickerOpen = true;
+        viewMonth += 1;
+        if (viewMonth > 11) {
+          viewMonth = 0;
+          viewYear += 1;
+        }
+        renderCalendar();
+      });
+
+      renderCalendar();
+    </script>
+  </body>
+</html>
