@@ -16,11 +16,18 @@ import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getPersonnelAvailability } from "./personnelAvailability";
 import { isObserverRole } from "@/lib/groupPermissions";
+<<<<<<< HEAD
 import { isEffectivelyHoliday, type CustomHoliday as SharedCustomHoliday } from "@/lib/koreanHolidays";
+=======
+>>>>>>> origin/test
 import {
   addSeoulDays,
   compareSeoulDateKeys,
   formatSeoulDateKey,
+<<<<<<< HEAD
+=======
+  formatSeoulMonthDayKey,
+>>>>>>> origin/test
   formatSeoulMonthDayWeekdayLabel,
   formatSeoulTimeLabel,
   formatSeoulYearMonthLabel,
@@ -64,7 +71,16 @@ type CalEvent = {
   creator: { id: string; name: string | null; email: string | null; image: string | null };
 };
 
+<<<<<<< HEAD
 type CustomHoliday = SharedCustomHoliday;
+=======
+type CustomHoliday = {
+  id: string;
+  date: string;
+  name: string;
+  type: "holiday" | "workday";
+};
+>>>>>>> origin/test
 
 type Props = {
   userId: string;
@@ -80,6 +96,44 @@ type Props = {
 };
 
 // 한국 공휴일 (고정)
+<<<<<<< HEAD
+=======
+const FIXED_HOLIDAYS: Record<string, string> = {
+  "01-01": "신정",
+  "03-01": "삼일절",
+  "05-05": "어린이날",
+  "06-06": "현충일",
+  "08-15": "광복절",
+  "10-03": "개천절",
+  "10-09": "한글날",
+  "12-25": "크리스마스",
+};
+
+// 음력 기반 공휴일 (2025~2026 양력 변환)
+const LUNAR_HOLIDAYS: Record<string, string> = {
+  "2025-01-28": "설 연휴",
+  "2025-01-29": "설날",
+  "2025-01-30": "설 연휴",
+  "2025-05-05": "부처님오신날",
+  "2025-10-05": "추석 연휴",
+  "2025-10-06": "추석",
+  "2025-10-07": "추석 연휴",
+  "2026-02-16": "설 연휴",
+  "2026-02-17": "설날",
+  "2026-02-18": "설 연휴",
+  "2026-05-24": "부처님오신날",
+  "2026-09-23": "추석 연휴",
+  "2026-09-24": "추석",
+  "2026-09-25": "추석 연휴",
+};
+
+function isHoliday(date: Date): boolean {
+  const mmdd = formatSeoulMonthDayKey(date);
+  const yyyy_mm_dd = formatSeoulDateKey(date);
+  return mmdd in FIXED_HOLIDAYS || yyyy_mm_dd in LUNAR_HOLIDAYS;
+}
+
+>>>>>>> origin/test
 function isWeekend(date: Date): boolean {
   const day = date.getDay();
   return day === 0 || day === 6;
@@ -872,7 +926,11 @@ export default function CalendarView({
                 classes.push("fc-day-gray", "fc-day-custom-holiday");
               } else if (custom?.type === "workday") {
                 classes.push("fc-day-custom-workday");
+<<<<<<< HEAD
               } else if (isWeekend(arg.date) || isEffectivelyHoliday(arg.date, customHolidays)) {
+=======
+              } else if (isWeekend(arg.date) || isHoliday(arg.date)) {
+>>>>>>> origin/test
                 classes.push("fc-day-gray");
               }
               const hasOvertime = events.some((e) => {

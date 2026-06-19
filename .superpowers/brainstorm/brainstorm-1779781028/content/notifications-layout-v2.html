@@ -1,0 +1,101 @@
+<h2>알림 패널 배치 시안</h2>
+<p class="subtitle">탭은 `전체 / 일정 / 읽지않음 / 승인대기` 4개로 정리했습니다. 그룹관리는 그룹 목록 별표 왼쪽으로 이동합니다.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">사이드바 그룹 행</div>
+    <div class="mockup-body">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #1e293b;border-radius:10px;background:#0f172a;color:#fff;">
+        <div style="width:22px;height:22px;border-radius:6px;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">A</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;">운영팀 A조</div>
+          <div style="font-size:10px;color:#94a3b8;">멤버 12명</div>
+        </div>
+        <button style="width:20px;height:20px;border:none;background:transparent;color:#cbd5e1;display:flex;align-items:center;justify-content:center;padding:0;">
+          ⚙
+        </button>
+        <button style="width:20px;height:20px;border:none;background:rgba(224,168,75,0.18);color:#e0a84b;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0;">
+          ★
+        </button>
+      </div>
+      <p style="margin:10px 2px 0;font-size:11px;color:#64748b;">그룹관리 아이콘은 별표 바로 왼쪽 액션으로 이동</p>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">상단 헤더 + 드롭다운 알림 패널</div>
+    <div class="mockup-body">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
+        <div style="font-size:14px;font-weight:800;color:#0f172a;">운영팀 A조</div>
+        <div style="margin-left:auto;position:relative;">
+          <button style="width:34px;height:34px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;">🔔</button>
+          <span style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;">4</span>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;box-shadow:0 20px 40px rgba(15,23,42,0.12);overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+          <div style="font-size:13px;font-weight:800;color:#0f172a;">알림</div>
+          <span style="margin-left:auto;font-size:11px;font-weight:700;color:#6366f1;">모두 읽음</span>
+        </div>
+
+        <div style="display:flex;gap:6px;padding:10px 14px 0;flex-wrap:wrap;">
+          <span style="padding:6px 12px;border-radius:999px;background:#0f172a;color:#fff;font-size:11px;font-weight:700;">전체 4</span>
+          <span style="padding:6px 12px;border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:700;">일정 2</span>
+          <span style="padding:6px 12px;border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:700;">읽지않음 2</span>
+          <span style="padding:6px 12px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:700;">승인대기 1</span>
+        </div>
+
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:12px;">
+            <div style="width:30px;height:30px;border-radius:9px;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;">🕘</div>
+            <div style="flex:1;">
+              <div style="display:flex;gap:8px;align-items:baseline;">
+                <span style="font-size:12px;font-weight:700;color:#0f172a;">특근 가능</span>
+                <span style="margin-left:auto;font-size:10px;color:#94a3b8;">방금</span>
+              </div>
+              <p style="margin:3px 0 0;font-size:11px;color:#475569;">홍길동님이 5월 30일 특근 가능으로 표시했습니다.</p>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:12px;">
+            <div style="width:30px;height:30px;border-radius:9px;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;">📅</div>
+            <div style="flex:1;">
+              <div style="display:flex;gap:8px;align-items:baseline;">
+                <span style="font-size:12px;font-weight:700;color:#0f172a;">일정 등록</span>
+                <span style="margin-left:auto;font-size:10px;color:#94a3b8;">5분 전</span>
+              </div>
+              <p style="margin:3px 0 0;font-size:11px;color:#475569;">"야간 점검" 일정 등록 · 홍길동, 김철수 외 2명</p>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;padding:10px 12px;border:1px solid #fcd34d;border-radius:12px;background:#fffbeb;">
+            <div style="width:30px;height:30px;border-radius:9px;background:#8b5cf6;color:#fff;display:flex;align-items:center;justify-content:center;">👤</div>
+            <div style="flex:1;">
+              <div style="display:flex;gap:8px;align-items:baseline;">
+                <span style="font-size:12px;font-weight:700;color:#0f172a;">그룹 참가 요청</span>
+                <span style="margin-left:auto;font-size:10px;color:#94a3b8;">12분 전</span>
+              </div>
+              <p style="margin:3px 0 0;font-size:11px;color:#475569;">이민수님이 운영팀 A조 참가를 요청했습니다.</p>
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <button style="padding:5px 10px;border:none;border-radius:7px;background:#dcfce7;color:#166534;font-size:11px;font-weight:700;">승인</button>
+                <button style="padding:5px 10px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;color:#475569;font-size:11px;font-weight:700;">거절</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin:10px 2px 0;font-size:11px;color:#64748b;">현재 선택된 그룹 알림만 노출, 운영자는 참가 요청만 전체 그룹 확장 가능</p>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="layout" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>이 탭 구조로 진행</h3>
+      <p>전체 / 일정 / 읽지않음 / 승인대기 4개 탭을 유지</p>
+    </div>
+  </div>
+</div>
