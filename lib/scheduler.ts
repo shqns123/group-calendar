@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { sendMobilePushToTokens } from "./mobilepush";
 import { prisma } from "./prisma";
+import { getSeoulWeekday, formatSeoulTimeLabel } from "./seoulTime";
 import { sendPushToUser } from "./webpush";
 
 let schedulerStarted = false;
@@ -11,9 +12,8 @@ export function startScheduler() {
 
   cron.schedule("* * * * *", async () => {
     const now = new Date();
-    const currentDay = now.getDay();
-    const currentHour = now.getHours();
-    const currentMin = now.getMinutes();
+    const currentDay = getSeoulWeekday(now);
+    const [currentHour, currentMin] = formatSeoulTimeLabel(now).split(":").map(Number);
 
     const schedules = await prisma.notificationSchedule.findMany({
       where: {

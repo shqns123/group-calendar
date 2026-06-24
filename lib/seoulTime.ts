@@ -27,6 +27,7 @@ function extractSeoulParts(value: DateLike) {
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth() + 1,
     day: shifted.getUTCDate(),
+    weekday: shifted.getUTCDay(),
     hours: shifted.getUTCHours(),
     minutes: shifted.getUTCMinutes(),
   };
@@ -100,6 +101,10 @@ export function compareSeoulDateKeys(left: DateLike, right: DateLike) {
   return formatSeoulDateKey(left).localeCompare(formatSeoulDateKey(right));
 }
 
+export function getSeoulWeekday(value: DateLike) {
+  return extractSeoulParts(value).weekday;
+}
+
 export function formatSeoulYearMonthLabel(value: DateLike) {
   const { year, month } = extractSeoulParts(value);
   return `${year}년 ${month}월`;
@@ -137,4 +142,17 @@ export function formatSeoulTimeLabel(value: DateLike) {
 
 export function formatSeoulSlashMonthDayTimeLabel(value: DateLike) {
   return `${formatSeoulSlashMonthDayLabel(value)} ${formatSeoulTimeLabel(value)}`;
+}
+
+export function formatSeoulDateTimeLabel(value: DateLike, locale = "ko-KR") {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: SEOUL_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(toDate(value));
 }

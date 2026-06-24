@@ -10,46 +10,18 @@ import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getEquipmentStock } from "./equipmentStock";
 import { getPersonnelAvailability } from "./personnelAvailability";
 import {
+  getCustomHolidayEntry,
+  getEffectiveHolidayName,
+  type CustomHoliday as SharedCustomHoliday,
+} from "@/lib/koreanHolidays";
+import {
   formatSeoulDateKey,
-  formatSeoulMonthDayKey,
   formatSeoulMonthDayWeekdayLabel,
   formatSeoulSlashMonthDayLabel,
   formatSeoulTimeLabel,
   isSameSeoulDate,
   parseSeoulDateInput,
 } from "@/lib/seoulTime";
-
-const FIXED_HOLIDAYS: Record<string, string> = {
-  "01-01": "신정",
-  "03-01": "삼일절",
-  "05-05": "어린이날",
-  "06-06": "현충일",
-  "08-15": "광복절",
-  "10-03": "개천절",
-  "10-09": "한글날",
-  "12-25": "크리스마스",
-};
-
-const LUNAR_HOLIDAYS: Record<string, string> = {
-  "2025-01-28": "설 연휴",
-  "2025-01-29": "설날",
-  "2025-01-30": "설 연휴",
-  "2025-05-05": "부처님오신날",
-  "2025-10-05": "추석 연휴",
-  "2025-10-06": "추석",
-  "2025-10-07": "추석 연휴",
-  "2026-02-16": "설 연휴",
-  "2026-02-17": "설날",
-  "2026-02-18": "설 연휴",
-  "2026-05-24": "부처님오신날",
-  "2026-09-23": "추석 연휴",
-  "2026-09-24": "추석",
-  "2026-09-25": "추석 연휴",
-};
-
-function getHolidayName(date: Date): string | null {
-  return FIXED_HOLIDAYS[formatSeoulMonthDayKey(date)] || LUNAR_HOLIDAYS[formatSeoulDateKey(date)] || null;
-}
 
 type CalEvent = {
   id: string;
@@ -86,12 +58,7 @@ type Group = {
   }>;
 };
 
-type CustomHoliday = {
-  id: string;
-  date: string;
-  name: string;
-  type: "holiday" | "workday";
-};
+type CustomHoliday = SharedCustomHoliday;
 
 type Props = {
   date: Date;
@@ -234,9 +201,8 @@ export default function DayEventsModal({
   );
 
   const dateStr = formatSeoulDateKey(date);
-  const customEntry = customHolidays.find((holiday) => holiday.date === dateStr);
-  const holidayName =
-    customEntry?.type === "workday" ? "대체 근무일" : customEntry?.name ?? getHolidayName(date);
+  const customEntry = getCustomHolidayEntry(date, customHolidays);
+  const holidayName = getEffectiveHolidayName(date, customHolidays);
   const dayNoteItems = dayNote?.items ?? [];
   const hasDayNote = dayNoteItems.length > 0;
   const visibleDayNoteItems = isDayNoteExpanded ? dayNoteItems : dayNoteItems.slice(0, 1);

@@ -10,6 +10,7 @@ import {
   type DateRangeSelectionPhase,
 } from "@/lib/dateRange";
 import { createDayNoteEntry, type DayNoteEntry } from "@/lib/dayNotes";
+import { formatSeoulDateTimeLabel } from "@/lib/seoulTime";
 
 const DATE_RANGE_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -593,7 +594,7 @@ export default function DayNoteModal({
             </div>
             {note?.updatedAt && (
               <div style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", flexShrink: 0 }}>
-                최근 수정 {new Date(note.updatedAt).toLocaleString("ko-KR")}
+                최근 수정 {formatSeoulDateTimeLabel(note.updatedAt)}
               </div>
             )}
           </div>

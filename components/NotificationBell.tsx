@@ -16,6 +16,7 @@ import {
   type NotificationListItem,
   type NotificationTab,
 } from "@/lib/notifications";
+import { formatSeoulDateTimeLabel } from "@/lib/seoulTime";
 
 export type NotificationPanelItem = NotificationListItem & {
   groupId: string;
@@ -403,7 +404,7 @@ export default function NotificationBell({
                     {item.body}
                   </p>
                   <p style={{ margin: "7px 0 0", fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
-                    {new Date(item.createdAt).toLocaleString("ko-KR")}
+                    {formatSeoulDateTimeLabel(item.createdAt)}
                   </p>
 
                   {item.type === "JOIN_REQUEST_PENDING" && item.groupMemberId && item.resolvedAt === null && (
