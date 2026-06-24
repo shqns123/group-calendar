@@ -24,6 +24,7 @@ import {
   formatSeoulMonthDayWeekdayLabel,
   formatSeoulTimeLabel,
   formatSeoulYearMonthLabel,
+  getSeoulWeekday,
   getSeoulDayRange,
 } from "@/lib/seoulTime";
 
@@ -81,7 +82,7 @@ type Props = {
 
 // 한국 공휴일 (고정)
 function isWeekend(date: Date): boolean {
-  const day = date.getDay();
+  const day = getSeoulWeekday(date);
   return day === 0 || day === 6;
 }
 
@@ -854,12 +855,12 @@ export default function CalendarView({
             timeZone="Asia/Seoul"
             datesSet={handleDatesSet}
             dayHeaderContent={(arg) => {
-              const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-              return DAYS[arg.date.getDay()];
+              const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+              return DAYS[getSeoulWeekday(arg.date)];
             }}
             events={calendarEvents}
             dayMaxEvents={eventDisplayLimit}
-            dayCellContent={(arg) => arg.date.getDate()}
+            dayCellContent={(arg) => Number(formatSeoulDateKey(arg.date).slice(8, 10))}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             moreLinkClick={(arg) => { openDayPopup(arg.date); return false as unknown as "popover"; }}

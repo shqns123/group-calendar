@@ -1,6 +1,8 @@
 const DAY_NOTE_EDITOR_ROLES = new Set(["ADMIN", "그룹장", "파트장"]);
 const MAX_DAY_NOTE_ITEMS = 20;
 
+import { addSeoulDays, formatSeoulDateKey } from "./seoulTime";
+
 export type DayNoteEntry = {
   id: string;
   text: string;
@@ -157,15 +159,11 @@ export function expandDayNoteDateRange(startDate: string, endDate: string): stri
   if (!startDate || !endDate) return [];
   const range = normalizeRange(startDate, endDate);
   const dates: string[] = [];
-  const current = new Date(`${range.startDate}T00:00:00`);
-  const end = new Date(`${range.endDate}T00:00:00`);
+  let current = range.startDate;
 
-  while (current <= end) {
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, "0");
-    const day = String(current.getDate()).padStart(2, "0");
-    dates.push(`${year}-${month}-${day}`);
-    current.setDate(current.getDate() + 1);
+  while (current <= range.endDate) {
+    dates.push(current);
+    current = formatSeoulDateKey(addSeoulDays(current, 1));
   }
 
   return dates;
