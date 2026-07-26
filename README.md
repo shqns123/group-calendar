@@ -1,21 +1,27 @@
-<<<<<<< HEAD
 # Group Calendar
 
-그룹 단위 일정 관리, 가입 승인, 알림, 회사 휴일 예외 처리를 한 번에 다루는 Next.js 기반 그룹 캘린더입니다.
+그룹 단위 일정, 근태, 장비 현황, 업무 메모, 승인 요청, 알림을 관리하는 Next.js 기반 캘린더입니다.
 
 ## 주요 기능
 
-- Google 로그인, Guest 로그인, Guest 가입 요청
-- 운영자 승인 기반 사용자 온보딩
-- 그룹 생성, 초대 코드 공유, QR 초대, 그룹 가입 요청
-- 월간 캘린더와 오늘 요약 보기
-- 일정 생성, 수정, 삭제
+- Google 로그인, Guest 로그인, 그룹 가입 요청
+- 그룹 생성, 초대 코드 공유, QR 초대
+- 월간 캘린더와 오늘 일정 보기
+- 출장/근태 일정 등록, 수정, 삭제
+- 장비 선택 및 장비 잔여량 확인
+- `장비 반출` 일정 등록
+  - 검교정, 외부 대여처럼 인원 없이 장비만 나가는 경우 사용합니다.
+  - 장비 현황에는 반영되지만 인원 현황과 월간 일정 표시줄에는 반영되지 않습니다.
+  - 날짜 상세, 오늘 보기, 일정 요약에서는 선택한 장비 목록으로 표시됩니다.
+- 그룹별 업무 내용 메모
+  - 업무 내용이 있는 날짜는 월간 캘린더 날짜칸 왼쪽 상단에 표시됩니다.
+- 특근 가능/불가능 상태 표시
+- 알림 패널
+  - 전체, 근태, 출장, 읽지않음, 승인대기 탭으로 분류됩니다.
 - 인원/장비 현황 확인
-- 연장 가능/불가 표시
-- 그룹별 업무 메모
-- 웹 푸시 / 모바일 푸시 알림
-- 회사 휴일 / 대체 근무일 설정
-- 운영자용 사용자, 승인, 알림 스케줄 관리
+- 회사 휴일 및 대체 근무일 설정
+- 데스크톱/모바일 푸시 알림
+- 운영자용 사용자 승인, 알림 설정 관리
 
 ## 기술 스택
 
@@ -27,11 +33,11 @@
 - Firebase Admin
 - Web Push
 
-## 디렉터리 개요
+## 디렉터리 구조
 
 - `app/`: App Router 페이지와 API 라우트
 - `components/`: 캘린더, 모달, 대시보드 UI
-- `lib/`: 인증, 시간 처리, 공휴일, 알림 등 공용 로직
+- `lib/`: 인증, 날짜 처리, 휴일, 알림 등 공용 로직
 - `prisma/`: Prisma 스키마와 마이그레이션
 - `tests/`: `node:test` 기반 테스트
 
@@ -40,11 +46,9 @@
 - Node.js 20 이상
 - npm
 
-## 환경변수
+## 환경 변수
 
-로컬 개발은 `.env.local`, 도커/배포는 `.env` 기준으로 맞추는 게 안전합니다.
-
-### 로컬 개발 예시
+로컬 개발은 `.env.local`, Docker/배포는 `.env` 기준으로 맞추는 것을 권장합니다.
 
 ```env
 DATABASE_URL=file:./prisma/dev.db
@@ -61,44 +65,18 @@ FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
 ```
 
-### 주요 변수 설명
-
-- `DATABASE_URL`: 로컬은 `file:./prisma/dev.db`, 도커는 `/app/data/prod.db` 계열 사용
-- `NEXTAUTH_URL`: 현재 실행 중인 앱 주소
-- `AUTH_SECRET`: Auth.js 세션 서명 키
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: Google OAuth 설정
-- `OPERATOR_EMAIL`: 최초 운영자 이메일
-- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`: 웹 푸시용 키
-- `FIREBASE_*`: 모바일 푸시용 Firebase 설정
-
-## 로컬 설치 및 실행
-
-### 1. 의존성 설치
+## 로컬 실행
 
 ```bash
 npm install
-```
-
-### 2. 환경변수 파일 준비
-
-프로젝트 루트에 `.env.local`을 만들고 위 예시 값을 채웁니다.
-
-### 3. Prisma 클라이언트 및 DB 준비
-
-```bash
 npx prisma generate
 npx prisma db push
-```
-
-### 4. 개발 서버 실행
-
-```bash
 npm run dev
 ```
 
 브라우저에서 `http://localhost:3000`으로 접속합니다.
 
-## 프로덕션 빌드 실행
+## 프로덕션 빌드
 
 ```bash
 npm run build
@@ -107,11 +85,7 @@ npm run start
 
 ## Docker 실행
 
-`docker-compose.yml`은 `.env`를 읽고, 컨테이너 내부 DB 경로로 `/app/data/prod.db`를 사용합니다.
-
-### 1. `.env` 준비
-
-예:
+Docker 환경에서는 SQLite DB 경로를 컨테이너 내부 경로로 지정합니다.
 
 ```env
 DATABASE_URL=file:/app/data/prod.db
@@ -128,83 +102,31 @@ FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
 ```
 
-### 2. 실행
-
 ```bash
 docker compose up --build -d
 ```
 
-## 테스트 / 검증
-
-린트:
+## 검증
 
 ```bash
 npm run lint
+npx tsc --noEmit
+node --test tests/notifications.test.ts
+npm run build
 ```
 
-예시 테스트:
-
-```bash
-node --test tests/korean-holidays.test.ts
-```
-
-## 공휴일 처리 방식
+## 휴일 처리 방식
 
 기본 공휴일은 `lib/koreanHolidays.ts`에서 관리합니다.
 
-- 국가 공휴일 / 설날 / 추석 같은 기본 휴일
-- 회사 휴일(`holiday`)
-- 대체 근무일(`workday`)
-
-최종 우선순위는 아래와 같습니다.
+우선순위는 다음과 같습니다.
 
 1. 회사 `workday` 설정이 있으면 평일 처리
 2. 회사 `holiday` 설정이 있으면 회사 휴일 처리
 3. 그 외에는 기본 공휴일 처리
 
-즉, 법정 공휴일이어도 회사 기준으로 출근해야 하는 날을 계속 지원합니다.
-
 ## 운영 메모
 
-- 로컬 개발과 도커 배포는 `DATABASE_URL`, `NEXTAUTH_URL`이 다릅니다.
-- `AUTH_SECRET`가 없으면 로그인 라우트가 바로 실패합니다.
-- SQLite 파일 경로가 환경에 맞지 않으면 Prisma가 DB를 열지 못합니다.
-- 현재 작업 폴더에는 `.git` 디렉터리가 없어서 이 위치에서는 바로 `git commit` / `git push`를 할 수 없습니다.
-=======
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
->>>>>>> origin/test
+- 로컬 개발과 Docker 배포는 `DATABASE_URL`, `NEXTAUTH_URL` 값이 다릅니다.
+- `AUTH_SECRET`이 없으면 로그인 흐름이 실패할 수 있습니다.
+- Prisma 스키마가 변경되면 마이그레이션 적용 또는 `prisma db push`가 필요합니다.

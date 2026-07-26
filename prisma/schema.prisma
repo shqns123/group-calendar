@@ -185,6 +185,7 @@ model Event {
   color       String   @default("#3B82F6")
   overtimeAvailable Boolean  @default(false)
   isOvertimeOnly    Boolean  @default(false)
+  equipmentOnly     Boolean  @default(false)
   personnel         String?
   equipment         String?
   creatorId         String

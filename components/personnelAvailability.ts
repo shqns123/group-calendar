@@ -44,6 +44,7 @@ export function getPersonnelAvailability(
   group: PersonnelGroup | null,
   events: Array<{
     personnel?: string | null;
+    equipmentOnly?: boolean;
     creatorId: string;
     creator: { name?: string | null; email?: string | null };
   }>
@@ -56,6 +57,7 @@ export function getPersonnelAvailability(
   const assignedSet = new Set<string>();
 
   for (const event of events) {
+    if (event.equipmentOnly) continue;
     const labels = parsePersonnel(event.personnel);
     const resolvedLabels =
       labels.length > 0

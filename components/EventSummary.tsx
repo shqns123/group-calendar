@@ -24,6 +24,7 @@ type CalEvent = {
   color: string;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  equipmentOnly?: boolean;
   personnel: string | null;
   equipment?: string | null;
   creatorId: string;
@@ -286,6 +287,9 @@ export default function EventSummary({
 
             {groupedItem.events.map((event, eventIndex) => {
               const creatorName = getCreatorName(event);
+              const summaryLabel = event.equipmentOnly
+                ? event.equipment || "장비 반출"
+                : event.personnel || creatorName;
               const start = new Date(event.startDate);
               const end = new Date(event.endDate);
               const isPastEvent = isPast(end) && !isSameSeoulDate(end, new Date());
@@ -386,20 +390,20 @@ export default function EventSummary({
                         </span>
                       </div>
 
-                      {(event.personnel || creatorName) && (
+                      {summaryLabel && (
                         <div style={{ marginTop: 4 }}>
                           <span
                             style={{
                               fontSize: "0.65rem",
                               fontWeight: 600,
-                              background: event.color + "20",
-                              color: event.color,
+                              background: event.equipmentOnly ? "#EEF2FF" : event.color + "20",
+                              color: event.equipmentOnly ? "#4F46E5" : event.color,
                               padding: "2px 8px",
                               borderRadius: 10,
                               letterSpacing: "-0.01em",
                             }}
                           >
-                            {event.personnel || creatorName}
+                            {summaryLabel}
                           </span>
                         </div>
                       )}

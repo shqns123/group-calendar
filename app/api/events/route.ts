@@ -127,11 +127,13 @@ export async function POST(request: NextRequest) {
     color,
     overtimeAvailable,
     isOvertimeOnly,
+    equipmentOnly,
     groupId,
     personnel,
     equipment,
   } = body;
   const eventCategory = category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP";
+  const eventEquipmentOnly = eventCategory === "BUSINESS_TRIP" && equipmentOnly === true;
 
   if (!title?.trim()) {
     return Response.json({ error: "제목은 필수입니다" }, { status: 400 });
@@ -177,7 +179,8 @@ export async function POST(request: NextRequest) {
     color: color ?? "#3B82F6",
     overtimeAvailable: overtimeAvailable ?? false,
     isOvertimeOnly: isOvertimeOnly ?? false,
-    personnel: personnel?.trim() || defaultPersonnel,
+    equipmentOnly: eventEquipmentOnly,
+    personnel: eventEquipmentOnly ? null : personnel?.trim() || defaultPersonnel,
     equipment: eventCategory === "ATTENDANCE" ? null : equipment?.trim() || null,
     creatorId: session.user.id,
     groupId: groupId || null,

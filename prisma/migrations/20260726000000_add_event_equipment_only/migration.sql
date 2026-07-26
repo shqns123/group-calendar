@@ -1,0 +1,1 @@
+ALTER TABLE "Event" ADD COLUMN "equipmentOnly" BOOLEAN NOT NULL DEFAULT false;

@@ -40,7 +40,8 @@ type Props = {
 
 const TAB_ITEMS: Array<{ id: NotificationTab; label: string }> = [
   { id: "all", label: "전체" },
-  { id: "schedule", label: "일정" },
+  { id: "attendance", label: "근태" },
+  { id: "businessTrip", label: "출장" },
   { id: "unread", label: "읽지않음" },
   { id: "pending", label: "승인대기" },
 ];
@@ -208,7 +209,7 @@ export default function NotificationBell({
               borderBottom: "1px solid var(--border-subtle)",
             }}
           >
-            <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 0, overflowX: "auto" }}>
               {TAB_ITEMS.map((item) => (
                 <button
                   key={item.id}

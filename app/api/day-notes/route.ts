@@ -61,14 +61,44 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get("groupId");
   const date = searchParams.get("date");
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
 
-  if (!groupId || !validateDateKey(date)) {
+  if (!groupId || (!validateDateKey(date) && (!validateDateKey(start) || !validateDateKey(end)))) {
     return Response.json({ error: "groupId와 date가 필요합니다" }, { status: 400 });
   }
 
   const access = await getGroupDayNoteAccess(session.user.id, groupId);
   if (!access.canRead) {
     return Response.json({ error: "조회 권한이 없습니다" }, { status: 403 });
+  }
+
+  if (validateDateKey(start) && validateDateKey(end)) {
+    const notes = await prisma.groupDayNote.findMany({
+      where: {
+        groupId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+      },
+      select: {
+        id: true,
+        date: true,
+        content: true,
+        updatedAt: true,
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return Response.json({
+      notes: notes.map((note) => toNoteResponse(note)).filter(Boolean),
+      canEdit: access.canEdit,
+    });
+  }
+
+  if (!validateDateKey(date)) {
+    return Response.json({ error: "date가 필요합니다." }, { status: 400 });
   }
 
   const note = await prisma.groupDayNote.findUnique({

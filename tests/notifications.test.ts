@@ -52,6 +52,7 @@ test("filters notifications by requested tab", () => {
       createdAt: "2026-05-26T00:00:00.000Z",
       readAt: null,
       resolvedAt: null,
+      eventCategory: "BUSINESS_TRIP",
     },
     {
       id: "n2",
@@ -61,6 +62,7 @@ test("filters notifications by requested tab", () => {
       createdAt: "2026-05-26T00:00:00.000Z",
       readAt: "2026-05-26T01:00:00.000Z",
       resolvedAt: null,
+      eventCategory: "ATTENDANCE",
     },
     {
       id: "n3",
@@ -78,8 +80,12 @@ test("filters notifications by requested tab", () => {
     ["n1", "n2", "n3"],
   );
   assert.deepEqual(
-    filterNotificationsByTab(notifications, "schedule").map((item) => item.id),
-    ["n1", "n2"],
+    filterNotificationsByTab(notifications, "attendance").map((item) => item.id),
+    ["n2"],
+  );
+  assert.deepEqual(
+    filterNotificationsByTab(notifications, "businessTrip").map((item) => item.id),
+    ["n1"],
   );
   assert.deepEqual(
     filterNotificationsByTab(notifications, "unread").map((item) => item.id),
