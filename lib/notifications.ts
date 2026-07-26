@@ -3,7 +3,7 @@ export type NotificationType =
   | "EVENT_CREATED"
   | "JOIN_REQUEST_PENDING";
 
-export type NotificationTab = "all" | "schedule" | "unread" | "pending";
+export type NotificationTab = "all" | "attendance" | "businessTrip" | "unread" | "pending";
 
 export type NotificationListItem = {
   id: string;
@@ -13,6 +13,7 @@ export type NotificationListItem = {
   createdAt: string;
   readAt: string | null;
   resolvedAt: string | null;
+  eventCategory?: "BUSINESS_TRIP" | "ATTENDANCE" | null;
 };
 
 type EventNotificationNamesInput = {
@@ -84,10 +85,17 @@ export function filterNotificationsByTab(
   tab: NotificationTab,
 ) {
   switch (tab) {
-    case "schedule":
+    case "attendance":
       return notifications.filter(
         (item) =>
-          item.type === "OVERTIME_AVAILABLE" || item.type === "EVENT_CREATED",
+          (item.type === "OVERTIME_AVAILABLE" || item.type === "EVENT_CREATED") &&
+          item.eventCategory === "ATTENDANCE",
+      );
+    case "businessTrip":
+      return notifications.filter(
+        (item) =>
+          (item.type === "OVERTIME_AVAILABLE" || item.type === "EVENT_CREATED") &&
+          item.eventCategory !== "ATTENDANCE",
       );
     case "unread":
       return notifications.filter((item) => item.readAt === null);

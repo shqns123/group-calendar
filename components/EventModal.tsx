@@ -47,6 +47,7 @@ type CalEvent = {
   color: string;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  equipmentOnly?: boolean;
   personnel: string | null;
   equipment?: string | null;
   creatorId: string;
@@ -87,6 +88,8 @@ const UI = {
   equipmentPlaceholder: "\uD2B8\uB798\uCEE4, \uB178\uD2B8\uBD81, \uD0C0\uAC9F \uC911 \uD544\uC694\uD55C \uC7A5\uBE44\uB97C \uACE0\uB974\uC138\uC694.",
   equipmentHint: "\uC88C\uC6B0\uB85C \uBC00\uC5B4 \uC7A5\uBE44 \uADF8\uB8F9\uC744 \uBC14\uAFC0 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
   equipmentSelectedSuffix: "\uAC1C \uC120\uD0DD",
+  equipmentOnly: "\uC7A5\uBE44 \uBC18\uCD9C",
+  equipmentOnlyHint: "\uAC80\uAD50\uC815\u00B7\uB300\uC5EC\uCC98\uB7FC \uC778\uC6D0 \uC5C6\uC774 \uC7A5\uBE44\uB9CC \uB098\uAC08 \uB54C",
   color: "\uC0C9\uC0C1",
   saveFailed: "\uC800\uC7A5\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
   networkFailed: "\uB124\uD2B8\uC6CC\uD06C \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.",
@@ -223,6 +226,7 @@ export default function EventModal({
   const [attendanceTitleOpen, setAttendanceTitleOpen] = useState(false);
   const [equipmentOpen, setEquipmentOpen] = useState(false);
   const [equipmentGroupIndex, setEquipmentGroupIndex] = useState(0);
+  const [equipmentOnly, setEquipmentOnly] = useState(event?.equipmentOnly ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const currentCategory = selectedCategory ?? "BUSINESS_TRIP";
@@ -316,6 +320,7 @@ export default function EventModal({
   useEffect(() => {
     if (!isAttendance) return;
     setEquipmentOpen(false);
+    setEquipmentOnly(false);
   }, [isAttendance]);
 
   useEffect(() => {
@@ -422,7 +427,7 @@ export default function EventModal({
       setError("일정 유형을 선택해주세요.");
       return;
     }
-    const finalTitle = title.trim() || (overtimeAvailable ? UI.overtimeAvailable : "");
+    const finalTitle = title.trim() || (equipmentOnly ? UI.equipmentOnly : overtimeAvailable ? UI.overtimeAvailable : "");
     if (!finalTitle) {
       setError(UI.titleRequired);
       return;
@@ -439,7 +444,8 @@ export default function EventModal({
     setError("");
 
     const finalIsOvertimeOnly = overtimeAvailable && !title.trim();
-      const payload = {
+    const finalEquipmentOnly = !isAttendance && equipmentOnly;
+    const payload = {
       category: selectedCategory,
       title: finalTitle,
       description: description.trim() || null,
@@ -449,7 +455,8 @@ export default function EventModal({
       color,
       overtimeAvailable,
       isOvertimeOnly: finalIsOvertimeOnly,
-      personnel: personnelValue,
+      equipmentOnly: finalEquipmentOnly,
+      personnel: finalEquipmentOnly ? null : personnelValue,
       equipment: isAttendance ? null : equipmentSummary.join(", "),
       groupId: group?.id ?? null,
     };
@@ -688,6 +695,7 @@ export default function EventModal({
             </div>
 
             {!isAttendance && (
+              <>
               <div ref={equipmentRef} className="relative">
               <button
                 type="button"
@@ -782,6 +790,30 @@ export default function EventModal({
                   </div>
 
                   <div className="flex max-h-[calc(min(26rem,calc(100vh-12rem))-3.75rem)] flex-col p-3">
+                    <button
+                      type="button"
+                      aria-pressed={equipmentOnly}
+                      onClick={() => setEquipmentOnly((current) => !current)}
+                      className={`mb-3 flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-colors ${
+                        equipmentOnly
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                          : "border-stone-200 bg-white/80 text-stone-600 hover:border-[var(--accent-muted)] hover:bg-white"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold transition-colors ${
+                          equipmentOnly
+                            ? "border-indigo-500 bg-indigo-500 text-white"
+                            : "border-stone-300 bg-white text-transparent"
+                        }`}
+                      >
+                        ✓
+                      </span>
+                      <span className="font-semibold">{UI.equipmentOnly}</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] opacity-80">
+                        {UI.equipmentOnlyHint}
+                      </span>
+                    </button>
                     <div className="mb-3 flex items-center justify-center gap-2">
                       {equipmentGroups.map((groupItem, index) => (
                         <button
@@ -895,9 +927,10 @@ export default function EventModal({
                 </div>
               )}
               </div>
+              </>
             )}
 
-            {group ? (
+            {group && !equipmentOnly ? (
               <div ref={dropdownRef} className="relative">
                 <button
                   type="button"
@@ -970,12 +1003,12 @@ export default function EventModal({
                   </div>
                 )}
               </div>
-            ) : (
+            ) : !equipmentOnly ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                 {UI.defaultPersonnelPrefix}
                 {creatorLabel}
               </div>
-            )}
+            ) : null}
           </div>
 
           <div ref={dateRangeRef} className="relative">
@@ -1155,5 +1188,3 @@ export default function EventModal({
     </div>
   );
 }
-
-

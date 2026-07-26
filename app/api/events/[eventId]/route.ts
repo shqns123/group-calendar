@@ -81,6 +81,7 @@ export async function PATCH(
     color,
     overtimeAvailable,
     isOvertimeOnly,
+    equipmentOnly,
     personnel,
     equipment,
   } = body;
@@ -90,6 +91,12 @@ export async function PATCH(
       : category === "ATTENDANCE"
         ? "ATTENDANCE"
         : "BUSINESS_TRIP";
+  const eventEquipmentOnly =
+    eventCategory === "BUSINESS_TRIP"
+      ? equipmentOnly === undefined
+        ? event.equipmentOnly
+        : equipmentOnly === true
+      : false;
   const defaultPersonnel = await resolveDefaultPersonnel(event.creatorId, event.groupId);
 
   const updateData = {
@@ -102,9 +109,14 @@ export async function PATCH(
     ...(color && { color }),
     ...(overtimeAvailable !== undefined && { overtimeAvailable }),
     ...(isOvertimeOnly !== undefined && { isOvertimeOnly }),
-    ...(personnel !== undefined && { personnel: personnel?.trim() || defaultPersonnel }),
+    ...(equipmentOnly !== undefined && { equipmentOnly: eventEquipmentOnly }),
+    ...(eventEquipmentOnly
+      ? { personnel: null }
+      : personnel !== undefined
+        ? { personnel: personnel?.trim() || defaultPersonnel }
+        : {}),
     ...(eventCategory === "ATTENDANCE"
-      ? { equipment: null }
+      ? { equipment: null, equipmentOnly: false }
       : equipment !== undefined
         ? { equipment: equipment?.trim() || null }
         : {}),

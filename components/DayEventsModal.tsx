@@ -34,6 +34,7 @@ type CalEvent = {
   color: string;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  equipmentOnly?: boolean;
   personnel: string | null;
   equipment?: string | null;
   creatorId: string;
@@ -188,6 +189,7 @@ export default function DayEventsModal({
   );
 
   const normalEvents = events.filter((event) => !event.isOvertimeOnly);
+  const personnelEvents = normalEvents.filter((event) => !event.equipmentOnly);
   const sorted = [...normalEvents].sort((a, b) => {
     if (a.allDay && !b.allDay) return -1;
     if (!a.allDay && b.allDay) return 1;
@@ -196,8 +198,8 @@ export default function DayEventsModal({
 
   const equipmentStock = useMemo(() => getEquipmentStock(group, normalEvents), [group, normalEvents]);
   const personnelAvailability = useMemo(
-    () => getPersonnelAvailability(group, normalEvents),
-    [group, normalEvents],
+    () => getPersonnelAvailability(group, personnelEvents),
+    [group, personnelEvents],
   );
 
   const dateStr = formatSeoulDateKey(date);
@@ -900,6 +902,21 @@ export default function DayEventsModal({
                       >
                         {event.title}
                       </p>
+                      {event.equipmentOnly && (
+                        <span
+                          style={{
+                            fontSize: "0.6rem",
+                            fontWeight: 700,
+                            padding: "1px 5px",
+                            borderRadius: 4,
+                            background: "#EEF2FF",
+                            color: "#4F46E5",
+                            flexShrink: 0,
+                          }}
+                        >
+                          장비 반출
+                        </span>
+                      )}
                       {(isLeader || event.creatorId === userId) && event.overtimeAvailable && (
                         <span
                           style={{
@@ -933,6 +950,20 @@ export default function DayEventsModal({
                         </span>
                       </div>
                     )}
+                    {event.equipmentOnly && event.equipment && (
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--text-secondary)",
+                          marginTop: 5,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {event.equipment}
+                      </p>
+                    )}
                     {event.description && (
                       <p
                         style={{
@@ -948,7 +979,7 @@ export default function DayEventsModal({
                       </p>
                     )}
 
-                    {group && (
+                    {group && !event.equipmentOnly && (
                       <div style={{ marginTop: 6 }}>
                         <span
                           style={{

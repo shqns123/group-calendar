@@ -38,6 +38,17 @@ export async function GET(request: NextRequest) {
     selectedGroupId: groupId,
     includePendingAcrossGroups: user?.isOperator ?? false,
   });
+  const eventIds = items
+    .map((item) => item.eventId)
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const events =
+    eventIds.length > 0
+      ? await prisma.event.findMany({
+          where: { id: { in: eventIds } },
+          select: { id: true, category: true },
+        })
+      : [];
+  const eventCategoryById = new Map(events.map((event) => [event.id, event.category]));
 
   return Response.json({
     items: items.map((item) => ({
@@ -45,6 +56,7 @@ export async function GET(request: NextRequest) {
       createdAt: item.createdAt.toISOString(),
       readAt: item.readAt?.toISOString() ?? null,
       resolvedAt: item.resolvedAt?.toISOString() ?? null,
+      eventCategory: item.eventId ? eventCategoryById.get(item.eventId) ?? null : null,
     })),
     unreadCount: items.filter((item) => item.readAt === null).length,
   });

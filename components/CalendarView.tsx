@@ -57,6 +57,7 @@ type CalEvent = {
   color: string;
   overtimeAvailable: boolean;
   isOvertimeOnly: boolean;
+  equipmentOnly?: boolean;
   personnel: string | null;
   equipment?: string | null;
   creatorId: string;
@@ -118,7 +119,7 @@ function TodayView({
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     });
   const equipmentStock = getEquipmentStock(group, todayEvents);
-  const personnelAvailability = getPersonnelAvailability(group, todayEvents);
+  const personnelAvailability = getPersonnelAvailability(group, todayEvents.filter((event) => !event.equipmentOnly));
   const effectiveDayNoteItems = group ? dayNoteItems : [];
   const hasDayNote = effectiveDayNoteItems.length > 0;
   const visibleDayNoteItems = isDayNoteExpanded ? effectiveDayNoteItems : effectiveDayNoteItems.slice(0, 1);
@@ -426,6 +427,37 @@ function TodayView({
                   >
                     {event.title}
                   </p>
+                  {event.equipmentOnly && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignSelf: "flex-start",
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: 999,
+                          background: "#EEF2FF",
+                          color: "#4F46E5",
+                        }}
+                      >
+                        장비 반출
+                      </span>
+                      {event.equipment && (
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "var(--text-secondary)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {event.equipment}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* 시간 */}
                   {!event.allDay && (
@@ -457,7 +489,7 @@ function TodayView({
                 </div>
 
                 {/* 인원 태그 */}
-                {group && (
+                {group && !event.equipmentOnly && (
                   <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                     <span style={{
                       fontSize: "0.68rem", fontWeight: 600,
@@ -515,6 +547,7 @@ export default function CalendarView({
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "today">("month");
   const [dayPopup, setDayPopup] = useState<{ date: Date; events: CalEvent[] } | null>(null);
+  const [dayNoteDates, setDayNoteDates] = useState<Set<string>>(() => new Set());
   const [currentMonthLabel, setCurrentMonthLabel] = useState(() =>
     formatSeoulYearMonthLabel(new Date())
   );
@@ -568,7 +601,7 @@ export default function CalendarView({
   }, [pendingEvent, onPendingEventHandled]);
 
   const calendarEvents: EventInput[] = events
-    .filter((e) => !e.isOvertimeOnly && (e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE")
+    .filter((e) => !e.isOvertimeOnly && !e.equipmentOnly && (e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE")
     .map((e) => {
       let startValue: Date | string = e.startDate;
       let endValue: Date | string = e.endDate;
@@ -718,6 +751,28 @@ export default function CalendarView({
 
   const handleDatesSet = (arg: DatesSetArg) => {
     setCurrentMonthLabel(formatSeoulYearMonthLabel(arg.view.currentStart));
+    if (!group) {
+      setDayNoteDates(new Set());
+      return;
+    }
+
+    const start = formatSeoulDateKey(arg.start);
+    const end = formatSeoulDateKey(addSeoulDays(arg.end, -1));
+
+    void fetch(`/api/day-notes?groupId=${group.id}&start=${start}&end=${end}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("failed to load day notes");
+        return response.json();
+      })
+      .then((data) => {
+        const dates = Array.isArray(data?.notes)
+          ? data.notes
+              .filter((note: { items?: unknown[] }) => Array.isArray(note.items) && note.items.length > 0)
+              .map((note: { date: string }) => note.date)
+          : [];
+        setDayNoteDates(new Set(dates));
+      })
+      .catch(() => setDayNoteDates(new Set()));
   };
 
   const toolbarButtonStyle: CSSProperties = {
@@ -883,9 +938,11 @@ export default function CalendarView({
               });
               const hasAttendance = events.some((e) => {
                 if (e.isOvertimeOnly) return false;
+                if (e.equipmentOnly) return false;
                 if ((e.category ?? "BUSINESS_TRIP") !== "ATTENDANCE") return false;
                 return compareSeoulDateKeys(ds, e.startDate) >= 0 && compareSeoulDateKeys(ds, e.endDate) <= 0;
               });
+              if (dayNoteDates.has(ds)) classes.push("fc-day-has-note");
               if (hasOvertime) classes.push("fc-day-overtime");
               if (hasAttendance) classes.push("fc-day-attendance");
               return classes;
