@@ -1,0 +1,4 @@
+ALTER TABLE "Group" ADD COLUMN "attendanceReportEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Group" ADD COLUMN "attendanceReportTo" TEXT;
+ALTER TABLE "Group" ADD COLUMN "attendanceReportHour" INTEGER NOT NULL DEFAULT 6;
+ALTER TABLE "Group" ADD COLUMN "attendanceReportMinute" INTEGER NOT NULL DEFAULT 0;

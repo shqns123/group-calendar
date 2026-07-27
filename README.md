@@ -63,6 +63,24 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=replace-with-public-vapid-key
 VAPID_PRIVATE_KEY=replace-with-private-vapid-key
 FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
+ATTENDANCE_REPORT_TO=recipient@example.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=sender@example.com
+SMTP_PASS=replace-with-smtp-password
+MAIL_FROM=sender@example.com
+```
+
+Gmail로 발송하려면 Google 계정의 2단계 인증을 켠 뒤 앱 비밀번호를 만들어 `SMTP_PASS`에 넣습니다.
+수신자와 발송 시간은 앱의 그룹 설정 > 근태 메일에서 그룹별로 관리합니다.
+
+```env
+ATTENDANCE_REPORT_TO=recipient@example.com
+MAIL_PROVIDER=gmail
+SMTP_USER=your-gmail-address@gmail.com
+SMTP_PASS=replace-with-google-app-password
+MAIL_FROM=your-gmail-address@gmail.com
 ```
 
 ## 로컬 실행
@@ -100,6 +118,24 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=replace-with-public-vapid-key
 VAPID_PRIVATE_KEY=replace-with-private-vapid-key
 FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
+ATTENDANCE_REPORT_TO=recipient@example.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=sender@example.com
+SMTP_PASS=replace-with-smtp-password
+MAIL_FROM=sender@example.com
+```
+
+Gmail로 발송하려면 Google 계정의 2단계 인증을 켠 뒤 앱 비밀번호를 만들어 `SMTP_PASS`에 넣습니다.
+수신자와 발송 시간은 앱의 그룹 설정 > 근태 메일에서 그룹별로 관리합니다.
+
+```env
+ATTENDANCE_REPORT_TO=recipient@example.com
+MAIL_PROVIDER=gmail
+SMTP_USER=your-gmail-address@gmail.com
+SMTP_PASS=replace-with-google-app-password
+MAIL_FROM=your-gmail-address@gmail.com
 ```
 
 ```bash

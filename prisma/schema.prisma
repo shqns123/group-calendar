@@ -107,6 +107,11 @@ model Group {
   laptopOptions   String?
   targetCount     Int           @default(2)
   eventDisplayLimit Int         @default(3)
+  attendanceReportEnabled Boolean @default(false)
+  attendanceReportTo String?
+  attendanceReportHour Int @default(6)
+  attendanceReportMinute Int @default(0)
+  attendanceReportTimes String?
   leaderId        String
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]

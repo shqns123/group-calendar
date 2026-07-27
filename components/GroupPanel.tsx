@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut } from "lucide-react";
+import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut, Mail, Send } from "lucide-react";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
 
 type Member = {
@@ -24,6 +24,11 @@ type Group = {
   laptopOptions?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
+  attendanceReportEnabled?: boolean;
+  attendanceReportTo?: string | null;
+  attendanceReportHour?: number;
+  attendanceReportMinute?: number;
+  attendanceReportTimes?: string | null;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Member[];
@@ -65,6 +70,24 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
+function getAttendanceReportTimesInput(group: Group) {
+  if (group.attendanceReportTimes) {
+    try {
+      const parsed = JSON.parse(group.attendanceReportTimes) as unknown;
+      if (Array.isArray(parsed)) {
+        const times = parsed.filter((value): value is string => typeof value === "string");
+        if (times.length > 0) return times.join(", ");
+      }
+    } catch {
+      return group.attendanceReportTimes;
+    }
+  }
+
+  const hour = String(group.attendanceReportHour ?? 6).padStart(2, "0");
+  const minute = String(group.attendanceReportMinute ?? 0).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
 export default function GroupPanel({ group, userId, isOperator, onClose, onUpdated }: Props) {
   const isAdmin = group.leaderId === userId || !!isOperator;
   const myMember = group.members.find((m) => m.userId === userId);
@@ -83,6 +106,20 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   const [eventDisplayLimitInput, setEventDisplayLimitInput] = useState(
     String(group.eventDisplayLimit ?? 3)
   );
+  const [attendanceReportEnabledInput, setAttendanceReportEnabledInput] = useState(
+    !!group.attendanceReportEnabled
+  );
+  const [attendanceReportToInput, setAttendanceReportToInput] = useState(group.attendanceReportTo ?? "");
+  const [attendanceReportHourInput, setAttendanceReportHourInput] = useState(
+    String(group.attendanceReportHour ?? 6)
+  );
+  const [attendanceReportMinuteInput, setAttendanceReportMinuteInput] = useState(
+    String(group.attendanceReportMinute ?? 0)
+  );
+  const [attendanceReportTimesInput, setAttendanceReportTimesInput] = useState(
+    getAttendanceReportTimesInput(group)
+  );
+  const [attendanceReportSending, setAttendanceReportSending] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
   const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
@@ -93,6 +130,21 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   useEffect(() => {
     setEventDisplayLimitInput(String(group.eventDisplayLimit ?? 3));
   }, [group.eventDisplayLimit]);
+
+  useEffect(() => {
+    setAttendanceReportEnabledInput(!!group.attendanceReportEnabled);
+    setAttendanceReportToInput(group.attendanceReportTo ?? "");
+    setAttendanceReportHourInput(String(group.attendanceReportHour ?? 6));
+    setAttendanceReportMinuteInput(String(group.attendanceReportMinute ?? 0));
+    setAttendanceReportTimesInput(getAttendanceReportTimesInput(group));
+  }, [
+    group,
+    group.attendanceReportEnabled,
+    group.attendanceReportHour,
+    group.attendanceReportMinute,
+    group.attendanceReportTimes,
+    group.attendanceReportTo,
+  ]);
 
 
   const saveGroupInfo = async () => {
@@ -151,6 +203,49 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveAttendanceReportSettings = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendanceReportEnabled: attendanceReportEnabledInput,
+          attendanceReportTo: attendanceReportToInput,
+          attendanceReportHour: Number(attendanceReportHourInput) || 0,
+          attendanceReportMinute: Number(attendanceReportMinuteInput) || 0,
+          attendanceReportTimes: attendanceReportTimesInput,
+        }),
+      });
+      if (res.ok) {
+        await onUpdated();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendAttendanceReportNow = async () => {
+    setAttendanceReportSending(true);
+    try {
+      const res = await fetch(`/api/groups/${group.id}/attendance-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendanceReportTo: attendanceReportToInput }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.error || "근태 메일 발송에 실패했습니다.");
+        return;
+      }
+
+      alert(`근태 메일을 발송했습니다. (${data.count ?? 0}건)`);
+    } finally {
+      setAttendanceReportSending(false);
     }
   };
 
@@ -500,6 +595,115 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
               <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
                 기본값은 3개이며 1개부터 10개까지 지정할 수 있습니다.
               </p>
+            </div>
+          </div>
+
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <span style={labelStyle}>근태 메일</span>
+              <Mail style={{ width: 14, height: 14, color: "var(--text-tertiary)" }} />
+            </div>
+            <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>자동 발송</span>
+                <input
+                  type="checkbox"
+                  checked={attendanceReportEnabledInput}
+                  onChange={(e) => setAttendanceReportEnabledInput(e.target.checked)}
+                  disabled={!isAdmin || loading}
+                  style={{ width: 18, height: 18, accentColor: "var(--accent)" }}
+                />
+              </label>
+
+              <input
+                type="email"
+                value={attendanceReportToInput}
+                onChange={(e) => setAttendanceReportToInput(e.target.value)}
+                disabled={!isAdmin || loading}
+                placeholder="recipient@example.com"
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 7,
+                  fontSize: "0.85rem",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  color: "var(--text-primary)",
+                  background: isAdmin ? "var(--surface)" : "var(--surface-raised)",
+                }}
+              />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <input
+                  type="text"
+                  value={attendanceReportTimesInput}
+                  onChange={(e) => setAttendanceReportTimesInput(e.target.value)}
+                  disabled={!isAdmin || loading}
+                  placeholder="06:00, 12:00, 18:00"
+                  aria-label="발송 시간"
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 7,
+                    fontSize: "0.85rem",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    color: "var(--text-primary)",
+                    background: isAdmin ? "var(--surface)" : "var(--surface-raised)",
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: "0.76rem", color: "var(--text-tertiary)" }}>Asia/Seoul</span>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={saveAttendanceReportSettings}
+                      disabled={loading}
+                      style={{
+                        marginLeft: "auto",
+                        padding: "8px 12px",
+                        fontSize: "0.78rem",
+                        border: "none",
+                        borderRadius: 7,
+                        background: "var(--text-primary)",
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontWeight: 600,
+                      }}
+                    >
+                      저장
+                    </button>
+                  )}
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={sendAttendanceReportNow}
+                  disabled={attendanceReportSending || loading}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "8px 12px",
+                    fontSize: "0.78rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: 7,
+                    background: "var(--surface)",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    fontWeight: 600,
+                  }}
+                >
+                  <Send style={{ width: 13, height: 13 }} />
+                  {attendanceReportSending ? "발송 중..." : "즉시 발송"}
+                </button>
+              )}
             </div>
           </div>
 
