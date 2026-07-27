@@ -103,6 +103,10 @@ async function findAttendanceEvents(client: PrismaClient, groupId?: string, now 
 }
 
 function getExportDirectory() {
+  if (process.env.NODE_ENV === "production") {
+    return path.join(process.cwd(), "data", "exports");
+  }
+
   return path.join(process.cwd(), "exports");
 }
 
