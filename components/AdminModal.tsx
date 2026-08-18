@@ -29,6 +29,8 @@ type Props = {
   onClose: () => void;
 };
 
+type DeleteTarget = { id: string; name: string | null };
+
 function getRoleLabel(role: string, isGroupLeader: boolean) {
   if (isGroupLeader) return "관리자";
   if (role === "ADMIN" || role === "그룹장" || role === "리더") return "리더";
@@ -44,6 +46,7 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [assignGroupByUser, setAssignGroupByUser] = useState<Record<string, string>>({});
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -72,20 +75,19 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
   }, []);
 
   const handleDelete = async (userId: string, name: string | null) => {
-    if (
-      !confirm(
-        `"${name || "사용자"}" 계정을 삭제하시겠습니까?\n그룹 멤버십과 일정도 함께 제거됩니다.`,
-      )
-    ) {
-      return;
-    }
+    setDeleteTarget({ id: userId, name });
+  };
 
+  const confirmDelete = async (groupDataAction: "delete" | "preserve") => {
+    if (!deleteTarget) return;
+    const { id: userId } = deleteTarget;
     setActionLoading(userId + "-delete");
     setError("");
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/users/${userId}?groupDataAction=${groupDataAction}`, { method: "DELETE" });
       if (res.ok) {
         setUsers((prev) => prev.filter((user) => user.id !== userId));
+        setDeleteTarget(null);
       } else {
         const data = await res.json();
         setError(data.error || "사용자 삭제에 실패했습니다.");
@@ -857,6 +859,65 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
           </p>
         </div>
       </div>
+
+      {deleteTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 70,
+            background: "rgba(15,23,42,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setDeleteTarget(null);
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 400,
+              borderRadius: 14,
+              background: "var(--surface)",
+              padding: 22,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--text-primary)" }}>
+              {deleteTarget.name || "사용자"} 계정 삭제
+            </h3>
+            <p style={{ margin: "10px 0 0", fontSize: "0.82rem", lineHeight: 1.6, color: "var(--text-secondary)" }}>
+              개인 일정과 개인 메모는 항상 영구 삭제됩니다. 그룹 일정과 업무내용은 어떻게 처리할까요?
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => void confirmDelete("preserve")}
+                disabled={actionLoading === deleteTarget.id + "-delete"}
+                style={{ border: "1px solid var(--accent-muted)", borderRadius: 10, padding: "11px 13px", background: "var(--accent-light)", color: "var(--accent-hover)", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                <strong style={{ display: "block", fontSize: "0.84rem" }}>그룹 데이터 보관</strong>
+                <span style={{ display: "block", marginTop: 3, fontSize: "0.72rem" }}>일정과 업무내용을 유지하고, 작성자 이름도 그대로 표시합니다.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete("delete")}
+                disabled={actionLoading === deleteTarget.id + "-delete"}
+                style={{ border: "1px solid #FECACA", borderRadius: 10, padding: "11px 13px", background: "#FEF2F2", color: "#B91C1C", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                <strong style={{ display: "block", fontSize: "0.84rem" }}>그룹 데이터도 삭제</strong>
+                <span style={{ display: "block", marginTop: 3, fontSize: "0.72rem" }}>이 사용자가 작성한 그룹 일정과 업무내용도 삭제합니다.</span>
+              </button>
+            </div>
+            <button type="button" onClick={() => setDeleteTarget(null)} disabled={actionLoading === deleteTarget.id + "-delete"} style={{ marginTop: 14, width: "100%", border: "none", background: "transparent", color: "var(--text-tertiary)", padding: 8, cursor: "pointer", fontFamily: "inherit" }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

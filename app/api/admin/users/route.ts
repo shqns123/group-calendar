@@ -9,6 +9,7 @@ export async function GET() {
   if (!me?.isOperator) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const users = await prisma.user.findMany({
+    where: { status: { not: "DELETED" } },
     select: {
       id: true,
       name: true,

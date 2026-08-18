@@ -197,6 +197,7 @@ export default function EventModal({
   onClose,
 }: Props) {
   const isEdit = !!event;
+  const isPersonalSchedule = !group;
   const canEdit = !event || event.creatorId === userId || isLeader;
   const attendanceTitleRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -212,7 +213,7 @@ export default function EventModal({
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
   const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(
-    event?.category ?? (event ? "BUSINESS_TRIP" : null)
+    event?.category ?? (event ? "BUSINESS_TRIP" : isPersonalSchedule ? "BUSINESS_TRIP" : null)
   );
   const [startDate, setStartDate] = useState(toSeoulDateInput(defaultStart));
   const [endDate, setEndDate] = useState(toSeoulDateInput(defaultEnd));
@@ -230,7 +231,7 @@ export default function EventModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const currentCategory = selectedCategory ?? "BUSINESS_TRIP";
-  const isAttendance = currentCategory === "ATTENDANCE";
+  const isAttendance = !isPersonalSchedule && currentCategory === "ATTENDANCE";
 
   const creatorLabel = useMemo(
     () =>
@@ -446,7 +447,7 @@ export default function EventModal({
     const finalIsOvertimeOnly = overtimeAvailable && !title.trim();
     const finalEquipmentOnly = !isAttendance && equipmentOnly;
     const payload = {
-      category: selectedCategory,
+      category: isPersonalSchedule ? "BUSINESS_TRIP" : selectedCategory,
       title: finalTitle,
       description: description.trim() || null,
       startDate: parseSeoulDateInput(startDate).toISOString(),
@@ -455,9 +456,9 @@ export default function EventModal({
       color,
       overtimeAvailable,
       isOvertimeOnly: finalIsOvertimeOnly,
-      equipmentOnly: finalEquipmentOnly,
+      equipmentOnly: isPersonalSchedule ? false : finalEquipmentOnly,
       personnel: finalEquipmentOnly ? null : personnelValue,
-      equipment: isAttendance ? null : equipmentSummary.join(", "),
+      equipment: isPersonalSchedule || isAttendance ? null : equipmentSummary.join(", "),
       groupId: group?.id ?? null,
     };
 
@@ -694,7 +695,7 @@ export default function EventModal({
             />
             </div>
 
-            {!isAttendance && (
+            {!isPersonalSchedule && !isAttendance && (
               <>
               <div ref={equipmentRef} className="relative">
               <button

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Clock, Plus, X } from "lucide-react";
+import { CalendarClock, Clock, FileText, Plus, X } from "lucide-react";
 import DayNoteModal from "./DayNoteModal";
+import PersonalNoteModal from "./PersonalNoteModal";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import EquipmentStockModal from "./EquipmentStockModal";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
@@ -90,6 +91,14 @@ type DayNote = {
   updatedAt: string;
 } | null;
 
+type PersonalNote = {
+  id: string;
+  date: string;
+  content: string;
+  items: Array<{ id: string; text: string }>;
+  updatedAt: string;
+} | null;
+
 export default function DayEventsModal({
   date,
   events,
@@ -104,15 +113,20 @@ export default function DayEventsModal({
   onClose,
   onRefresh,
 }: Props) {
+  const isPersonalSchedule = !group;
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState<"available" | "unavailable" | null | undefined>(undefined);
   const [showEquipmentStockModal, setShowEquipmentStockModal] = useState(false);
   const [showPersonnelAvailabilityModal, setShowPersonnelAvailabilityModal] = useState(false);
   const [showDayNoteModal, setShowDayNoteModal] = useState(false);
+  const [showPersonalNoteModal, setShowPersonalNoteModal] = useState(false);
   const [dayNote, setDayNote] = useState<DayNote>(null);
+  const [personalNote, setPersonalNote] = useState<PersonalNote>(null);
   const [dayNoteCanEdit, setDayNoteCanEdit] = useState(false);
   const [dayNoteLoading, setDayNoteLoading] = useState(false);
   const [dayNoteSaving, setDayNoteSaving] = useState(false);
+  const [personalNoteLoading, setPersonalNoteLoading] = useState(false);
+  const [personalNoteSaving, setPersonalNoteSaving] = useState(false);
   const [isDayNoteExpanded, setIsDayNoteExpanded] = useState(false);
 
   const getMemberName = (event: CalEvent) => {
@@ -160,7 +174,9 @@ export default function DayEventsModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: choice === "available" ? "특근 가능" : "특근 불가능",
+            title: isPersonalSchedule
+              ? choice === "available" ? "특근 근무" : "특근 미근무"
+              : choice === "available" ? "특근 가능" : "특근 불가능",
             startDate: parseSeoulDateInput(dateStr).toISOString(),
             endDate: parseSeoulDateInput(dateStr).toISOString(),
             allDay: true,
@@ -250,6 +266,35 @@ export default function DayEventsModal({
     };
   }, [dateStr, group, isLeader, isOperator]);
 
+  useEffect(() => {
+    if (group) {
+      setPersonalNote(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPersonalNoteLoading(true);
+
+    void fetch(`/api/personal-notes?date=${dateStr}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("메모를 불러오지 못했습니다.");
+        return response.json();
+      })
+      .then((data) => {
+        if (!cancelled) setPersonalNote(data.note ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPersonalNote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPersonalNoteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dateStr, group]);
+
   const saveDayNote = async ({
     entries,
   }: {
@@ -284,6 +329,22 @@ export default function DayEventsModal({
       setDayNoteCanEdit(Boolean(data?.canEdit));
     } finally {
       setDayNoteSaving(false);
+    }
+  };
+
+  const savePersonalNote = async (items: Array<{ id: string; text: string }>) => {
+    setPersonalNoteSaving(true);
+    try {
+      const response = await fetch("/api/personal-notes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateStr, items }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "메모 저장에 실패했습니다.");
+      setPersonalNote(data?.note ?? null);
+    } finally {
+      setPersonalNoteSaving(false);
     }
   };
 
@@ -422,7 +483,7 @@ export default function DayEventsModal({
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {group && (
+        {(group || isPersonalSchedule) && (
           <div
             style={{
               padding: "12px 20px",
@@ -513,7 +574,7 @@ export default function DayEventsModal({
                     {effectiveStatus === "unavailable" && (
                       <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>
                     )}
-                    불가능
+                    {isPersonalSchedule ? "미근무" : "불가능"}
                   </button>
                   <button
                     type="button"
@@ -539,13 +600,13 @@ export default function DayEventsModal({
                     {effectiveStatus === "available" && (
                       <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>
                     )}
-                    가능
+                    {isPersonalSchedule ? "근무" : "가능"}
                   </button>
                 </div>
               )}
             </div>
 
-            {(overtimePeopleAvailable.length > 0 ||
+            {group && (overtimePeopleAvailable.length > 0 ||
               effectiveStatus === "available" ||
               (isLeader && (overtimePeopleUnavailable.length > 0 || effectiveStatus === "unavailable"))) && (
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -686,6 +747,69 @@ export default function DayEventsModal({
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {!group && (
+          <div
+            style={{
+              padding: "14px 20px 12px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <FileText style={{ width: 15, height: 15, color: "var(--accent)" }} />
+                <p style={{ fontSize: "0.84rem", fontWeight: 700, color: "var(--text-primary)" }}>메모</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPersonalNoteModal(true)}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  border: "1px solid var(--accent-muted)",
+                  background: "var(--surface)",
+                  color: "var(--accent)",
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {personalNote?.items.length ? "메모 보기" : "메모 작성"}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPersonalNoteModal(true)}
+              style={{
+                margin: 0,
+                width: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                border: "none",
+                background: "transparent",
+                padding: 0,
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "0.78rem",
+                lineHeight: 1.55,
+                color: personalNote?.items.length ? "var(--text-secondary)" : "var(--text-tertiary)",
+              }}
+            >
+              {personalNoteLoading
+                ? "메모를 불러오는 중..."
+                : personalNote?.items[0]?.text || "등록된 메모가 없습니다."}
+            </button>
+            {(personalNote?.items.length ?? 0) > 1 && (
+              <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+                메모 {personalNote!.items.length}개 · 눌러서 전체 보기
+              </p>
             )}
           </div>
         )}
@@ -1002,42 +1126,40 @@ export default function DayEventsModal({
           )}
         </div>
 
-        {group && (
+        {(!group || !isObserver) && (
           <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {!isObserver && (
-                <button
-                  onClick={onAddClick}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: 9,
-                    border: "1.5px dashed var(--border)",
-                    background: "none",
-                    color: "var(--text-tertiary)",
-                    fontSize: "0.825rem",
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    transition: "all 0.12s",
-                  }}
-                  onMouseEnter={(event) => {
-                    event.currentTarget.style.borderColor = "var(--accent)";
-                    event.currentTarget.style.color = "var(--accent)";
-                  }}
-                  onMouseLeave={(event) => {
-                    event.currentTarget.style.borderColor = "var(--border)";
-                    event.currentTarget.style.color = "var(--text-tertiary)";
-                  }}
-                >
-                  <Plus style={{ width: 14, height: 14 }} />
-                  일정 추가
-                </button>
-              )}
+              <button
+                onClick={onAddClick}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: 9,
+                  border: "1.5px dashed var(--border)",
+                  background: "none",
+                  color: "var(--text-tertiary)",
+                  fontSize: "0.825rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  transition: "all 0.12s",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.borderColor = "var(--accent)";
+                  event.currentTarget.style.color = "var(--accent)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.borderColor = "var(--border)";
+                  event.currentTarget.style.color = "var(--text-tertiary)";
+                }}
+              >
+                <Plus style={{ width: 14, height: 14 }} />
+                일정 추가
+              </button>
             </div>
           </div>
         )}
@@ -1069,6 +1191,15 @@ export default function DayEventsModal({
           note={dayNote}
           onClose={() => setShowDayNoteModal(false)}
           onSave={saveDayNote}
+        />
+      )}
+      {showPersonalNoteModal && !group && (
+        <PersonalNoteModal
+          dateKey={dateStr}
+          isSaving={personalNoteSaving}
+          note={personalNote}
+          onClose={() => setShowPersonalNoteModal(false)}
+          onSave={savePersonalNote}
         />
       )}
     </div>

@@ -100,6 +100,9 @@ export async function GET(request: NextRequest) {
       groupId: null,
       ...dateFilter,
     },
+    include: {
+      creator: { select: { id: true, name: true, email: true, image: true } },
+    },
     orderBy: { startDate: "asc" },
   });
 
@@ -132,8 +135,11 @@ export async function POST(request: NextRequest) {
     personnel,
     equipment,
   } = body;
-  const eventCategory = category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP";
-  const eventEquipmentOnly = eventCategory === "BUSINESS_TRIP" && equipmentOnly === true;
+  const isPersonalEvent = !groupId;
+  const eventCategory =
+    !isPersonalEvent && category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP";
+  const eventEquipmentOnly =
+    !isPersonalEvent && eventCategory === "BUSINESS_TRIP" && equipmentOnly === true;
 
   if (!title?.trim()) {
     return Response.json({ error: "제목은 필수입니다" }, { status: 400 });
@@ -181,7 +187,7 @@ export async function POST(request: NextRequest) {
     isOvertimeOnly: isOvertimeOnly ?? false,
     equipmentOnly: eventEquipmentOnly,
     personnel: eventEquipmentOnly ? null : personnel?.trim() || defaultPersonnel,
-    equipment: eventCategory === "ATTENDANCE" ? null : equipment?.trim() || null,
+    equipment: isPersonalEvent || eventCategory === "ATTENDANCE" ? null : equipment?.trim() || null,
     creatorId: session.user.id,
     groupId: groupId || null,
   };
