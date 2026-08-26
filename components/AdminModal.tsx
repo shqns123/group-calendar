@@ -321,7 +321,7 @@ export default function AdminModal({ currentUserId, onClose }: Props) {
                 letterSpacing: "-0.02em",
               }}
             >
-              서버 인원 관리
+              서버 설정
             </span>
             {!loading && (
               <span

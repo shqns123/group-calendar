@@ -1,35 +1,38 @@
 import cron from "node-cron";
-import { sendDailyAttendanceReport } from "./attendanceReport";
+import { syncAllGroupCalendarsToGitLab } from "./calendarSync";
 import { sendMobilePushToTokens } from "./mobilepush";
 import { prisma } from "./prisma";
 import { SEOUL_TIME_ZONE, getSeoulWeekday, formatSeoulTimeLabel } from "./seoulTime";
 import { sendPushToUser } from "./webpush";
 
 let schedulerStarted = false;
-let attendanceReportRunning = false;
+let calendarSyncRunning = false;
 
-function parseAttendanceReportTimes(
-  rawTimes: string | null,
-  fallbackHour: number,
-  fallbackMinute: number,
-) {
-  if (!rawTimes) {
-    return [`${String(fallbackHour).padStart(2, "0")}:${String(fallbackMinute).padStart(2, "0")}`];
-  }
+async function runCalendarSync() {
+  if (calendarSyncRunning) return;
+  calendarSyncRunning = true;
 
   try {
-    const parsed = JSON.parse(rawTimes) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter((value): value is string => typeof value === "string" && /^\d{2}:\d{2}$/.test(value));
-  } catch {
-    return [];
+    const results = await syncAllGroupCalendarsToGitLab();
+    for (const result of results) {
+      console.info(`[calendar-sync] ${result.action} ${result.fileName} (${result.count} events)`);
+    }
+  } catch (error) {
+    console.error("[calendar-sync] GitLab upload failed", error);
+  } finally {
+    calendarSyncRunning = false;
   }
 }
 
 export function startScheduler() {
   if (schedulerStarted) return;
   schedulerStarted = true;
+
+  if (process.env.GITLAB_PROJECT_ID && process.env.GITLAB_ACCESS_TOKEN) {
+    void runCalendarSync();
+  } else {
+    console.warn("[calendar-sync] disabled: GITLAB_PROJECT_ID or GITLAB_ACCESS_TOKEN is missing");
+  }
 
   cron.schedule(
     "* * * * *",
@@ -89,44 +92,8 @@ export function startScheduler() {
   );
 
   cron.schedule(
-    "* * * * *",
-    async () => {
-      if (attendanceReportRunning) return;
-      attendanceReportRunning = true;
-
-      try {
-        const now = new Date();
-        const currentTime = formatSeoulTimeLabel(now);
-        const groups = await prisma.group.findMany({
-          where: { attendanceReportEnabled: true },
-          select: {
-            id: true,
-            attendanceReportTo: true,
-            attendanceReportHour: true,
-            attendanceReportMinute: true,
-            attendanceReportTimes: true,
-          },
-        });
-
-        for (const group of groups) {
-          const reportTimes = parseAttendanceReportTimes(
-            group.attendanceReportTimes,
-            group.attendanceReportHour,
-            group.attendanceReportMinute,
-          );
-          if (!reportTimes.includes(currentTime)) continue;
-
-          await sendDailyAttendanceReport(now, {
-            groupId: group.id,
-            to: group.attendanceReportTo,
-          });
-        }
-      } catch (error) {
-        console.error("[scheduler] attendance report failed", error);
-      } finally {
-        attendanceReportRunning = false;
-      }
-    },
+    process.env.GITLAB_SYNC_CRON?.trim() || "*/30 * * * *",
+    runCalendarSync,
     { timezone: SEOUL_TIME_ZONE },
   );
 }

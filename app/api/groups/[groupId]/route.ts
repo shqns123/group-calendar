@@ -2,35 +2,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
-function normalizeAttendanceReportTimes(value: unknown) {
-  const rawItems = Array.isArray(value)
-    ? value
-    : String(value)
-        .split(/[\s,]+/)
-        .filter(Boolean);
-
-  const seen = new Set<string>();
-  const times: Array<{ hour: number; minute: number; label: string }> = [];
-
-  for (const item of rawItems) {
-    const match = String(item).trim().match(/^(\d{1,2}):(\d{1,2})$/);
-    if (!match) continue;
-
-    const hour = Number(match[1]);
-    const minute = Number(match[2]);
-    if (!Number.isInteger(hour) || !Number.isInteger(minute)) continue;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) continue;
-
-    const label = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-    if (seen.has(label)) continue;
-
-    seen.add(label);
-    times.push({ hour, minute, label });
-  }
-
-  return times.length > 0 ? times.map((time) => time.label) : ["06:00"];
-}
-
 // 그룹 상세 조회
 export async function GET(
   _req: NextRequest,
@@ -97,11 +68,6 @@ export async function PATCH(
     laptopOptions,
     targetCount,
     eventDisplayLimit,
-    attendanceReportEnabled,
-    attendanceReportTo,
-    attendanceReportHour,
-    attendanceReportMinute,
-    attendanceReportTimes,
   } = body;
   const normalizedTargetCount =
     targetCount === undefined ? undefined : Math.max(0, Math.min(100, Number(targetCount) || 0));
@@ -109,22 +75,6 @@ export async function PATCH(
     eventDisplayLimit === undefined
       ? undefined
       : Math.max(1, Math.min(10, Number(eventDisplayLimit) || 3));
-  const normalizedAttendanceReportHour =
-    attendanceReportHour === undefined
-      ? undefined
-      : Math.max(0, Math.min(23, Number(attendanceReportHour) || 0));
-  const normalizedAttendanceReportMinute =
-    attendanceReportMinute === undefined
-      ? undefined
-      : Math.max(0, Math.min(59, Number(attendanceReportMinute) || 0));
-  const normalizedAttendanceReportTimes =
-    attendanceReportTimes === undefined
-      ? undefined
-      : normalizeAttendanceReportTimes(attendanceReportTimes);
-  const firstAttendanceReportTime = normalizedAttendanceReportTimes?.[0]
-    ?.split(":")
-    .map(Number);
-
   const updated = await prisma.group.update({
     where: { id: groupId },
     data: {
@@ -134,19 +84,6 @@ export async function PATCH(
       ...(laptopOptions !== undefined && { laptopOptions: String(laptopOptions).trim() || null }),
       ...(normalizedTargetCount !== undefined && { targetCount: normalizedTargetCount }),
       ...(normalizedEventDisplayLimit !== undefined && { eventDisplayLimit: normalizedEventDisplayLimit }),
-      ...(attendanceReportEnabled !== undefined && { attendanceReportEnabled: !!attendanceReportEnabled }),
-      ...(attendanceReportTo !== undefined && { attendanceReportTo: String(attendanceReportTo).trim() || null }),
-      ...(normalizedAttendanceReportTimes !== undefined && {
-        attendanceReportTimes: JSON.stringify(normalizedAttendanceReportTimes),
-      }),
-      ...(firstAttendanceReportTime && {
-        attendanceReportHour: firstAttendanceReportTime[0],
-        attendanceReportMinute: firstAttendanceReportTime[1],
-      }),
-      ...(normalizedAttendanceReportTimes === undefined &&
-        normalizedAttendanceReportHour !== undefined && { attendanceReportHour: normalizedAttendanceReportHour }),
-      ...(normalizedAttendanceReportTimes === undefined &&
-        normalizedAttendanceReportMinute !== undefined && { attendanceReportMinute: normalizedAttendanceReportMinute }),
     },
   });
 

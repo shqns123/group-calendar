@@ -22,6 +22,7 @@
 - 회사 휴일 및 대체 근무일 설정
 - 데스크톱/모바일 푸시 알림
 - 운영자용 사용자 승인, 알림 설정 관리
+- GitLab Private 프로젝트로 그룹별 근태 JSON 자동 동기화
 
 ## 기술 스택
 
@@ -63,25 +64,36 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=replace-with-public-vapid-key
 VAPID_PRIVATE_KEY=replace-with-private-vapid-key
 FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
-ATTENDANCE_REPORT_TO=recipient@example.com
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=sender@example.com
-SMTP_PASS=replace-with-smtp-password
-MAIL_FROM=sender@example.com
+GITLAB_PROJECT_ID=12345678
+GITLAB_ACCESS_TOKEN=replace-with-project-access-token
+GITLAB_BRANCH=main
+# 기본값: 30분마다. node-cron 5필드 형식이며 Asia/Seoul 기준입니다.
+GITLAB_SYNC_CRON=*/30 * * * *
 ```
 
-Gmail로 발송하려면 Google 계정의 2단계 인증을 켠 뒤 앱 비밀번호를 만들어 `SMTP_PASS`에 넣습니다.
-수신자와 발송 시간은 앱의 그룹 설정 > 근태 메일에서 그룹별로 관리합니다.
+## GitLab 캘린더 동기화
 
-```env
-ATTENDANCE_REPORT_TO=recipient@example.com
-MAIL_PROVIDER=gmail
-SMTP_USER=your-gmail-address@gmail.com
-SMTP_PASS=replace-with-google-app-password
-MAIL_FROM=your-gmail-address@gmail.com
+1. GitLab에서 빈 **Private** 프로젝트를 만들고 프로젝트 숫자 ID를 확인합니다.
+2. `Settings → Access Tokens`에서 업로드용 Project Access Token을 발급합니다.
+   - Scope: `api`
+   - Role: `Maintainer` 권장
+3. 보호된 `main` 브랜치를 사용할 경우 `Settings → Repository → Branch rules`에서 토큰 역할이 `Allowed to push and merge`에 포함되어야 합니다. 그렇지 않으면 `403 Forbidden - You are not allowed to push into this branch`가 발생합니다.
+4. 토큰은 `.env`에만 두고 Git에 커밋하지 않습니다.
+
+컨테이너는 그룹별 `/app/data/exports/<그룹명> calendar.json`을 만들고 GitLab 파일을 생성 또는 갱신합니다. 그룹명은 파일명으로 사용되므로 서로 다르게 관리하세요. 각 그룹 설정 상단의 **지금 업로드** 버튼으로 해당 그룹만 즉시 동기화할 수 있으며, 그룹 관리자와 운영자만 실행할 수 있습니다.
+
+`GITLAB_SYNC_CRON=*/30 * * * *`는 Asia/Seoul 기준 30분마다 모든 그룹 파일을 동기화합니다. 전용 브랜치를 사용하려면 GitLab에서 브랜치를 먼저 만든 후 `GITLAB_BRANCH=calendar-sync`처럼 설정하고, 회사 PC에도 같은 브랜치를 설정하세요.
+
+회사 PC는 Git 설치 없이 아래 스크립트로 원본 JSON을 받을 수 있습니다. 읽기 전용 Project Access Token에는 `read_api` 또는 `read_repository` scope만 부여하세요. 다운로드가 완료된 뒤 기존 회사 캘린더 반영 프로그램을 호출하도록 작업 스케줄러에 이 스크립트를 등록하면 됩니다.
+
+```powershell
+$env:GITLAB_PROJECT_ID = "12345678"
+$env:GITLAB_READ_TOKEN = "read-only-project-access-token"
+$env:GITLAB_CALENDAR_FILE_NAME = "개발팀 calendar.json"
+.\scripts\download-calendar-from-gitlab.ps1 -OutputPath "C:\calendar-sync\calendar.json"
 ```
+
+여러 그룹을 받으려면 그룹마다 `GITLAB_CALENDAR_FILE_NAME`과 출력 경로를 바꿔 스크립트를 실행하세요.
 
 ## 로컬 실행
 
@@ -118,24 +130,10 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=replace-with-public-vapid-key
 VAPID_PRIVATE_KEY=replace-with-private-vapid-key
 FIREBASE_PROJECT_ID=replace-with-firebase-project-id
 FIREBASE_SERVICE_ACCOUNT_BASE64=replace-with-base64-json
-ATTENDANCE_REPORT_TO=recipient@example.com
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=sender@example.com
-SMTP_PASS=replace-with-smtp-password
-MAIL_FROM=sender@example.com
-```
-
-Gmail로 발송하려면 Google 계정의 2단계 인증을 켠 뒤 앱 비밀번호를 만들어 `SMTP_PASS`에 넣습니다.
-수신자와 발송 시간은 앱의 그룹 설정 > 근태 메일에서 그룹별로 관리합니다.
-
-```env
-ATTENDANCE_REPORT_TO=recipient@example.com
-MAIL_PROVIDER=gmail
-SMTP_USER=your-gmail-address@gmail.com
-SMTP_PASS=replace-with-google-app-password
-MAIL_FROM=your-gmail-address@gmail.com
+GITLAB_PROJECT_ID=12345678
+GITLAB_ACCESS_TOKEN=replace-with-project-access-token
+GITLAB_BRANCH=main
+GITLAB_SYNC_CRON=*/30 * * * *
 ```
 
 ```bash

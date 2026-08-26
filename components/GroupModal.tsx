@@ -12,11 +12,6 @@ export type GroupFromApi = {
   laptopOptions?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
-  attendanceReportEnabled?: boolean;
-  attendanceReportTo?: string | null;
-  attendanceReportHour?: number;
-  attendanceReportMinute?: number;
-  attendanceReportTimes?: string | null;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Array<{
