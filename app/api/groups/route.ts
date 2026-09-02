@@ -1,4 +1,4 @@
-import { getRequestActor } from "@/lib/requestActor";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
@@ -10,8 +10,8 @@ function generateInviteCode(): string {
 }
 
 // 내 그룹 목록 조회
-export async function GET(request: NextRequest) {
-  const session = await getRequestActor(request);
+export async function GET() {
+  const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 // 그룹 생성
 export async function POST(request: NextRequest) {
-  const session = await getRequestActor(request);
+  const session = await auth();
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
