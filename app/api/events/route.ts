@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getRequestActor } from "@/lib/requestActor";
 import { isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
@@ -34,7 +34,7 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
 }
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

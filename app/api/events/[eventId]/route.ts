@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getRequestActor } from "@/lib/requestActor";
 import { isLeaderRole, isObserverRole } from "@/lib/groupPermissions";
 import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
@@ -39,7 +39,7 @@ export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/events/[eventId]">
 ) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -147,10 +147,10 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  request: NextRequest,
   ctx: RouteContext<"/api/events/[eventId]">
 ) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

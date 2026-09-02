@@ -1,13 +1,13 @@
-import { auth } from "@/lib/auth";
+import { getRequestActor } from "@/lib/requestActor";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 // 그룹 상세 조회
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   ctx: RouteContext<"/api/groups/[groupId]">
 ) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -45,7 +45,7 @@ export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/groups/[groupId]">
 ) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -92,10 +92,10 @@ export async function PATCH(
 
 // 그룹 삭제 (리더만)
 export async function DELETE(
-  _req: NextRequest,
+  request: NextRequest,
   ctx: RouteContext<"/api/groups/[groupId]">
 ) {
-  const session = await auth();
+  const session = await getRequestActor(request);
   if (!session?.user?.id) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

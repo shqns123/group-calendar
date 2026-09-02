@@ -13,3 +13,26 @@ services:
       - TZ=Asia/Seoul
     volumes:
       - ./data:/app/data
+    networks:
+      - calendar-internal
+
+  group-calendar-mcp:
+    build:
+      context: ./mcp-server
+    container_name: group-calendar-mcp
+    profiles: ["mcp"]
+    env_file:
+      - .env
+    environment:
+      - CALENDAR_API_BASE_URL=http://group-calendar:3000
+      - TZ=Asia/Seoul
+    depends_on:
+      - group-calendar
+    networks:
+      - calendar-internal
+    stdin_open: true
+    tty: false
+
+networks:
+  calendar-internal:
+    name: group-calendar-internal
