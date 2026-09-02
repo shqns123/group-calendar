@@ -22,7 +22,7 @@
 - 회사 휴일 및 대체 근무일 설정
 - 데스크톱/모바일 푸시 알림
 - 운영자용 사용자 승인, 알림 설정 관리
-- GitLab Private 프로젝트로 그룹별 근태 JSON 자동 동기화
+- GitLab Private 프로젝트로 그룹별 근태·출장 JSON 자동 동기화
 
 ## 기술 스택
 
@@ -80,7 +80,7 @@ GITLAB_SYNC_CRON=*/30 * * * *
 3. 보호된 `main` 브랜치를 사용할 경우 `Settings → Repository → Branch rules`에서 토큰 역할이 `Allowed to push and merge`에 포함되어야 합니다. 그렇지 않으면 `403 Forbidden - You are not allowed to push into this branch`가 발생합니다.
 4. 토큰은 `.env`에만 두고 Git에 커밋하지 않습니다.
 
-컨테이너는 그룹별 `/app/data/exports/<그룹명> calendar.json`을 만들고 GitLab 파일을 생성 또는 갱신합니다. 그룹명은 파일명으로 사용되므로 서로 다르게 관리하세요. 각 그룹 설정 상단의 **지금 업로드** 버튼으로 해당 그룹만 즉시 동기화할 수 있으며, 그룹 관리자와 운영자만 실행할 수 있습니다.
+컨테이너는 그룹별 `/app/data/exports/<그룹명> calendar.json`을 만들고 GitLab 파일을 생성 또는 갱신합니다. JSON에는 `ATTENDANCE`(근태)와 `BUSINESS_TRIP`(출장) 일정이 같은 기존 스키마로 포함됩니다. 그룹명은 파일명으로 사용되므로 서로 다르게 관리하세요. 각 그룹 설정 상단의 **지금 업로드** 버튼으로 해당 그룹만 즉시 동기화할 수 있으며, 그룹 관리자와 운영자만 실행할 수 있습니다.
 
 `GITLAB_SYNC_CRON=*/30 * * * *`는 Asia/Seoul 기준 30분마다 모든 그룹 파일을 동기화합니다. 전용 브랜치를 사용하려면 GitLab에서 브랜치를 먼저 만든 후 `GITLAB_BRANCH=calendar-sync`처럼 설정하고, 회사 PC에도 같은 브랜치를 설정하세요.
 

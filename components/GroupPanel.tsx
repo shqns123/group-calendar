@@ -360,7 +360,7 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
               </div>
               <div style={{ padding: "12px 14px" }}>
                 <p style={{ margin: "0 0 10px", fontSize: "0.75rem", color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-                  이 그룹의 근태 일정을 “{group.name} calendar.json”으로 즉시 업로드합니다.
+                  이 그룹의 근태·출장 일정을 “{group.name} calendar.json”으로 즉시 업로드합니다.
                 </p>
                 <button
                   type="button"

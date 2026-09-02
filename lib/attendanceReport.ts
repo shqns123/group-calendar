@@ -7,7 +7,7 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "./prisma";
 import { formatSeoulDateKey, getSeoulDayRange } from "./seoulTime";
 
-type AttendanceEventWithRelations = Awaited<ReturnType<typeof findAttendanceEvents>>[number];
+type AttendanceEventWithRelations = Awaited<ReturnType<typeof findCalendarEvents>>[number];
 
 export type CalendarPayload = {
   exportedAt: string;
@@ -64,10 +64,14 @@ function asSeoulIsoString(value: Date) {
   ].join("");
 }
 
-async function findAttendanceEvents(client: PrismaClient, groupId: string, now = new Date()) {
+async function findCalendarEvents(client: PrismaClient, groupId: string, now = new Date()) {
   const todayRange = getSeoulDayRange(now);
   return client.event.findMany({
-    where: { category: "ATTENDANCE", groupId, endDate: { gte: todayRange.start } },
+    where: {
+      category: { in: ["ATTENDANCE", "BUSINESS_TRIP"] },
+      groupId,
+      endDate: { gte: todayRange.start },
+    },
     orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
     include: {
       creator: { select: { id: true, name: true, email: true, employeeId: true } },
@@ -90,7 +94,7 @@ function buildCalendarPayload(events: AttendanceEventWithRelations[], now: Date)
   return {
     exportedAt: asSeoulIsoString(now),
     reportDate: formatSeoulDateKey(now),
-    source: "group-calendar Event.category=ATTENDANCE timezone=Asia/Seoul",
+    source: "group-calendar Event.category in (ATTENDANCE, BUSINESS_TRIP) timezone=Asia/Seoul",
     count: events.length,
     events: events.map((event) => ({
       id: event.id, category: event.category, title: event.title, description: event.description,
@@ -110,7 +114,7 @@ export async function writeGroupCalendarJson(
   const group = await client.group.findUnique({ where: { id: groupId }, select: { name: true } });
   if (!group) throw new Error("그룹을 찾을 수 없습니다.");
 
-  const events = await findAttendanceEvents(client, groupId, now);
+  const events = await findCalendarEvents(client, groupId, now);
   const payload = buildCalendarPayload(events, now);
   const fileName = `${sanitizeFileNamePart(group.name)} calendar.json`;
   const filePath = path.join(getExportDirectory(), fileName);
