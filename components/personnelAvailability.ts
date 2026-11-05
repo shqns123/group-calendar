@@ -80,3 +80,53 @@ export function getPersonnelAvailability(
     remainingMembers,
   } satisfies PersonnelAvailability;
 }
+
+export function getOvertimeAvailableMembers(
+  group: PersonnelGroup | null,
+  events: Array<{
+    creatorId: string;
+    isOvertimeOnly: boolean;
+    overtimeAvailable: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  }>,
+  scheduleEvents: Array<{
+    category?: "BUSINESS_TRIP" | "ATTENDANCE";
+    equipmentOnly?: boolean;
+    personnel?: string | null;
+    creatorId: string;
+  }>,
+) {
+  if (!group) return [];
+
+  const latestByMember = new Map<string, (typeof events)[number]>();
+  for (const event of events) {
+    if (!event.isOvertimeOnly) continue;
+    const previous = latestByMember.get(event.creatorId);
+    if (!previous || (event.updatedAt ?? event.createdAt ?? "") >
+        (previous.updatedAt ?? previous.createdAt ?? "")) {
+      latestByMember.set(event.creatorId, event);
+    }
+  }
+
+  const businessTripMemberIds = new Set<string>();
+  for (const event of scheduleEvents) {
+    if (event.category === "ATTENDANCE" || event.equipmentOnly) continue;
+    const personnel = parsePersonnel(event.personnel);
+    if (personnel.length === 0) {
+      businessTripMemberIds.add(event.creatorId);
+    } else {
+      for (const member of group.members) {
+        if (personnel.includes(getMemberLabel(member))) businessTripMemberIds.add(member.userId);
+      }
+    }
+  }
+
+  return group.members
+    .filter((member) =>
+      shouldCountTowardTotals(member) &&
+      latestByMember.get(member.userId)?.overtimeAvailable &&
+      !businessTripMemberIds.has(member.userId),
+    )
+    .map((member) => ({ userId: member.userId, name: getMemberLabel(member) }));
+}

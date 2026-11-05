@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { eventBus } from "@/lib/eventBus";
 import { syncEventNotifications } from "@/lib/notificationStore";
 import { rateLimit } from "@/lib/rateLimit";
-import { parseEventDateInput } from "@/lib/seoulTime";
+import { saveOvertimeStatus } from "@/lib/overtimeStatus";
+import { formatSeoulDateKey, parseEventDateInput } from "@/lib/seoulTime";
 import { NextRequest } from "next/server";
 
 async function resolveDefaultPersonnel(userId: string, groupId?: string | null) {
@@ -173,6 +174,21 @@ export async function POST(request: NextRequest) {
     if (isObserverRole(member.role)) {
       return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
     }
+  }
+
+  if (isOvertimeOnly === true) {
+    const dateKey = formatSeoulDateKey(parsedStartDateForCreate);
+    if (dateKey !== formatSeoulDateKey(parsedEndDateForCreate)) {
+      return Response.json({ error: "특근 상태는 하루 단위로 등록해 주세요" }, { status: 400 });
+    }
+    const event = await saveOvertimeStatus({
+      userId: session.user.id,
+      groupId: groupId || null,
+      dateKey,
+      available: overtimeAvailable === true,
+      personnel: defaultPersonnel,
+    });
+    return Response.json(event, { status: 201 });
   }
 
   const eventData = {

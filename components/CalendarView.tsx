@@ -14,7 +14,7 @@ import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import { getEquipmentStock } from "./equipmentStock";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
-import { getPersonnelAvailability } from "./personnelAvailability";
+import { getOvertimeAvailableMembers, getPersonnelAvailability } from "./personnelAvailability";
 import { isObserverRole } from "@/lib/groupPermissions";
 import { isEffectivelyHoliday, type CustomHoliday as SharedCustomHoliday } from "@/lib/koreanHolidays";
 import {
@@ -26,6 +26,7 @@ import {
   formatSeoulYearMonthLabel,
   getSeoulWeekday,
   getSeoulDayRange,
+  isSameSeoulDate,
 } from "@/lib/seoulTime";
 
 type Group = {
@@ -63,6 +64,8 @@ type CalEvent = {
   creatorId: string;
   groupId: string | null;
   creatorNickname?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
 };
 
@@ -120,6 +123,11 @@ function TodayView({
     });
   const equipmentStock = getEquipmentStock(group, todayEvents);
   const personnelAvailability = getPersonnelAvailability(group, todayEvents.filter((event) => !event.equipmentOnly));
+  const overtimeAvailableMembers = getOvertimeAvailableMembers(
+    group,
+    events.filter((event) => event.isOvertimeOnly && isSameSeoulDate(event.startDate, today)),
+    todayEvents,
+  );
   const effectiveDayNoteItems = group ? dayNoteItems : [];
   const hasDayNote = effectiveDayNoteItems.length > 0;
   const visibleDayNoteItems = isDayNoteExpanded ? effectiveDayNoteItems : effectiveDayNoteItems.slice(0, 1);
@@ -516,6 +524,7 @@ function TodayView({
       {showPersonnelAvailabilityModal && personnelAvailability && (
         <PersonnelAvailabilityModal
           availability={personnelAvailability}
+          overtimeAvailableMembers={overtimeAvailableMembers}
           title="인원 현황"
           subtitle={`${formatSeoulMonthDayWeekdayLabel(today)} 일정 기준`}
           onClose={() => setShowPersonnelAvailabilityModal(false)}

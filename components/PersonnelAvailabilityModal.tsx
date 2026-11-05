@@ -6,6 +6,7 @@ import type { PersonnelAvailability } from "./personnelAvailability";
 
 type Props = {
   availability: PersonnelAvailability;
+  overtimeAvailableMembers?: Array<{ userId: string; name: string }>;
   title?: string;
   subtitle?: string;
   onClose: () => void;
@@ -13,6 +14,7 @@ type Props = {
 
 export default function PersonnelAvailabilityModal({
   availability,
+  overtimeAvailableMembers = [],
   title = "인원 현황",
   subtitle,
   onClose,
@@ -43,6 +45,8 @@ export default function PersonnelAvailabilityModal({
           border: "1px solid var(--border)",
           boxShadow: "0 28px 80px rgba(15,23,42,0.24)",
           overflow: "hidden",
+          maxHeight: "calc(100dvh - 48px)",
+          overflowY: "auto",
         }}
       >
         <div
@@ -137,6 +141,36 @@ export default function PersonnelAvailabilityModal({
             </div>
           </div>
 
+          <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 14 }}>
+            <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)" }}>
+              특근 가능 인원 <span style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{overtimeAvailableMembers.length}명</span>
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+              {overtimeAvailableMembers.length > 0 ? (
+                overtimeAvailableMembers.map((member) => (
+                  <span
+                    key={member.userId}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      borderRadius: 999,
+                      padding: "5px 10px",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      background: "#FFFBEB",
+                      color: "#92400E",
+                      border: "1px solid #FDE68A",
+                    }}
+                  >
+                    {member.name}
+                  </span>
+                ))
+              ) : (
+                <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>특근 가능 인원 없음</span>
+              )}
+            </div>
+          </div>
+
           <div>
             <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               일정 등록 인원
@@ -196,6 +230,7 @@ export default function PersonnelAvailabilityModal({
               )}
             </div>
           </div>
+
         </div>
       </div>
     </div>

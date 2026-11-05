@@ -9,7 +9,7 @@ import EquipmentStockModal from "./EquipmentStockModal";
 import PersonnelAvailabilityIcon from "./PersonnelAvailabilityIcon";
 import PersonnelAvailabilityModal from "./PersonnelAvailabilityModal";
 import { getEquipmentStock } from "./equipmentStock";
-import { getPersonnelAvailability } from "./personnelAvailability";
+import { getOvertimeAvailableMembers, getPersonnelAvailability } from "./personnelAvailability";
 import {
   getCustomHolidayEntry,
   getEffectiveHolidayName,
@@ -40,6 +40,8 @@ type CalEvent = {
   equipment?: string | null;
   creatorId: string;
   groupId: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   creator: { id: string; name: string | null; email: string | null; image: string | null };
 };
 
@@ -135,9 +137,16 @@ export default function DayEventsModal({
     return member?.nickname || event.creator.name || event.creator.email?.split("@")[0] || "알 수 없음";
   };
 
-  const myOvertimeEvent = events.find(
-    (event) => event.isOvertimeOnly && event.creatorId === userId && isSameSeoulDate(event.startDate, date),
-  );
+  const overtimeByCreator = new Map<string, CalEvent>();
+  for (const event of events) {
+    if (!event.isOvertimeOnly || !isSameSeoulDate(event.startDate, date)) continue;
+    const previous = overtimeByCreator.get(event.creatorId);
+    if (!previous || (event.updatedAt ?? event.createdAt ?? "") >
+        (previous.updatedAt ?? previous.createdAt ?? "")) {
+      overtimeByCreator.set(event.creatorId, event);
+    }
+  }
+  const myOvertimeEvent = overtimeByCreator.get(userId);
 
   const overtimeStatus: "available" | "unavailable" | null = myOvertimeEvent
     ? myOvertimeEvent.overtimeAvailable
@@ -163,12 +172,12 @@ export default function DayEventsModal({
     setLocalStatus(isSameChoice ? null : choice);
 
     try {
-      if (myOvertimeEvent) {
-        const deleteResponse = await fetch(`/api/events/${myOvertimeEvent.id}`, { method: "DELETE" });
+      if (isSameChoice) {
+        const params = new URLSearchParams({ date: formatSeoulDateKey(date) });
+        if (group) params.set("groupId", group.id);
+        const deleteResponse = await fetch(`/api/overtime-status?${params}`, { method: "DELETE" });
         if (!deleteResponse.ok) throw new Error("delete failed");
-      }
-
-      if (!isSameChoice) {
+      } else {
         const dateStr = formatSeoulDateKey(date);
         const createResponse = await fetch("/api/events", {
           method: "POST",
@@ -197,12 +206,22 @@ export default function DayEventsModal({
     }
   };
 
-  const overtimePeopleAvailable = events.filter(
+  const overtimePeopleAvailable = [...overtimeByCreator.values()].filter(
     (event) => event.isOvertimeOnly && event.creatorId !== userId && event.overtimeAvailable,
   );
-  const overtimePeopleUnavailable = events.filter(
+  const overtimePeopleUnavailable = [...overtimeByCreator.values()].filter(
     (event) => event.isOvertimeOnly && event.creatorId !== userId && !event.overtimeAvailable,
   );
+
+  const removeMemberOvertime = async (creatorId: string) => {
+    const matching = events.filter(
+      (event) => event.isOvertimeOnly && event.creatorId === creatorId && isSameSeoulDate(event.startDate, date),
+    );
+    await Promise.all(matching.map((event) =>
+      fetch(`/api/events/${event.id}`, { method: "DELETE" }),
+    ));
+    onRefresh();
+  };
 
   const normalEvents = events.filter((event) => !event.isOvertimeOnly);
   const personnelEvents = normalEvents.filter((event) => !event.equipmentOnly);
@@ -217,6 +236,7 @@ export default function DayEventsModal({
     () => getPersonnelAvailability(group, personnelEvents),
     [group, personnelEvents],
   );
+  const overtimeAvailableMembers = getOvertimeAvailableMembers(group, [...overtimeByCreator.values()], normalEvents);
 
   const dateStr = formatSeoulDateKey(date);
   const customEntry = getCustomHolidayEntry(date, customHolidays);
@@ -571,9 +591,6 @@ export default function DayEventsModal({
                       gap: 3,
                     }}
                   >
-                    {effectiveStatus === "unavailable" && (
-                      <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>
-                    )}
                     {isPersonalSchedule ? "미근무" : "불가능"}
                   </button>
                   <button
@@ -597,9 +614,6 @@ export default function DayEventsModal({
                       gap: 3,
                     }}
                   >
-                    {effectiveStatus === "available" && (
-                      <span style={{ fontSize: "0.65rem", lineHeight: 1 }}>✓</span>
-                    )}
                     {isPersonalSchedule ? "근무" : "가능"}
                   </button>
                 </div>
@@ -644,8 +658,7 @@ export default function DayEventsModal({
                             <button
                               onClick={async (clickEvent) => {
                                 clickEvent.stopPropagation();
-                                await fetch(`/api/events/${event.id}`, { method: "DELETE" });
-                                onRefresh();
+                                await removeMemberOvertime(event.creatorId);
                               }}
                               style={{
                                 background: "none",
@@ -712,8 +725,7 @@ export default function DayEventsModal({
                           <button
                             onClick={async (clickEvent) => {
                               clickEvent.stopPropagation();
-                              await fetch(`/api/events/${event.id}`, { method: "DELETE" });
-                              onRefresh();
+                              await removeMemberOvertime(event.creatorId);
                             }}
                             style={{
                               background: "none",
@@ -1177,6 +1189,7 @@ export default function DayEventsModal({
       {showPersonnelAvailabilityModal && personnelAvailability && (
         <PersonnelAvailabilityModal
           availability={personnelAvailability}
+          overtimeAvailableMembers={overtimeAvailableMembers}
           title="인원 현황"
           subtitle={`${formatSeoulMonthDayWeekdayLabel(date)} 일정 기준`}
           onClose={() => setShowPersonnelAvailabilityModal(false)}

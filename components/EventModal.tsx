@@ -120,7 +120,7 @@ const COLORS = [
   "#06B6D4",
 ];
 
-const ATTENDANCE_TITLE_OPTIONS = ["월휴", "무휴", "유휴"] as const;
+const ATTENDANCE_TITLE_OPTIONS = ["월휴", "무휴", "유휴", "기타"] as const;
 
 const EQUIPMENT_GROUPS = [
   {
@@ -566,7 +566,7 @@ export default function EventModal({
             >
               <p className="text-sm font-semibold text-slate-800">근태</p>
               <p className="mt-1 text-xs text-slate-500">
-                월휴, 무휴, 유휴 같은 근태 일정을 등록합니다.
+                월휴, 무휴, 유휴 외 기타 일정을 등록합니다.
               </p>
             </button>
             <button
