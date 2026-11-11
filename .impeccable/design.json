@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T12:00:00+09:00",
+  "title": "Design System: 그룹 캘린더",
+  "extensions": {
+    "colorMeta": {
+      "navy-ink": { "role": "neutral", "displayName": "네이비 잉크", "tonalRamp": ["#020617", "#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#E2E8F0"] },
+      "indigo-action": { "role": "primary", "displayName": "인디고 액션", "tonalRamp": ["#1E1B4B", "#312E81", "#3730A3", "#4338CA", "#4F46E5", "#818CF8", "#A5B4FC", "#EEF2FF"] },
+      "indigo-signal": { "role": "primary", "displayName": "인디고 신호" },
+      "overtime-amber": { "role": "tertiary", "displayName": "특근 앰버", "tonalRamp": ["#451A03", "#78350F", "#92400E", "#B45309", "#D97706", "#F59E0B", "#FCD34D", "#FFFBEB"] },
+      "mist-bg": { "role": "neutral", "displayName": "미스트 배경" },
+      "night-bg": { "role": "neutral", "displayName": "관제실 밤 배경" }
+    },
+    "typographyMeta": {
+      "title1": { "displayName": "Title 1", "purpose": "탭 최상위 화면 제목과 월 제목." },
+      "title2": { "displayName": "Title 2", "purpose": "바텀시트 날짜." },
+      "headline": { "displayName": "Headline", "purpose": "카드·섹션·내비게이션 제목, 주요 버튼." },
+      "body": { "displayName": "Body", "purpose": "입력값과 설명." },
+      "subhead": { "displayName": "Subhead", "purpose": "목록 보조 줄, 메모 본문, 선택 칩." },
+      "footnote": { "displayName": "Footnote", "purpose": "라벨, 정보 칩, 메타." },
+      "caption": { "displayName": "Caption", "purpose": "캘린더 일정 칩, 탭 라벨, 배지. 11px 하한." }
+    },
+    "shadows": [
+      { "name": "floating", "value": "0 6px 16px rgba(15,23,42,0.25)", "purpose": "FAB." },
+      { "name": "sheet", "value": "0 -8px 32px rgba(15,23,42,0.2)", "purpose": "바텀시트." }
+    ],
+    "motion": [
+      { "name": "platform-default", "value": "system", "purpose": "iOS 푸시·시트, Android shared-axis·container transform을 그대로 쓴다. Reduce Motion에서는 크로스페이드." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "< 600dp" },
+      { "name": "tablet", "value": ">= 600dp (분할 화면, 미정)" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "화면당 하나뿐인 주요 행동.",
+      "html": "<button class=\"ds-btn-primary\">일정 추가</button>",
+      "css": ".ds-btn-primary { height: 52px; padding: 0 24px; border: 0; border-radius: 16px; background: #4F46E5; color: #FFFFFF; font-size: 17px; font-weight: 600; transition: background 0.15s; } .ds-btn-primary:hover { background: #4338CA; } .ds-btn-primary:focus-visible { outline: 3px solid #A5B4FC; outline-offset: 2px; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "44×44 아이콘 버튼, 항상 접근성 라벨.",
+      "html": "<button class=\"ds-btn-icon\" aria-label=\"다음 달\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 18 6-6-6-6\"/></svg></button>",
+      "css": ".ds-btn-icon { width: 44px; height: 44px; border: 0; border-radius: 12px; background: #F1F5F9; color: #0F172A; display: inline-flex; align-items: center; justify-content: center; } .ds-btn-icon:hover { background: #E2E8F0; } .ds-btn-icon:focus-visible { outline: 3px solid #A5B4FC; outline-offset: 2px; }"
+    },
+    {
+      "name": "Selectable Chip",
+      "kind": "chip",
+      "refersTo": "chip-selectable",
+      "description": "인원·근태·장비 선택. 선택 시 체크 아이콘.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"false\">이서연</button> <button class=\"ds-chip ds-chip-on\" aria-pressed=\"true\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>김민수</button>",
+      "css": ".ds-chip { height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #E2E8F0; background: #FFFFFF; color: #0F172A; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; } .ds-chip:hover { border-color: #C7D2FE; } .ds-chip-on { border-color: #4F46E5; background: #EEF2FF; color: #3730A3; } .ds-chip:focus-visible { outline: 3px solid #A5B4FC; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "헤어라인 카드, 그림자 없음.",
+      "html": "<div class=\"ds-card\"><strong>광주 출장</strong><span>11.12 – 11.13 · 김민수, 최유진</span></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 16px; border: 1px solid #E2E8F0; background: #FFFFFF; color: #0F172A; } .ds-card strong { font-size: 17px; font-weight: 600; } .ds-card span { font-size: 15px; color: #475569; }"
+    },
+    {
+      "name": "Calendar Event Chip",
+      "kind": "custom",
+      "refersTo": "calendar-event-chip",
+      "description": "일정 색 18% 워시 위 잉크 글자.",
+      "html": "<span class=\"ds-evchip\" style=\"background:#F973162E\">광주 출장</span> <span class=\"ds-evchip\" style=\"background:#F59E0B2E\">특근 가능</span>",
+      "css": ".ds-evchip { display: inline-block; padding: 1px 4px; border-radius: 5px; font-size: 11px; font-weight: 600; line-height: 1.3; color: #0F172A; white-space: nowrap; }"
+    },
+    {
+      "name": "Tab Bar (iOS)",
+      "kind": "nav",
+      "refersTo": "tab-bar",
+      "description": "4개 구역 탭, 활성은 인디고.",
+      "html": "<nav class=\"ds-tabs\"><a aria-current=\"page\">캘린더</a><a>일정 요약</a><a>알림</a><a>설정</a></nav>",
+      "css": ".ds-tabs { display: grid; grid-template-columns: repeat(4, 1fr); height: 49px; border-top: 1px solid #E2E8F0; background: #FFFFFF; } .ds-tabs a { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #64748B; text-decoration: none; } .ds-tabs a[aria-current] { color: #4F46E5; font-weight: 700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "네이비 관제실",
+    "overview": "현장 일정과 특근, 인원과 장비를 한 화면에서 내려다보는 관제실이 이 시스템의 기준이다. 정체성은 웹 사이드바의 딥 네이비(navy-ink)와 인디고 신호색에서 온다. 그 위의 컴포넌트는 부드럽고 친근하다: 둥근 모서리, 옅은 배경 워시, 굵기로 만든 위계. 관제실은 어두운 방이므로 다크 모드는 부가 기능이 아니라 이 정체성이 가장 선명하게 드러나는 화면이다.",
+    "keyCharacteristics": ["네이비 잉크와 인디고 신호색, 나머지는 슬레이트 중성색", "정보 색은 옅은 워시 배경과 진한 같은 계열 글자로 쓴다", "둥근 카드(16px)와 알약형(pill) 칩", "네이티브 앱은 플랫폼 시스템 폰트, 플랫폼 기본 컨트롤, 다크 모드를 기본으로 지원"],
+    "rules": [
+      { "name": "The Signal Only Rule", "body": "색은 판단이 필요한 정보에만 쓴다. 틀, 헤더, 탭바는 중성색이다.", "section": "colors" },
+      { "name": "The Wash And Ink Rule", "body": "정보 칩은 옅은 워시 배경에 같은 계열의 진한 글자를 쓴다. 채도 높은 면 위에 흰 글씨를 올리지 않는다(주요 버튼과 배지는 예외).", "section": "colors" },
+      { "name": "The Night Room Rule", "body": "모든 토큰은 라이트와 다크 값을 한 쌍으로 갖는다. 다크 값이 없는 색은 추가하지 않는다.", "section": "colors" },
+      { "name": "The Scalable Type Rule", "body": "앱의 모든 글자는 Dynamic Type과 Android 글꼴 크기를 따른다. 높이를 고정한 글자 상자는 만들지 않는다. 글자가 커지면 캘린더 칸은 칩 수를 줄이고(4 → 2) \"+N\"으로 넘긴다.", "section": "typography" },
+      { "name": "The Float Only Rule", "body": "그림자는 떠 있는 것(FAB, 시트)에만. 카드는 선으로 구분한다.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do 모든 조작 요소의 터치 영역을 44pt / 48dp 이상으로 한다. 보이는 크기가 작으면 터치 영역만 넓힌다.",
+      "Do 새 색을 추가할 때 라이트와 다크 값을 함께 정하고, 글자는 4.5:1, 비텍스트 요소는 3:1 대비를 확인한다.",
+      "Do 일정 색은 웹 EventModal의 10종 팔레트를 그대로 쓴다.",
+      "Do 상태는 색과 함께 글자나 아이콘으로도 표시한다(특근 상태 문구, 선택 체크, \"사용 중\")."
+    ],
+    "donts": [
+      "Don't 11px보다 작은 글자를 쓰지 않는다.",
+      "Don't 스위치, 세그먼트, 피커를 직접 그려 만들지 않는다. 플랫폼 컨트롤을 쓰고 색만 입힌다.",
+      "Don't 카드에 그림자를 넣지 않는다. 그림자는 FAB와 시트 전용이다.",
+      "Don't indigo-signal(#6366F1)을 흰 배경 위 작은 글자에 쓰지 않는다. 글자에는 indigo-action을 쓴다."
+    ]
+  }
+}
