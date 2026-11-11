@@ -1,0 +1,159 @@
+// Demo mode (EXPO_PUBLIC_DEMO=1 or no EXPO_PUBLIC_API_URL): an in-memory stand-in
+// for the server so screens can be previewed without signing in.
+
+import { addDays, keyToIso, todayKey, toKey, covers } from "./date";
+import type { AppNotification, CalEvent, Group, Me } from "./types";
+
+const me: Me = { id: "u1", name: "김민수", email: null, status: "ACTIVE", isOperator: false };
+const names = ["김민수", "이서연", "박지훈", "최유진", "정하늘", "한도윤", "오세린"];
+
+const group: Group = {
+  id: "g1",
+  name: "기술지원 1팀",
+  leaderId: "u1",
+  trackerOptions: "T-01, T-02, T-03, T-04",
+  laptopOptions: "N-01, N-02, N-03, N-04",
+  targetCount: 2,
+  members: names.map((n, i) => ({
+    id: `m${i + 1}`,
+    userId: `u${i + 1}`,
+    nickname: null,
+    role: "MEMBER",
+    status: "ACTIVE",
+    user: { id: `u${i + 1}`, name: n },
+  })),
+};
+
+let seq = 100;
+const t = todayKey();
+function ev(offset: number, len: number, partial: Partial<CalEvent>): CalEvent {
+  const start = addDays(t, offset);
+  return {
+    id: `e${seq++}`,
+    category: "BUSINESS_TRIP",
+    title: "",
+    startDate: keyToIso(start),
+    endDate: keyToIso(addDays(start, len - 1)),
+    allDay: true,
+    color: "#3B82F6",
+    overtimeAvailable: false,
+    isOvertimeOnly: false,
+    equipmentOnly: false,
+    personnel: null,
+    equipment: null,
+    creatorId: "u1",
+    groupId: "g1",
+    creator: { id: "u1", name: "김민수" },
+    ...partial,
+  };
+}
+
+let events: CalEvent[] = [
+  ev(-8, 3, { title: "부산 출장", personnel: "김민수, 정하늘", equipment: "T-02" }),
+  ev(-5, 1, { category: "ATTENDANCE", title: "월휴", personnel: "김민수", color: "#8B5CF6" }),
+  ev(-2, 2, { title: "장비 반출", equipmentOnly: true, equipment: "N-04", color: "#14B8A6" }),
+  ev(0, 1, { title: "울산 출장", personnel: "김민수, 최유진", equipment: "T-01, N-02", color: "#3B82F6" }),
+  ev(0, 1, { category: "ATTENDANCE", title: "유휴", personnel: "이서연", color: "#EC4899" }),
+  ev(1, 2, {
+    title: "광주 출장",
+    description: "광주 현장 장비 설치와 점검. 타겟은 전날 반출.",
+    personnel: "김민수, 최유진",
+    equipment: "T-03, N-01, Target x1",
+    color: "#F97316",
+  }),
+  ev(1, 1, { category: "ATTENDANCE", title: "월휴", personnel: "박지훈", color: "#8B5CF6", creatorId: "u3" }),
+  ev(1, 1, { title: "특근 가능", isOvertimeOnly: true, overtimeAvailable: true, personnel: "이서연", color: "#F59E0B", creatorId: "u2" }),
+  ev(3, 1, { title: "특근 가능", isOvertimeOnly: true, overtimeAvailable: true, personnel: "정하늘", color: "#F59E0B", creatorId: "u5" }),
+  ev(6, 3, { title: "인천 출장", personnel: "한도윤, 오세린", equipment: "T-04", color: "#6366F1" }),
+  ev(9, 1, { category: "ATTENDANCE", title: "무휴", personnel: "최유진", color: "#8B5CF6" }),
+  ev(13, 3, { title: "평택 출장", personnel: "김민수, 정하늘", color: "#10B981" }),
+  ev(24, 2, { title: "대구 출장", personnel: "박지훈", color: "#3B82F6" }),
+];
+
+let notifications: AppNotification[] = [
+  { id: "n1", groupId: "g1", type: "EVENT_CREATED", title: "새 일정 등록", body: "김민수 님이 광주 출장을 등록했습니다.", createdAt: new Date(Date.now() - 600_000).toISOString(), readAt: null, eventCategory: "BUSINESS_TRIP", targetDate: addDays(t, 1) },
+  { id: "n2", groupId: "g1", type: "OVERTIME", title: "특근 가능 요청", body: "이번 주말 특근 가능 여부를 표시해 주세요.", createdAt: new Date(Date.now() - 3_600_000).toISOString(), readAt: null, targetDate: addDays(t, 3) },
+  { id: "n3", groupId: "g1", type: "JOIN_REQUEST", title: "가입 승인 요청", body: "오세린 님이 기술지원 1팀 가입을 요청했습니다.", createdAt: new Date(Date.now() - 3 * 3_600_000).toISOString(), readAt: null },
+  { id: "n4", groupId: "g1", type: "DAY_NOTE", title: "그룹 메모 수정", body: "메모가 수정되었습니다: 광주 현장 오전 9시 집결.", createdAt: new Date(Date.now() - 26 * 3_600_000).toISOString(), readAt: new Date().toISOString(), targetDate: addDays(t, 1) },
+];
+
+const dayNotes: Record<string, string> = {
+  [addDays(t, 1)]: "광주 현장 오전 9시 집결. 타겟 장비는 전날 반출 확인 부탁드립니다.",
+};
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export async function demoFetch<T>(method: string, url: string, body: unknown): Promise<T> {
+  await delay(150);
+  const [path, qs = ""] = url.split("?");
+  const q = Object.fromEntries(qs.split("&").filter(Boolean).map((p) => p.split("=").map(decodeURIComponent)));
+  const b = (body ?? {}) as Record<string, unknown>;
+  const out = (v: unknown) => JSON.parse(JSON.stringify(v)) as T;
+
+  if (path === "/api/auth/me") return out({ user: me });
+  if (path === "/api/auth/app-native-signin") return out({ sessionToken: "demo", cookieName: "demo", pending: false });
+  if (path === "/api/groups") return out([group]);
+
+  if (path === "/api/events" && method === "GET") {
+    const start = q.start ? toKey(q.start) : null;
+    const end = q.end ? toKey(q.end) : null;
+    return out(
+      events.filter((e) => (!end || toKey(e.startDate) <= end) && (!start || toKey(e.endDate) >= start)),
+    );
+  }
+  if (path === "/api/events" && method === "POST") {
+    if (b.isOvertimeOnly) {
+      const key = toKey(String(b.startDate));
+      events = events.filter((e) => !(e.isOvertimeOnly && e.creatorId === me.id && covers(e, key)));
+      const created = ev(0, 1, {
+        title: b.overtimeAvailable ? "특근 가능" : "특근 불가능",
+        isOvertimeOnly: true,
+        overtimeAvailable: Boolean(b.overtimeAvailable),
+        personnel: me.name,
+        color: b.overtimeAvailable ? "#F59E0B" : "#EF4444",
+        startDate: String(b.startDate),
+        endDate: String(b.endDate),
+      });
+      events.push(created);
+      return out(created);
+    }
+    const created = ev(0, 1, { ...(b as Partial<CalEvent>), startDate: String(b.startDate), endDate: String(b.endDate) });
+    events.push(created);
+    return out(created);
+  }
+  const eventMatch = path.match(/^\/api\/events\/([^/]+)$/);
+  if (eventMatch) {
+    const id = eventMatch[1];
+    if (method === "DELETE") {
+      events = events.filter((e) => e.id !== id);
+      return out({ success: true });
+    }
+    events = events.map((e) => (e.id === id ? { ...e, ...(b as Partial<CalEvent>) } : e));
+    return out(events.find((e) => e.id === id));
+  }
+  if (path === "/api/overtime-status" && method === "DELETE") {
+    events = events.filter((e) => !(e.isOvertimeOnly && e.creatorId === me.id && covers(e, q.date)));
+    return out({ success: true });
+  }
+  if (path === "/api/day-notes") {
+    const content = dayNotes[q.date];
+    return out({
+      note: content ? { id: "d1", date: q.date, content, items: [{ text: content }], updatedAt: new Date().toISOString() } : null,
+      canEdit: true,
+    });
+  }
+  if (path === "/api/notifications") {
+    return out({ items: notifications, unreadCount: notifications.filter((n) => !n.readAt).length });
+  }
+  if (path === "/api/notifications/read-all") {
+    notifications = notifications.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() }));
+    return out({ count: notifications.length });
+  }
+  const readMatch = path.match(/^\/api\/notifications\/([^/]+)\/read$/);
+  if (readMatch) {
+    notifications = notifications.map((n) => (n.id === readMatch[1] ? { ...n, readAt: new Date().toISOString() } : n));
+    return out({ success: true });
+  }
+  if (path === "/api/push/mobile-token") return out({ ok: true });
+  return out({});
+}
