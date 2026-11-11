@@ -251,6 +251,12 @@ components:
 - **Android:** Material NavigationBar 80dp, 활성 탭은 indigo-wash 알약(64×32) 표시와 잉크 글자, 라벨 12sp.
 - **편집 화면:** iOS는 "취소 / 제목 / 저장" 내비게이션 바, Android는 닫기(X) 아이콘, 제목, "저장" 버튼이 있는 상단 앱바.
 
+### Icons
+앱은 플랫폼 아이콘을 쓴다: iOS는 Ionicons(SF Symbols와 같은 선형 계열), Android는 Material Icons, 둘 다 `@expo/vector-icons`에서 가져온다. 아이콘 이름은 앱의 한 매핑 파일에서 플랫폼별로 고르고, 화면 코드는 의미 이름(calendar, list, bell, settings, add, chevron 등)만 쓴다. 웹은 기존 lucide-react를 유지한다.
+
+### Refresh
+목록 화면(일정 요약, 알림)은 새로고침 버튼 대신 당겨서 새로고침(RefreshControl)을 쓴다. 실시간 갱신은 서버 SSE(`/api/events/stream`)가 맡는다.
+
 ### Switch / Segmented
 플랫폼 기본 컨트롤을 쓴다(React Native Switch, iOS 세그먼트 컨트롤, Material SegmentedButton). 브랜드는 트랙 색으로만 입힌다. 특근 스위치는 overtime-amber-deep, 일반 스위치는 indigo-action.
 
