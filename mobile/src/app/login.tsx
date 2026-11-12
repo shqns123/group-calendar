@@ -46,7 +46,7 @@ export default function LoginScreen() {
     }
   }
 
-  const field = { ...type.body, color: c.text, minHeight: 52, paddingHorizontal: 14, borderRadius: radius.control, borderWidth: 1, borderColor: c.outline, backgroundColor: c.card } as const;
+  const field = { ...type.body, color: c.text, minHeight: 52, paddingHorizontal: 14, borderRadius: radius.control, backgroundColor: c.subtle } as const;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.surface }}>
@@ -73,7 +73,7 @@ export default function LoginScreen() {
               accessibilityRole="button"
               onPress={google}
               disabled={busy != null}
-              style={({ pressed }) => ({ minHeight: 52, borderRadius: radius.card, borderWidth: 1, borderColor: c.outline, backgroundColor: pressed ? c.subtle : c.card, alignItems: "center", justifyContent: "center" })}
+              style={({ pressed }) => ({ minHeight: 56, borderRadius: radius.control, backgroundColor: pressed ? c.fill : c.subtle, alignItems: "center", justifyContent: "center" })}
             >
               <T variant="headline">{busy === "google" ? "Google 로그인 중…" : "Google 계정으로 계속"}</T>
             </Pressable>

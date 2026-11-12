@@ -11,13 +11,11 @@ export function ScreenHeader({ title, subtitle, trailing }: { title: string; sub
   return (
     <View
       style={{
-        paddingTop: insets.top + 8,
-        paddingBottom: 12,
-        paddingLeft: 16,
-        paddingRight: 8,
-        backgroundColor: c.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: c.outline,
+        paddingTop: insets.top + 12,
+        paddingBottom: 8,
+        paddingLeft: 20,
+        paddingRight: 12,
+        backgroundColor: c.bg,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",

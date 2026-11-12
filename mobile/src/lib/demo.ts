@@ -2,9 +2,10 @@
 // for the server so screens can be previewed without signing in.
 
 import { addDays, keyToIso, todayKey, toKey, covers } from "./date";
-import type { AppNotification, CalEvent, Group, Me } from "./types";
+import type { AdminUser, AppNotification, CalEvent, CustomHoliday, Group, Me, NotificationSchedule, PendingUser } from "./types";
 
-const me: Me = { id: "u1", name: "김민수", email: null, status: "ACTIVE", isOperator: false };
+// Demo user is the group admin and an operator, so every management screen is visible.
+const me: Me = { id: "u1", name: "김민수", email: null, status: "ACTIVE", isOperator: true };
 const names = ["김민수", "이서연", "박지훈", "최유진", "정하늘", "한도윤", "오세린"];
 
 const group: Group = {
@@ -14,15 +15,26 @@ const group: Group = {
   trackerOptions: "T-01, T-02, T-03, T-04",
   laptopOptions: "N-01, N-02, N-03, N-04",
   targetCount: 2,
-  members: names.map((n, i) => ({
-    id: `m${i + 1}`,
-    userId: `u${i + 1}`,
-    nickname: null,
-    role: "MEMBER",
-    status: "ACTIVE",
-    user: { id: `u${i + 1}`, name: n },
-  })),
+  eventDisplayLimit: 3,
+  inviteCode: "AB12CD",
+  members: [
+    ...names.map((n, i) => ({
+      id: `m${i + 1}`,
+      userId: `u${i + 1}`,
+      nickname: null,
+      role: i === 1 ? "그룹장" : i === 2 ? "파트장" : "MEMBER",
+      status: "ACTIVE",
+      canNotify: i === 1,
+      user: { id: `u${i + 1}`, name: n },
+    })),
+    { id: "m9", userId: "u9", nickname: null, role: "MEMBER", status: "PENDING", canNotify: false, user: { id: "u9", name: "윤지아", email: "jia@example.com" } },
+  ],
 };
+
+let holidays: CustomHoliday[] = [{ id: "h1", date: addDays(todayKey(), 9), name: "창립기념일", type: "holiday" }];
+let schedules: NotificationSchedule[] = [{ id: "s1", groupId: "g1", message: "오늘 일정 확인해 주세요", dayOfWeek: "1,2,3,4,5", timeHour: 8, timeMin: 30, active: true }];
+let pendingUsers: PendingUser[] = [{ id: "u10", name: "강하은", email: "haeun@example.com", employeeId: null, createdAt: new Date().toISOString() }];
+const personalNotes: Record<string, { id: string; text: string }[]> = {};
 
 let seq = 100;
 const t = todayKey();
@@ -77,9 +89,11 @@ let notifications: AppNotification[] = [
   { id: "n4", groupId: "g1", type: "DAY_NOTE", title: "그룹 메모 수정", body: "메모가 수정되었습니다: 광주 현장 오전 9시 집결.", createdAt: new Date(Date.now() - 26 * 3_600_000).toISOString(), readAt: new Date().toISOString(), targetDate: addDays(t, 1) },
 ];
 
-const dayNotes: Record<string, string> = {
-  [addDays(t, 1)]: "광주 현장 오전 9시 집결. 타겟 장비는 전날 반출 확인 부탁드립니다.",
-};
+// Day-note entries carry a date range; like the server, each one shows on every day it covers.
+type DemoNote = { id: string; text: string; assignee: string; startDate: string; endDate: string };
+let dayNotes: DemoNote[] = [
+  { id: "d1", text: "광주 현장 오전 9시 집결. 타겟 장비는 전날 반출 확인 부탁드립니다.", assignee: "", startDate: addDays(t, 1), endDate: addDays(t, 2) },
+];
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -136,11 +150,80 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
     return out({ success: true });
   }
   if (path === "/api/day-notes") {
-    const content = dayNotes[q.date];
+    if (method === "PUT") {
+      const date = String(b.date);
+      const entries = ((b.entries as DemoNote[]) ?? []).map((e) => ({ ...e, startDate: e.startDate || date, endDate: e.endDate || date }));
+      // Replace what this day showed (by id) with the edited list, keeping other days' entries.
+      const shown = new Set(dayNotes.filter((n) => n.startDate <= date && n.endDate >= date).map((n) => n.id));
+      dayNotes = [...dayNotes.filter((n) => !shown.has(n.id) && !entries.some((e) => e.id === n.id)), ...entries];
+      return out({ success: true });
+    }
+    const items = dayNotes.filter((n) => n.startDate <= q.date && n.endDate >= q.date);
     return out({
-      note: content ? { id: "d1", date: q.date, content, items: [{ text: content }], updatedAt: new Date().toISOString() } : null,
+      note: items.length ? { id: `d-${q.date}`, date: q.date, content: items.map((i) => i.text).join("\n"), items, updatedAt: new Date().toISOString() } : null,
       canEdit: true,
     });
+  }
+  if (path === "/api/personal-notes") {
+    if (method === "PUT") {
+      personalNotes[String(b.date)] = (b.items as { id: string; text: string }[]) ?? [];
+      return out({ note: null });
+    }
+    const items = personalNotes[q.date] ?? [];
+    return out({ note: items.length ? { id: "p1", date: q.date, items } : null });
+  }
+  if (path === "/api/admin/holidays") {
+    if (method === "POST") {
+      holidays = [...holidays.filter((h) => h.date !== b.date), { id: `h${seq++}`, date: String(b.date), name: String(b.name || (b.type === "holiday" ? "회사 휴일" : "대체 근무일")), type: b.type as CustomHoliday["type"] }];
+      holidays.sort((a, c) => a.date.localeCompare(c.date));
+      return out({ ok: true });
+    }
+    if (method === "DELETE") {
+      holidays = holidays.filter((h) => h.id !== b.id);
+      return out({ ok: true });
+    }
+    return out(holidays);
+  }
+  if (path === "/api/admin/pending") return out(pendingUsers);
+  if (path === "/api/admin/approve") {
+    pendingUsers = pendingUsers.filter((u) => u.id !== b.userId);
+    return out({ ok: true });
+  }
+  if (path === "/api/admin/users") {
+    const users: AdminUser[] = group.members
+      .filter((m) => m.status === "ACTIVE")
+      .map((m) => ({ id: m.userId, name: m.user.name, email: m.user.email ?? null, employeeId: null, isOperator: m.userId === me.id, createdAt: new Date().toISOString(), groupMembers: [{ id: m.id, role: m.role, group: { id: group.id, name: group.name, leaderId: group.leaderId } }] }));
+    return out(users);
+  }
+  if (path === "/api/admin/schedules") {
+    if (method === "POST") schedules.push({ id: `s${seq++}`, groupId: String(b.groupId), message: String(b.message), dayOfWeek: String(b.dayOfWeek), timeHour: Number(b.timeHour), timeMin: Number(b.timeMin), active: true });
+    else if (method === "PATCH") schedules = schedules.map((s) => (s.id === b.id ? { ...s, ...(b as Partial<NotificationSchedule>) } : s));
+    else if (method === "DELETE") schedules = schedules.filter((s) => s.id !== b.id);
+    return out(method === "GET" ? schedules : { ok: true });
+  }
+  if (path === "/api/admin/notify") return out({ ok: true, sent: group.members.length });
+  if (path === "/api/admin/notify-permission") {
+    group.members = group.members.map((m) => (m.id === b.memberId ? { ...m, canNotify: Boolean(b.canNotify) } : m));
+    return out({ ok: true });
+  }
+  const memberMatch = path.match(/^\/api\/groups\/[^/]+\/members\/([^/]+)$/);
+  if (memberMatch) {
+    const id = memberMatch[1];
+    if (b.status === "REJECTED") group.members = group.members.filter((m) => m.id !== id);
+    else group.members = group.members.map((m) => (m.id === id ? { ...m, ...(b as object) } : m));
+    return out({ success: true });
+  }
+  if (/^\/api\/groups\/[^/]+\/invite$/.test(path)) {
+    group.inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return out({ inviteCode: group.inviteCode });
+  }
+  if (/^\/api\/groups\/[^/]+\/qr-invite$/.test(path)) return out({ token: "demo-qr-token", expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() });
+  if (/^\/api\/groups\/[^/]+\/calendar-sync$/.test(path)) return out({ success: true });
+  if (/^\/api\/groups\/[^/]+\/leader$/.test(path)) return out({ success: true });
+  if (path === "/api/groups/join") return out({ success: true, groupId: "g2", groupName: "데모 그룹", pending: true });
+  if (/^\/api\/groups\/[^/]+$/.test(path) && method === "PATCH") {
+    Object.assign(group, b);
+    return out(group);
   }
   if (path === "/api/notifications") {
     return out({ items: notifications, unreadCount: notifications.filter((n) => !n.readAt).length });

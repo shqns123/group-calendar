@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "test": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "test"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "distribution": "internal",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_API_URL": "https://dqa.woojin2.synology.me",
+        "EXPO_PUBLIC_DEMO": "0",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "20729723993-hi034j4ttmclqg6cb286r7i9p4tvgm7t.apps.googleusercontent.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}

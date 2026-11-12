@@ -1,5 +1,4 @@
-import SegmentedControlBase from "@react-native-segmented-control/segmented-control";
-import { type ComponentType, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -18,33 +17,15 @@ import { Icon, type IconName } from "./Icon";
 
 type Role = keyof typeof type;
 
-// The package ships class typings older than React 19; describe the props we use.
-const SegmentedControl = SegmentedControlBase as unknown as ComponentType<{
-  values: string[];
-  selectedIndex: number;
-  onChange: (e: { nativeEvent: { selectedSegmentIndex: number } }) => void;
-  appearance?: "dark" | "light";
-  accessibilityLabel?: string;
-  style?: StyleProp<ViewStyle>;
-}>;
-
 export function T({ variant = "body", color, style, ...rest }: TextProps & { variant?: Role; color?: string }) {
   const { c } = useTheme();
   return <Text {...rest} style={[type[variant], { color: color ?? c.text }, style]} />;
 }
 
+/** White surface on the canvas — no border, no shadow (The Quiet Surface Rule). */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
-  return (
-    <View
-      style={[
-        { backgroundColor: c.card, borderColor: c.outline, borderWidth: 1, borderRadius: radius.card, paddingVertical: 12, paddingHorizontal: 14 },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <View style={[{ backgroundColor: c.card, borderRadius: radius.card, paddingVertical: 16, paddingHorizontal: 20 }, style]}>{children}</View>;
 }
 
 export function IconButton({ icon, label, onPress, tone = "subtle" }: { icon: IconName; label: string; onPress?: () => void; tone?: "subtle" | "plain" | "card" }) {
@@ -59,13 +40,10 @@ export function IconButton({ icon, label, onPress, tone = "subtle" }: { icon: Ic
       style={({ pressed }) => ({
         width: 44,
         height: 44,
-        borderRadius: radius.control,
-        backgroundColor: bg,
-        borderWidth: tone === "card" ? 1 : 0,
-        borderColor: c.outline,
+        borderRadius: radius.pill,
+        backgroundColor: pressed ? c.fill : bg,
         alignItems: "center",
         justifyContent: "center",
-        opacity: pressed ? 0.6 : 1,
       })}
     >
       <Icon name={icon} size={22} color={c.text} />
@@ -83,15 +61,16 @@ export function PrimaryButton({ label, icon, onPress, busy, disabled }: { label:
       onPress={onPress}
       disabled={disabled || busy}
       style={({ pressed }) => ({
-        minHeight: 52,
-        borderRadius: radius.card,
+        minHeight: 56,
+        borderRadius: radius.control,
         backgroundColor: c.primary,
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "row",
         gap: 6,
         paddingHorizontal: 20,
-        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+        opacity: disabled ? 0.4 : pressed ? 0.85 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
       })}
     >
       {busy ? <ActivityIndicator color={c.onPrimary} /> : icon ? <Icon name={icon} size={20} color={c.onPrimary} /> : null}
@@ -102,7 +81,38 @@ export function PrimaryButton({ label, icon, onPress, busy, disabled }: { label:
   );
 }
 
-/** Selectable pill (people, attendance type, equipment). Selected state shows a check, not only color. */
+/** Quiet grey-filled button for secondary actions. */
+export function SecondaryButton({ label, icon, onPress, disabled, tone = "neutral" }: { label: string; icon?: IconName; onPress: () => void; disabled?: boolean; tone?: "neutral" | "danger" }) {
+  const { c } = useTheme();
+  const fg = tone === "danger" ? c.danger : c.text;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => ({
+        minHeight: 52,
+        borderRadius: radius.control,
+        backgroundColor: pressed ? c.fill : c.subtle,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        gap: 6,
+        paddingHorizontal: 20,
+        opacity: disabled ? 0.4 : 1,
+      })}
+    >
+      {icon ? <Icon name={icon} size={20} color={fg} /> : null}
+      <T variant="headline" color={fg}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
+/** Selectable pill (people, attendance type, equipment). Selected = tinted fill + accent text; state is also announced to screen readers. */
 export function Chip({
   label,
   selected,
@@ -114,9 +124,9 @@ export function Chip({
 }: { label: string; selected?: boolean; onPress?: () => void; disabled?: boolean; note?: string; tone?: "primary" | "info" | "ink" } & Omit<PressableProps, "children">) {
   const { c } = useTheme();
   const on = {
-    primary: { bg: c.primaryContainer, fg: c.onPrimaryContainer, border: c.primary },
-    info: { bg: c.infoContainer, fg: c.onInfo, border: c.infoBorder },
-    ink: { bg: c.text, fg: c.surface, border: c.text },
+    primary: { bg: c.primaryContainer, fg: c.onPrimaryContainer },
+    info: { bg: c.infoContainer, fg: c.onInfo },
+    ink: { bg: c.text, fg: c.surface },
   }[tone];
   return (
     <Pressable
@@ -128,20 +138,18 @@ export function Chip({
       disabled={disabled}
       style={({ pressed }) => ({
         minHeight: HIT,
-        paddingHorizontal: 14,
+        paddingHorizontal: 16,
         borderRadius: radius.pill,
-        borderWidth: 1,
-        borderStyle: disabled ? "dashed" : "solid",
-        borderColor: disabled ? c.strong : selected ? on.border : c.outline,
-        backgroundColor: disabled ? c.subtle : selected ? on.bg : c.card,
+        borderWidth: disabled ? 1 : 0,
+        borderStyle: "dashed",
+        borderColor: c.strong,
+        backgroundColor: disabled ? "transparent" : selected ? on.bg : pressed ? c.fill : c.subtle,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 4,
-        opacity: pressed ? 0.75 : 1,
       })}
     >
-      {selected && !disabled ? <Icon name="check" size={16} color={on.fg} /> : null}
       <View style={{ alignItems: "center" }}>
         <T variant="subhead" style={{ fontWeight: "600" }} color={disabled ? c.muted : selected ? on.fg : c.text}>
           {label}
@@ -156,10 +164,10 @@ export function Chip({
   );
 }
 
-/** Read-only info pill (wash + ink). */
+/** Read-only status pill (wash + ink). */
 export function Tag({ label, bg, fg }: { label: string; bg: string; fg: string }) {
   return (
-    <View style={{ backgroundColor: bg, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 }}>
+    <View style={{ backgroundColor: bg, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 }}>
       <T variant="footnote" color={fg}>
         {label}
       </T>
@@ -167,23 +175,11 @@ export function Tag({ label, bg, fg }: { label: string; bg: string; fg: string }
   );
 }
 
-/** Platform segmented control: UISegmentedControl on iOS, Material SegmentedButton on Android. */
+/** Choice between a few options, drawn as separate pill slots side by side. */
 export function Segmented({ values, index, onChange, label }: { values: string[]; index: number; onChange: (i: number) => void; label: string }) {
-  const { c, isDark } = useTheme();
-  if (Platform.OS === "ios") {
-    return (
-      <SegmentedControl
-        accessibilityLabel={label}
-        values={values}
-        selectedIndex={index}
-        onChange={(e) => onChange(e.nativeEvent.selectedSegmentIndex)}
-        appearance={isDark ? "dark" : "light"}
-        style={{ height: 36 }}
-      />
-    );
-  }
+  const { c } = useTheme();
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: "row", borderWidth: 1, borderColor: c.strong, borderRadius: radius.pill, overflow: "hidden" }}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: "row", gap: 8 }}>
       {values.map((v, i) => {
         const on = i === index;
         return (
@@ -193,20 +189,18 @@ export function Segmented({ values, index, onChange, label }: { values: string[]
             accessibilityLabel={v}
             accessibilityState={{ checked: on }}
             onPress={() => onChange(i)}
-            style={{
+            style={({ pressed }) => ({
               flex: 1,
-              minHeight: 48,
+              minHeight: 52,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
               gap: 6,
-              backgroundColor: on ? c.primaryContainer : "transparent",
-              borderLeftWidth: i === 0 ? 0 : 1,
-              borderLeftColor: c.strong,
-            }}
+              borderRadius: radius.control,
+              backgroundColor: on ? c.primaryContainer : pressed ? c.fill : c.card,
+            })}
           >
-            {on ? <Icon name="check" size={18} color={c.onPrimaryContainer} /> : null}
-            <T variant="subhead" style={{ fontWeight: "600" }} color={on ? c.onPrimaryContainer : c.text}>
+            <T variant="headline" color={on ? c.onPrimaryContainer : c.text2}>
               {v}
             </T>
           </Pressable>
@@ -244,8 +238,8 @@ export function Loading() {
 export function Empty({ title, body }: { title: string; body?: string }) {
   const { c } = useTheme();
   return (
-    <View style={{ padding: 32, alignItems: "center", gap: 6 }}>
-      <T variant="headline" color={c.text2}>
+    <View style={{ paddingVertical: 48, paddingHorizontal: 24, alignItems: "center", gap: 6 }}>
+      <T variant="headline" color={c.text}>
         {title}
       </T>
       {body ? (
@@ -260,12 +254,12 @@ export function Empty({ title, body }: { title: string; body?: string }) {
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const { c } = useTheme();
   return (
-    <View accessibilityRole="alert" style={{ margin: 16, padding: 12, borderRadius: radius.control, backgroundColor: c.warnContainer, borderWidth: 1, borderColor: c.warnBorder, gap: 8 }}>
-      <T variant="subhead" color={c.onWarn}>
+    <View accessibilityRole="alert" style={{ marginVertical: 8, padding: 16, borderRadius: radius.control, backgroundColor: c.dangerContainer, gap: 8 }}>
+      <T variant="subhead" color={c.danger} style={{ fontWeight: "600" }}>
         {message}
       </T>
       {onRetry ? (
-        <Pressable accessibilityRole="button" onPress={onRetry} style={{ minHeight: 44, justifyContent: "center" }}>
+        <Pressable accessibilityRole="button" onPress={onRetry} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}>
           <T variant="headline" color={c.primaryText}>
             다시 시도
           </T>

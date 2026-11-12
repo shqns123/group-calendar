@@ -40,8 +40,37 @@ export type Group = {
   trackerOptions?: string | null;
   laptopOptions?: string | null;
   targetCount?: number;
+  eventDisplayLimit?: number;
+  inviteCode?: string;
   members: GroupMember[];
 };
+
+export type CustomHoliday = { id: string; date: string; name: string; type: "holiday" | "workday" };
+
+export type PendingUser = { id: string; name?: string | null; email?: string | null; employeeId?: string | null; createdAt: string };
+
+export type AdminUser = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  employeeId?: string | null;
+  isOperator: boolean;
+  createdAt: string;
+  groupMembers: { id: string; role?: string | null; group: { id: string; name: string; leaderId: string } }[];
+};
+
+export type NotificationSchedule = {
+  id: string;
+  groupId: string;
+  message: string;
+  dayOfWeek: string; // "1,3,5"
+  timeHour: number;
+  timeMin: number;
+  active: boolean;
+};
+
+export type DayNoteEntry = { id: string; text: string; assignee: string; startDate: string; endDate: string };
+export type PersonalNoteItem = { id: string; text: string };
 
 export type Me = {
   id: string;

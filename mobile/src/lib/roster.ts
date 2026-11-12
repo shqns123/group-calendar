@@ -45,10 +45,14 @@ export function personnelFor(group: Group | null, dayEvents: CalEvent[]) {
   const overtime = dayEvents
     .filter((e) => e.isOvertimeOnly && e.overtimeAvailable)
     .flatMap((e) => splitList(e.personnel));
+  const overtimeNo = dayEvents
+    .filter((e) => e.isOvertimeOnly && !e.overtimeAvailable)
+    .flatMap((e) => splitList(e.personnel));
   return {
     total: roster.length,
     remaining: roster.filter((l) => !assigned.has(l)),
     overtime: Array.from(new Set(overtime)),
+    overtimeNo: Array.from(new Set(overtimeNo)),
   };
 }
 

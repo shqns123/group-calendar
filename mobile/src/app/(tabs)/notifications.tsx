@@ -99,11 +99,10 @@ export default function NotificationsScreen() {
                     flexDirection: "row",
                     gap: 12,
                     alignItems: "flex-start",
-                    padding: 14,
+                    paddingVertical: 16,
+                    paddingHorizontal: 20,
                     borderRadius: radius.card,
-                    borderWidth: 1,
-                    borderColor: c.outline,
-                    backgroundColor: pressed ? c.subtle : isUnread ? c.card : c.sheet,
+                    backgroundColor: pressed ? c.subtle : c.card,
                   })}
                 >
                   <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: k.bg, alignItems: "center", justifyContent: "center" }}>

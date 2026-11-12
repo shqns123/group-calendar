@@ -34,7 +34,8 @@ export default function SummaryScreen() {
     const { year, month } = parseKey(today);
     const buckets: Record<Bucket, CalEvent[]> = { today: [], tomorrow: [], week: [], month: [], later: [] };
     for (const e of data ?? []) {
-      if (e.isOvertimeOnly && !e.overtimeAvailable) continue;
+      // Summary lists 근태 and 출장 only; 특근 marks (available or not) are left out.
+      if (e.isOvertimeOnly) continue;
       const s = toKey(e.startDate) < today ? today : toKey(e.startDate);
       const p = parseKey(s);
       const b: Bucket = s === today ? "today" : s === tomorrow ? "tomorrow" : s <= weekEnd ? "week" : p.year === year && p.month === month ? "month" : "later";
@@ -75,15 +76,13 @@ export default function SummaryScreen() {
                   setClosed(next);
                 }}
                 style={{
-                  marginTop: 10,
-                  minHeight: 52,
-                  paddingHorizontal: 14,
+                  marginTop: 16,
+                  minHeight: 56,
+                  paddingHorizontal: 20,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 8,
                   backgroundColor: c.card,
-                  borderWidth: 1,
-                  borderColor: c.outline,
                   borderTopLeftRadius: radius.card,
                   borderTopRightRadius: radius.card,
                   borderBottomLeftRadius: open ? 0 : radius.card,
@@ -115,14 +114,12 @@ export default function SummaryScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  minHeight: 64,
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  minHeight: 68,
                   backgroundColor: pressed ? c.subtle : c.card,
-                  borderLeftWidth: 1,
-                  borderRightWidth: 1,
-                  borderBottomWidth: 1,
-                  borderColor: c.outline,
+                  borderTopWidth: 1,
+                  borderTopColor: c.outline,
                   borderBottomLeftRadius: last ? radius.card : 0,
                   borderBottomRightRadius: last ? radius.card : 0,
                 })}
@@ -138,13 +135,13 @@ export default function SummaryScreen() {
                 <View style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: e.color }} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <T variant="headline" numberOfLines={1} style={{ flexShrink: 1 }}>
+                    <T variant="subhead" numberOfLines={1} style={{ flexShrink: 1, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>
                       {e.category === "ATTENDANCE" ? `${e.title}` : e.title}
                     </T>
                     {e.equipmentOnly ? <Tag label="장비 반출" bg={c.infoContainer} fg={c.onInfo} /> : null}
                   </View>
                   {sub ? (
-                    <T variant="subhead" color={c.text2} numberOfLines={1}>
+                    <T variant="caption" color={c.text2} numberOfLines={1} style={{ fontWeight: "400" }}>
                       {sub}
                     </T>
                   ) : null}

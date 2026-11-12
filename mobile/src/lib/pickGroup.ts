@@ -1,23 +1,7 @@
-import { ActionSheetIOS, Alert, Platform } from "react-native";
+import type { SheetOption } from "@/components/ActionSheet";
 import type { Group } from "./types";
 
-/** Native group chooser: action sheet on iOS, dialog on Android/web. */
-export function pickGroup(groups: Group[], currentId: string | null, onSelect: (id: string) => void) {
-  if (groups.length <= 1) return;
-  const names = groups.map((g) => (g.id === currentId ? `${g.name} ✓` : g.name));
-  if (Platform.OS === "ios") {
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: "그룹 전환", options: [...names, "취소"], cancelButtonIndex: names.length },
-      (i) => {
-        if (i < groups.length) onSelect(groups[i].id);
-      },
-    );
-    return;
-  }
-  Alert.alert(
-    "그룹 전환",
-    undefined,
-    [...groups.map((g, i) => ({ text: names[i], onPress: () => onSelect(g.id) })), { text: "취소", style: "cancel" as const }],
-    { cancelable: true },
-  );
+/** Options for the group chooser sheet (works for any number of groups). */
+export function groupOptions(groups: Group[], currentId: string | null, onSelect: (id: string) => void, defaultId?: string | null): SheetOption[] {
+  return groups.map((g) => ({ label: g.id === defaultId ? `${g.name} · 기본` : g.name, selected: g.id === currentId, onPress: () => onSelect(g.id) }));
 }

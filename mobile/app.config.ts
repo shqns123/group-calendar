@@ -11,9 +11,23 @@ const nameSuffix = isProd ? "" : variant === "test" ? " (테스트)" : " (개발
 
 const googleIosUrlScheme = process.env.GOOGLE_IOS_URL_SCHEME;
 
+// A release build without a server address would silently run on demo data, and
+// Android release builds refuse plain http. Fail the build instead.
+if (isProd) {
+  const api = process.env.EXPO_PUBLIC_API_URL ?? "";
+  if (!/^https:\/\/[^/]+/.test(api) || process.env.EXPO_PUBLIC_DEMO === "1") {
+    throw new Error("production 빌드에는 https 서버 주소(EXPO_PUBLIC_API_URL)가 필요하고 데모 모드는 꺼져 있어야 해요. eas.json의 production env를 확인하세요.");
+  }
+}
+
+// EAS project id: `npx eas-cli init` prints it (it can't write into a .ts config itself).
+// Paste it here once; it is not a secret.
+const EAS_PROJECT_ID = "bbf2c3fd-960c-4f7a-9a83-867f87b32cf6";
+
 const config: ExpoConfig = {
   name: `그룹 캘린더${nameSuffix}`,
-  slug: "group-calendar",
+  // Must match the EAS project (EAS_PROJECT_ID) slug.
+  slug: "woojin",
   version: "1.0.0",
   scheme: "groupcalendar",
   orientation: "portrait",
@@ -52,6 +66,7 @@ const config: ExpoConfig = {
   },
   extra: {
     appVariant: variant,
+    ...(EAS_PROJECT_ID ? { eas: { projectId: EAS_PROJECT_ID } } : {}),
   },
 };
 

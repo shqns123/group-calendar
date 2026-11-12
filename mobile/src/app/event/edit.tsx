@@ -72,6 +72,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
   const [equipmentOnly, setEquipmentOnly] = useState(Boolean(existing?.equipmentOnly));
   const [color, setColor] = useState(existing?.color ?? EVENT_COLORS[0].hex);
   const [eqTab, setEqTab] = useState<(typeof EQUIP_TABS)[number]["id"]>("tracker");
+  const [equipOpen, setEquipOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,6 +155,12 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
 
   const heading = editingId ? "일정 수정" : "일정 추가";
   const equipList = eqTab === "tracker" ? eq.trackers : eqTab === "laptop" ? eq.laptops : [];
+  // Shown on the collapsed equipment header: "T-03, N-01, 타겟 1 · 반출만".
+  const equipSummary = [
+    ...Array.from(items),
+    ...(targets ? [`타겟 ${targets}`] : []),
+    ...(equipmentOnly ? ["반출만"] : []),
+  ].join(", ");
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -178,7 +185,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
           </Pressable>
         </View>
       ) : (
-        <View style={{ paddingTop: Platform.OS === "ios" ? 8 : insets.top, paddingHorizontal: 8, paddingBottom: 4, flexDirection: "row", alignItems: "center", backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.outline }}>
+        <View style={{ paddingTop: Platform.OS === "ios" ? 8 : insets.top, paddingHorizontal: 8, paddingBottom: 4, flexDirection: "row", alignItems: "center", backgroundColor: c.bg }}>
           <Pressable accessibilityRole="button" accessibilityLabel="취소" onPress={() => router.back()} style={{ minHeight: 44, minWidth: 80, justifyContent: "center", paddingHorizontal: 8 }}>
             <T variant="body" color={c.primaryText}>
               취소
@@ -281,9 +288,25 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
 
           {isTrip ? (
             <Card style={{ gap: 10 }}>
-              <T variant="headline" accessibilityRole="header">
-                장비 선택
-              </T>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`장비 선택${equipSummary ? `, ${equipSummary}` : ", 선택 없음"}`}
+                accessibilityState={{ expanded: equipOpen }}
+                onPress={() => setEquipOpen(!equipOpen)}
+                style={{ minHeight: HIT, flexDirection: "row", alignItems: "center", gap: 8, marginVertical: -6 }}
+              >
+                <T variant="headline" accessibilityRole="header">
+                  장비 선택
+                </T>
+                <T variant="footnote" color={equipSummary ? c.primaryText : c.muted} numberOfLines={1} style={{ flex: 1, textAlign: "right" }}>
+                  {equipSummary || "선택 없음"}
+                </T>
+                <View style={{ transform: [{ rotate: equipOpen ? "180deg" : "0deg" }] }}>
+                  <Icon name="down" size={20} color={c.text2} />
+                </View>
+              </Pressable>
+              {equipOpen ? (
+              <>
               <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
                 {EQUIP_TABS.map((tab) => {
                   const count =
@@ -328,6 +351,8 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                 </View>
                 <Toggle label="장비 반출만" value={equipmentOnly} onChange={setEquipmentOnly} />
               </View>
+              </>
+              ) : null}
             </Card>
           ) : null}
 
@@ -362,7 +387,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
           </Card>
 
           {editingId ? (
-            <Pressable accessibilityRole="button" onPress={confirmDelete} disabled={saving} style={{ minHeight: 52, borderRadius: radius.card, borderWidth: 1, borderColor: c.outline, backgroundColor: c.card, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" }}>
+            <Pressable accessibilityRole="button" onPress={confirmDelete} disabled={saving} style={{ minHeight: 56, borderRadius: radius.control, backgroundColor: c.card, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" }}>
               <Icon name="trash" size={20} color={c.danger} />
               <T variant="headline" color={c.danger}>
                 일정 삭제
@@ -384,7 +409,7 @@ function Stepper({ label, sign, onPress, disabled }: { label: string; sign: stri
       accessibilityState={{ disabled }}
       onPress={onPress}
       disabled={disabled}
-      style={{ width: HIT, height: HIT, borderRadius: radius.control, borderWidth: 1, borderColor: c.outline, backgroundColor: c.card, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
+      style={{ width: HIT, height: HIT, borderRadius: radius.control, backgroundColor: c.subtle, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
     >
       <T variant="title2">{sign}</T>
     </Pressable>

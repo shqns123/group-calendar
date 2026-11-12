@@ -21,6 +21,14 @@ const MAP = {
   logout: { ios: "log-out-outline", iosOn: "log-out", md: "logout" },
   person: { ios: "person-circle-outline", iosOn: "person-circle", md: "account-circle" },
   trash: { ios: "trash-outline", iosOn: "trash", md: "delete-outline" },
+  people: { ios: "people-outline", iosOn: "people", md: "group" },
+  shield: { ios: "shield-checkmark-outline", iosOn: "shield-checkmark", md: "verified-user" },
+  link: { ios: "link-outline", iosOn: "link", md: "link" },
+  send: { ios: "paper-plane-outline", iosOn: "paper-plane", md: "send" },
+  holiday: { ios: "sunny-outline", iosOn: "sunny", md: "beach-access" },
+  sync: { ios: "cloud-upload-outline", iosOn: "cloud-upload", md: "cloud-upload" },
+  join: { ios: "enter-outline", iosOn: "enter", md: "login" },
+  info: { ios: "information-circle-outline", iosOn: "information-circle", md: "info-outline" },
 } as const;
 
 export type IconName = keyof typeof MAP;
