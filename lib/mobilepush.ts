@@ -56,6 +56,10 @@ export async function sendMobilePushToTokens(
       title: payload.title,
       body: payload.body,
       link: payload.url ?? "",
+      // The Expo app (kr.groupcalendar.app) shows data messages from `title` + `message` on its own
+      // "default" channel; older clients ignore these keys.
+      message: payload.body,
+      channelId: "default",
     },
     android: {
       priority: "high",

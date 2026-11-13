@@ -8,7 +8,7 @@ import { sendPushToUser } from "@/lib/webpush";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { name, employeeId } = await req.json();
+  const { name, employeeId, pushToken } = await req.json();
   if (!name?.trim() || !employeeId?.trim()) {
     return Response.json({ error: "이름과 사번을 입력해 주세요." }, { status: 400 });
   }
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name: name.trim(),
       email: `guest_${employeeId.trim()}@local.guest`,
@@ -58,6 +58,17 @@ export async function POST(req: NextRequest) {
       pendingInviteAutoApprove,
     },
   });
+
+  // The app signs up without a session, so it sends its phone's push token here; the
+  // "가입 승인" push then reaches that phone once an operator approves the account.
+  const devicePushToken = typeof pushToken === "string" ? pushToken.trim() : "";
+  if (devicePushToken) {
+    await prisma.mobileDeviceToken.upsert({
+      where: { token: devicePushToken },
+      update: { userId: user.id, platform: "ANDROID" },
+      create: { userId: user.id, token: devicePushToken, platform: "ANDROID" },
+    });
+  }
 
   const admins = await prisma.group.findMany({
     select: { leader: { select: { pushSubscriptions: true, mobileDeviceTokens: true } } },

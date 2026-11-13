@@ -14,7 +14,8 @@ const PUBLIC_PATHS = [
   "/icon-512.png",
   "/apple-touch-icon.png",
 ];
-const PENDING_ALLOWED_PATHS = ["/pending", "/api/auth/status", "/api/auth/me"];
+// Accounts waiting for approval may still register their phone, so the "가입 승인" push reaches it.
+const PENDING_ALLOWED_PATHS = ["/pending", "/api/auth/status", "/api/auth/me", "/api/push/mobile-token"];
 
 /**
  * Native app support: the mobile app sends the session JWT issued by
