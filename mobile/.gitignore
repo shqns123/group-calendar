@@ -48,3 +48,6 @@ yarn-error.*
 # generated native projects (CNG)
 /ios
 /android
+
+# Firebase client config (kept out of the repo; EAS builds read it from this folder)
+google-services.json

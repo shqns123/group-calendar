@@ -48,11 +48,14 @@ export function personnelFor(group: Group | null, dayEvents: CalEvent[]) {
   const overtimeNo = dayEvents
     .filter((e) => e.isOvertimeOnly && !e.overtimeAvailable)
     .flatMap((e) => splitList(e.personnel));
+  const yes = Array.from(new Set(overtime));
   return {
     total: roster.length,
     remaining: roster.filter((l) => !assigned.has(l)),
-    overtime: Array.from(new Set(overtime)),
+    overtime: yes,
     overtimeNo: Array.from(new Set(overtimeNo)),
+    // Marked 가능 and not away on 출장 / 근태 that day — who can actually work in 울산.
+    overtimeHere: yes.filter((l) => !assigned.has(l)),
   };
 }
 

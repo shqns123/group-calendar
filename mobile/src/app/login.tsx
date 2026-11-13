@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ErrorBanner, PrimaryButton, T } from "@/components/ui";
 import { errorMessage } from "@/lib/api";
@@ -7,6 +7,7 @@ import { getGoogleIdToken, googleAvailable } from "@/lib/google";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius, type } from "@/theme/tokens";
+import { KeyboardAware } from "@/components/KeyboardAware";
 
 export default function LoginScreen() {
   const { c } = useTheme();
@@ -49,7 +50,7 @@ export default function LoginScreen() {
   const field = { ...type.body, color: c.text, minHeight: 52, paddingHorizontal: 14, borderRadius: radius.control, backgroundColor: c.subtle } as const;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.surface }}>
+    <KeyboardAware style={{ flex: 1, backgroundColor: c.surface }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, paddingTop: insets.top + 24, gap: 24 }}>
         <View style={{ gap: 8 }}>
           <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: c.text, alignItems: "center", justifyContent: "center" }}>
@@ -99,6 +100,6 @@ export default function LoginScreen() {
           </T>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

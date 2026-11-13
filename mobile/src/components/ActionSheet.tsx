@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePaneLeft } from "@/lib/wide";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
 import { T } from "./ui";
@@ -18,6 +19,7 @@ export function ActionSheetProvider({ children }: { children: ReactNode }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const left = usePaneLeft();
 
   const show = useCallback((s: Sheet) => {
     if (s.options.length === 0) return;
@@ -47,8 +49,10 @@ export function ActionSheetProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       <Modal visible={sheet != null} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
-        <Pressable accessibilityRole="button" accessibilityLabel="닫기" onPress={close} style={{ flex: 1, backgroundColor: c.scrim }} />
-        <View style={{ backgroundColor: c.sheet, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingTop: 8, paddingBottom: insets.bottom + 8, maxHeight: "70%" }}>
+        {/* Split screen: the sheet rises in the right pane only; the calendar side just closes it. */}
+        {left ? <Pressable accessible={false} onPress={close} style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: left }} /> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="닫기" onPress={close} style={{ flex: 1, marginLeft: left, backgroundColor: c.scrim }} />
+        <View style={{ marginLeft: left, backgroundColor: c.sheet, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingTop: 8, paddingBottom: insets.bottom + 8, maxHeight: "70%" }}>
           <View style={{ alignItems: "center", paddingVertical: 6 }}>
             <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: c.handle }} />
           </View>

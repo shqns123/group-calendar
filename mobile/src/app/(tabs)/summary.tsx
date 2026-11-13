@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, RefreshControl, SectionList, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Animated, LayoutAnimation, Pressable, RefreshControl, SectionList, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Empty, ErrorBanner, Loading, T, Tag } from "@/components/ui";
@@ -9,6 +9,7 @@ import { addDays, dotted, keyToIso, longLabel, parseKey, todayKey, toKey, WEEKDA
 import { splitList } from "@/lib/roster";
 import { useSession } from "@/lib/session";
 import type { CalEvent } from "@/lib/types";
+import { DUR, EASE_OUT, prefersReducedMotion, timeTo } from "@/lib/motion";
 import { useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
@@ -70,6 +71,16 @@ export default function SummaryScreen() {
                 accessibilityLabel={`${section.title}, 일정 ${section.count}개`}
                 accessibilityState={{ expanded: open }}
                 onPress={() => {
+                  // Rows slide/fade in as the section opens (220ms) and out faster as it closes (180ms).
+                  if (!prefersReducedMotion()) {
+                    const ms = open ? DUR.close : DUR.open;
+                    LayoutAnimation.configureNext({
+                      duration: ms,
+                      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: ms },
+                      update: { type: LayoutAnimation.Types.easeOut, duration: ms },
+                      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: Math.round(ms * 0.6) },
+                    });
+                  }
                   const next = new Set(closed);
                   if (open) next.add(section.key as Bucket);
                   else next.delete(section.key as Bucket);
@@ -92,9 +103,7 @@ export default function SummaryScreen() {
                 <T variant="headline">{section.title}</T>
                 <Tag label={String(section.count)} bg={c.primaryContainer} fg={c.onPrimaryContainer} />
                 <View style={{ flex: 1 }} />
-                <View style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}>
-                  <Icon name="down" size={20} color={c.text2} />
-                </View>
+                <Chevron open={open} color={c.text2} />
               </Pressable>
             );
           }}
@@ -152,5 +161,18 @@ export default function SummaryScreen() {
         />
       )}
     </View>
+  );
+}
+
+/** Section chevron: turns with the section instead of flipping. */
+function Chevron({ open, color }: { open: boolean; color: string }) {
+  const [v] = useState(() => new Animated.Value(open ? 1 : 0));
+  useEffect(() => {
+    timeTo(v, open ? 1 : 0, open ? DUR.open : DUR.close, EASE_OUT);
+  }, [v, open]);
+  return (
+    <Animated.View style={{ transform: [{ rotate: v.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] }) }] }}>
+      <Icon name="down" size={20} color={color} />
+    </Animated.View>
   );
 }

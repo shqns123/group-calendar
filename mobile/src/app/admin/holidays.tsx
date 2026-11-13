@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { DateField } from "@/components/DateField";
 import { Field, MiniButton, Row, Section } from "@/components/list";
 import { Empty, ErrorBanner, PrimaryButton, Segmented } from "@/components/ui";
@@ -9,6 +9,7 @@ import { shortLabel, todayKey, type DateKey } from "@/lib/date";
 import { useSession } from "@/lib/session";
 import type { CustomHoliday } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
+import { KeyboardAware } from "@/components/KeyboardAware";
 
 export default function HolidaysScreen() {
   const { me } = useSession();
@@ -38,7 +39,7 @@ export default function HolidaysScreen() {
   const upcoming = (data ?? []).filter((h) => h.date >= todayKey().slice(0, 4));
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: 40 }}>
         {error || actionError ? <ErrorBanner message={(actionError ?? error)!} /> : null}
 
@@ -84,6 +85,6 @@ export default function HolidaysScreen() {
           ))}
         </Section>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

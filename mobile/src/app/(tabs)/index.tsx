@@ -1,32 +1,39 @@
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, PanResponder, PixelRatio, Platform, Pressable, ScrollView, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "@/components/Icon";
 import { MiniButton } from "@/components/list";
+import { DismissLayer } from "@/components/DismissLayer";
+import { QuickAddBar } from "@/components/QuickAddBar";
+import { DUR, EASE_OUT, timeTo } from "@/lib/motion";
 import { ErrorBanner, IconButton, T } from "@/components/ui";
 import { api } from "@/lib/api";
 import { dayMarks, eventsOn, isElevated, layoutWeek } from "@/lib/calendar";
 import { dotted, keyToIso, longLabel, monthGrid, monthLabel, parseKey, shiftMonth, todayKey, toKey, WEEKDAYS, WEEKDAYS_LONG, weekday, type DateKey } from "@/lib/date";
 import { splitList } from "@/lib/roster";
 import { useSession } from "@/lib/session";
-import type { CalEvent } from "@/lib/types";
+import type { CalEvent, CustomHoliday, Me } from "@/lib/types";
 import { useData } from "@/lib/useData";
-import { useMonthPager } from "@/lib/useMonthPager";
+import { STRIP_SPAN, useMonthPager } from "@/lib/useMonthPager";
 import { holidayInfo } from "@/lib/holidays";
 import { permissionsFor } from "@/lib/permissions";
 import { useHolidays } from "@/lib/useHolidays";
 import { useTheme } from "@/theme/ThemeProvider";
-import { useWide, useWideDay } from "@/lib/wide";
+import { rememberedMonth, rememberMonth, useSplit, useWide, useWideDay, useWideMode } from "@/lib/wide";
+import Feather from "@expo/vector-icons/Feather";
 import { DayDetail } from "../day/[date]";
-import { radius, type } from "@/theme/tokens";
+import { radius } from "@/theme/tokens";
 
 // Event bars use the web calendar's style on purpose (CalendarView eventContent + globals.css .fc-event):
 // event color at 0x28 alpha behind event-colored text, 0.62rem (≈10px) / 600, 4px corners.
 // This is a documented exception to DESIGN.md's 12px floor and ink-text rule.
 const BAR = { washAlpha: "28", fontSize: 10, lineHeight: 12.5, radius: 4 } as const;
+// Other-month days: page-color wash on top (hex alpha ≈ 64%) — numbers end up ~⅓ strength, like One UI.
+const OTHER_MONTH_FADE = "A3";
+// "+N" under the bars when a day has more than fit.
+const MORE = { fontSize: 11, lineHeight: 14 } as const;
 // Day cells (canvas): faint gray base; days with events take a lighter wash of the top bar color.
-const CELL = { alpha: { light: "12", dark: "1C" }, base: { light: "#F9F9FB", dark: "#1E232A" } } as const;
+const CELL = { alpha: { light: "0B", dark: "14" }, base: { light: "#FBFBFC", dark: "#1D2229" } } as const;
 // Split view (swipe up): the month shrinks, bars become thin lines, and the selected day's list shows below.
 const COMPACT = { line: 4, gap: 2, lanes: 3 } as const;
 
@@ -36,23 +43,33 @@ const COMPACT = { line: 4, gap: 2, lanes: 3 } as const;
  * detail in the right pane instead.
  */
 export default function CalendarScreen() {
-  const wide = useWide();
+  // Split (wide screen, two panes): the calendar is the left pane, so this tab is the day detail.
+  // Full screen (and phones): this tab is the calendar itself.
+  const split = useSplit();
   const { date, setDate } = useWideDay();
-  if (wide) return <DayDetail inline date={date ?? todayKey()} onChangeDate={setDate} />;
+  if (split) return <DayDetail inline date={date ?? todayKey()} onChangeDate={setDate} />;
   return <CalendarView />;
 }
 
 /** The month view. `pane`: left half of the wide layout — date taps fill the right pane. */
 export function CalendarView({ pane }: { pane?: boolean }) {
-  const { c, isDark } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { group, me } = useSession();
   const elevated = isElevated(group, me);
   const holidays = useHolidays();
   const perms = permissionsFor(group, me);
+  // Quick-add typing mode: a tap anywhere else on the screen just ends it.
+  const [typing, setTyping] = useState(false);
   const today = todayKey();
-  const [ym, setYm] = useState(() => ({ year: parseKey(today).year, month: parseKey(today).month }));
+  // Start on the month that was on screen (switching 분할 ↔ 전체화면 mounts a new calendar view).
+  const [ym, setYm] = useState(() => rememberedMonth() ?? { year: parseKey(today).year, month: parseKey(today).month });
+  useEffect(() => {
+    rememberMonth(ym);
+  }, [ym]);
+  const wide = useWide();
+  const { full, toggleFull } = useWideMode();
   const [gridH, setGridH] = useState(0);
   const [split, setSplit] = useState(false);
   const [pickedLocal, setPickedLocal] = useState<DateKey | null>(null);
@@ -63,26 +80,19 @@ export function CalendarView({ pane }: { pane?: boolean }) {
   const [progress] = useState(() => new Animated.Value(0));
   const [areaH, setAreaH] = useState(0);
 
+  const index = ym.year * 12 + ym.month - 1;
   const cells = useMemo(() => monthGrid(ym.year, ym.month), [ym]);
   const first = cells[0].key;
   const last = cells[cells.length - 1].key;
 
+  // Same key as the current MonthPage, so this is served from the cache (used by the day list).
   const { data: events } = useData(group ? `events:${group.id}:${first}` : null, () =>
     api<CalEvent[]>("/api/events", { query: { groupId: group!.id, start: keyToIso(first), end: keyToIso(last) } }),
   );
 
-  // How many bar lanes fit: measured row height and OS text size, capped by the
-  // group's display limit (same setting the web uses, default 3).
   const rows = cells.length / 7;
-  const rowH = gridH > 0 ? gridH / rows : 0;
-  const fontScale = PixelRatio.getFontScale();
-  const barH = Math.ceil((BAR.lineHeight + 4) * fontScale);
-  const laneGap = 2;
-  const numH = 4 + Math.ceil(24 * fontScale) + 2;
-  // Bottom of the cell keeps room for "+N" and the status dots.
-  const moreH = Math.ceil(type.caption.lineHeight * fontScale) + 14;
-  const fit = rowH > 0 ? Math.max(0, Math.floor((rowH - numH - moreH) / (barH + laneGap))) : 0;
-  const maxLanes = Math.min(fit, Math.max(1, Math.min(10, group?.eventDisplayLimit ?? 3)));
+  const { numH } = cellMetrics(PixelRatio.getFontScale());
+  const limit = Math.max(1, Math.min(10, group?.eventDisplayLimit ?? 3));
 
   const prev = shiftMonth(ym.year, ym.month, -1);
   const next = shiftMonth(ym.year, ym.month, 1);
@@ -107,6 +117,7 @@ export function CalendarView({ pane }: { pane?: boolean }) {
       });
   };
   const pager = useMonthPager(
+    index,
     (delta) => {
       setPicked(null);
       setYm((cur) => shiftMonth(cur.year, cur.month, delta));
@@ -114,10 +125,30 @@ export function CalendarView({ pane }: { pane?: boolean }) {
     (dir) => changeSplit(dir < 0),
   );
   // Selected day (first tap selects, second tap opens the day sheet): what was tapped, else today in this month, else the 1st.
-  const monthStart = cells.find((x) => x.inMonth)!.key;
-  const sel = picked && cells.some((x) => x.key === picked) ? picked : cells.some((x) => x.key === today && x.inMonth) ? today : monthStart;
-  const compactLanes = Math.min(COMPACT.lanes, Math.max(1, group?.eventDisplayLimit ?? 3));
+  const sel = picked && cells.some((x) => x.key === picked) ? picked : defaultSel(cells, today);
+  const compactLanes = Math.min(COMPACT.lanes, limit);
   const compactRowH = numH + compactLanes * (COMPACT.line + COMPACT.gap) + 10;
+  // Day taps (current page). Kept in a ref so the pages' prop stays stable and they don't re-render on every tap.
+  const pressRef = useRef<(key: DateKey, isSel: boolean, bars: number) => void>(() => {});
+  useEffect(() => {
+    pressRef.current = (key, isSel, bars) => {
+      // Wide layout: any tap shows that day in the right pane (and returns to the calendar tab).
+      if (pane) {
+        setPicked(key);
+        router.navigate("/");
+        return;
+      }
+      // A day with events opens its popup on the first tap (month view);
+      // an empty day — or any day while the list is open — is selected first.
+      if (isSel || (!split && bars > 0)) {
+        setPicked(key);
+        router.push({ pathname: "/day/[date]", params: { date: key } });
+      } else setPicked(key);
+    };
+  });
+  const onPressDay = useCallback((key: DateKey, isSel: boolean, bars: number) => pressRef.current(key, isSel, bars), []);
+  const pageProps = { groupId: group?.id ?? null, today, split, gridH, limit, me, elevated, holidays, onPressDay };
+  const W = pager.width;
   // Drag the list's handle down to bring the full month back.
   const [handlePan] = useState(() =>
     PanResponder.create({
@@ -138,6 +169,18 @@ export function CalendarView({ pane }: { pane?: boolean }) {
             {`${ym.month}월`}
           </T>
           <IconButton tone="plain" icon="forward" label={`다음 달, ${monthLabel(next.year, next.month)}`} onPress={() => pager.go(1)} />
+          {/* Wide screens: 분할 ↔ 전체화면. */}
+          {wide ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={full ? "분할 화면으로 보기" : "캘린더 전체 화면으로 보기"}
+              onPress={toggleFull}
+              hitSlop={4}
+              style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? c.fill : "transparent" })}
+            >
+              <Feather name={full ? "columns" : "maximize-2"} size={20} color={c.text2} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -167,7 +210,121 @@ export function CalendarView({ pane }: { pane?: boolean }) {
           pager.setWidth(e.nativeEvent.layout.width);
         }}
       >
-      <Animated.View style={{ flex: 1, paddingHorizontal: 4, paddingBottom: 4, transform: [{ translateX: pager.slide }] }}>
+      {W > 0 ? (
+        // One strip, pages placed by absolute month index: the drag and the fling move all three
+        // together, and a month change only adds a new neighbor off screen (nothing jumps).
+        <Animated.View
+          style={{ position: "absolute", top: 0, bottom: 0, left: -STRIP_SPAN * W, width: (STRIP_SPAN * 2 + 1) * W, transform: [{ translateX: pager.slide }] }}
+        >
+          {[-1, 0, 1].map((d) => {
+            const m = shiftMonth(ym.year, ym.month, d);
+            const mi = index + d;
+            return (
+              <View
+                key={mi}
+                importantForAccessibility={d === 0 ? "auto" : "no-hide-descendants"}
+                accessibilityElementsHidden={d !== 0}
+                style={{ position: "absolute", top: 0, bottom: 0, width: W, left: (mi - pager.base + STRIP_SPAN) * W, paddingHorizontal: 4, paddingBottom: 4 }}
+              >
+                <MonthPage year={m.year} month={m.month} sel={d === 0 ? sel : null} {...pageProps} />
+              </View>
+            );
+          })}
+        </Animated.View>
+      ) : (
+        <View style={{ flex: 1, paddingHorizontal: 4, paddingBottom: 4 }}>
+          <MonthPage year={ym.year} month={ym.month} sel={sel} {...pageProps} />
+        </View>
+      )}
+      </Animated.View>
+
+      {split ? (
+        <Animated.View style={{ flex: 1, opacity: progress }}>
+        <DayList
+          date={sel}
+          events={events ? eventsOn(events, sel).filter((e) => !e.isOvertimeOnly) : null}
+          holiday={holidayInfo(sel, holidays).name}
+          handlers={handlePan.panHandlers}
+          onClose={() => changeSplit(false)}
+          onOpenDay={() => router.push({ pathname: "/day/[date]", params: { date: sel } })}
+          onOpenEvent={perms.canWriteEvents ? (id) => router.push({ pathname: "/event/edit", params: { id, date: sel } }) : undefined}
+        />
+        </Animated.View>
+      ) : null}
+      </View>
+
+      {/* Samsung-style one-line quick add under the month (replaces the + button). */}
+      {typing ? <DismissLayer /> : null}
+      {perms.canWriteEvents && group ? (
+        // A short pill centered under the month (One UI: about two thirds of the width);
+        // typing opens it into a card almost as wide as the screen.
+        <View style={{ paddingHorizontal: 48, paddingTop: 6, paddingBottom: 10 }}>
+          <QuickAddBar date={sel} widen={40} onActiveChange={setTyping} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Bar / cell sizes for the OS text size. */
+function cellMetrics(fontScale: number) {
+  return {
+    fontScale,
+    barH: Math.ceil((BAR.lineHeight + 3) * fontScale),
+    laneGap: 2,
+    numH: 4 + Math.ceil(24 * fontScale) + 2,
+    // Bottom strip of the cell for "+N" and the status dots (they share it: +N centered, dots right),
+    // plus the cell's bottom padding.
+    moreH: Math.ceil(MORE.lineHeight * fontScale) + 6,
+  };
+}
+
+/** Today if it's in this month, else the 1st. */
+function defaultSel(cells: { key: DateKey; inMonth: boolean }[], today: DateKey) {
+  return cells.some((x) => x.key === today && x.inMonth) ? today : cells.find((x) => x.inMonth)!.key;
+}
+
+type MonthPageProps = {
+  year: number;
+  month: number;
+  /** Current page: the selected day. Neighbors: null (they show the default they'll have once current). */
+  sel: DateKey | null;
+  groupId: string | null;
+  today: DateKey;
+  split: boolean;
+  gridH: number;
+  limit: number;
+  me: Me | null;
+  elevated: boolean;
+  holidays: CustomHoliday[];
+  onPressDay: (key: DateKey, isSel: boolean, bars: number) => void;
+};
+
+/**
+ * One month's grid. Each page loads its own month (so the neighbors are already there when you
+ * swipe) and is memoized, so a page only re-renders when its own inputs change.
+ */
+const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, today, split, gridH, limit, me, elevated, holidays, onPressDay }: MonthPageProps) {
+  const { c, isDark } = useTheme();
+  const cells = useMemo(() => monthGrid(year, month), [year, month]);
+  const first = cells[0].key;
+  const last = cells[cells.length - 1].key;
+  const { data: events } = useData(groupId ? `events:${groupId}:${first}` : null, () =>
+    api<CalEvent[]>("/api/events", { query: { groupId: groupId!, start: keyToIso(first), end: keyToIso(last) } }),
+  );
+  const sel = selProp ?? defaultSel(cells, today);
+
+  // How many bar lanes fit: measured row height and OS text size, capped by the
+  // group's display limit (same setting the web uses, default 3).
+  const rows = cells.length / 7;
+  const rowH = gridH > 0 ? gridH / rows : 0;
+  const { fontScale, barH, laneGap, numH, moreH } = cellMetrics(PixelRatio.getFontScale());
+  const fit = rowH > 0 ? Math.max(0, Math.floor((rowH - numH - moreH) / (barH + laneGap))) : 0;
+  const maxLanes = Math.min(fit, limit);
+  const compactLanes = Math.min(COMPACT.lanes, limit);
+
+  return (
+    <>
         {Array.from({ length: rows }, (_, r) => {
           const week = cells.slice(r * 7, r * 7 + 7);
           const layout = layoutWeek(events ?? [], week.map((w) => w.key), split ? compactLanes : maxLanes);
@@ -185,11 +342,10 @@ export function CalendarView({ pane }: { pane?: boolean }) {
                 // Gray base always; a day with events lays a light wash of its top bar color over it.
                 const base = isDark ? CELL.base.dark : CELL.base.light;
                 const wash = tint.color && /^#[0-9a-f]{6}$/i.test(tint.color) ? `${tint.color}${isDark ? CELL.alpha.dark : CELL.alpha.light}` : null;
+                // Other-month days keep their weekend / holiday hue; the fade layer over them lightens it.
                 const numColor = isToday
                   ? c.onPrimary
-                  : !inMonth
-                    ? c.muted
-                    : hol.holiday || (wd === 0 && !hol.workday)
+                  : hol.holiday || (wd === 0 && !hol.workday)
                       ? c.sunday
                       : wd === 6 && !hol.workday
                         ? c.saturday
@@ -211,20 +367,7 @@ export function CalendarView({ pane }: { pane?: boolean }) {
                     accessibilityLabel={label}
                     accessibilityState={{ selected: isSel }}
                     accessibilityHint={isSel || (!split && bars > 0) ? "상세 보기" : "날짜 선택"}
-                    onPress={() => {
-                      // Wide layout: any tap shows that day in the right pane (and returns to the calendar tab).
-                      if (pane) {
-                        setPicked(key);
-                        router.navigate("/");
-                        return;
-                      }
-                      // A day with events opens its popup on the first tap (month view);
-                      // an empty day — or any day while the list is open — is selected first.
-                      if (isSel || (!split && bars > 0)) {
-                        setPicked(key);
-                        router.push({ pathname: "/day/[date]", params: { date: key } });
-                      } else setPicked(key);
-                    }}
+                    onPress={() => onPressDay(key, isSel, bars)}
                     style={({ pressed }) => ({
                       flex: 1,
                       overflow: "hidden",
@@ -235,15 +378,17 @@ export function CalendarView({ pane }: { pane?: boolean }) {
                       borderBottomLeftRadius: tint.joinPrev ? 0 : 10,
                       borderTopRightRadius: tint.joinNext ? 0 : 10,
                       borderBottomRightRadius: tint.joinNext ? 0 : 10,
-                      // 1px gap between day cells, except inside a multi-day block (Samsung Calendar joins them).
-                      marginVertical: 0.5,
-                      marginLeft: tint.joinPrev ? 0 : 0.5,
-                      marginRight: tint.joinNext ? 0 : 0.5,
-                      // Today's cell keeps the plain background (its number circle already marks it).
-                      backgroundColor: (pressed || isSel) && !isToday ? c.primaryContainer : base,
+                      // 2px gap between day cells, except inside a multi-day block (Samsung Calendar joins them).
+                      marginVertical: 1,
+                      marginLeft: tint.joinPrev ? 0 : 1,
+                      marginRight: tint.joinNext ? 0 : 1,
+                      backgroundColor: base,
+                      opacity: pressed ? 0.8 : 1,
                     })}
                   >
-                    {wash && (!isSel || isToday) ? <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: wash }} /> : null}
+                    {wash ? <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: wash }} /> : null}
+                    {/* Selected day: a thin gray, fully rounded outline (even inside a joined multi-day block). */}
+                    {isSel ? <SelRing color={c.text2} /> : null}
                     <View style={{ alignSelf: "center", minWidth: 24, height: 24 * fontScale, paddingHorizontal: 4, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: isToday ? c.primary : "transparent" }}>
                       <T variant="footnote" color={numColor}>
                         {parseKey(key).day}
@@ -251,13 +396,13 @@ export function CalendarView({ pane }: { pane?: boolean }) {
                     </View>
                     <View style={{ flex: 1 }} />
                     {more > 0 && !split ? (
-                      <T variant="caption" color={c.text2} style={{ textAlign: "center" }}>
+                      <T variant="caption" color={c.text2} style={{ textAlign: "center", fontSize: MORE.fontSize, lineHeight: MORE.lineHeight }}>
                         +{more}
                       </T>
                     ) : null}
                     {/* Web calendar marks: blue dot = attendance, red dot = overtime (blue sits left of red). */}
-                    {marks.attendance ? <Dot color={c.saturday} right={marks.overtime ? 14 : 4} /> : null}
-                    {marks.overtime ? <Dot color={c.sunday} right={4} /> : null}
+                    {inMonth && marks.attendance ? <Dot color={c.saturday} right={marks.overtime ? 14 : 4} /> : null}
+                    {inMonth && marks.overtime ? <Dot color={c.sunday} right={4} /> : null}
                   </Pressable>
                 );
               })}
@@ -328,58 +473,32 @@ export function CalendarView({ pane }: { pane?: boolean }) {
                   ),
                 )}
               </View>
+
+              {/* Other-month days: a wash of the page color over the cell AND its bars, so the
+                  whole day recedes and the month edge reads at a glance (One UI). */}
+              {week.map(({ key, inMonth }, col) =>
+                inMonth ? null : (
+                  <View
+                    key={`fade-${key}`}
+                    pointerEvents="none"
+                    style={{ position: "absolute", top: 0, bottom: 0, left: `${(col / 7) * 100}%`, width: `${100 / 7}%`, backgroundColor: `${c.surface}${OTHER_MONTH_FADE}` }}
+                  />
+                ),
+              )}
             </View>
           );
         })}
-      </Animated.View>
-      </Animated.View>
-
-      {split ? (
-        <Animated.View style={{ flex: 1, opacity: progress }}>
-        <DayList
-          date={sel}
-          events={events ? eventsOn(events, sel).filter((e) => !e.isOvertimeOnly) : null}
-          holiday={holidayInfo(sel, holidays).name}
-          handlers={handlePan.panHandlers}
-          onClose={() => changeSplit(false)}
-          onOpenDay={() => router.push({ pathname: "/day/[date]", params: { date: sel } })}
-          onOpenEvent={perms.canWriteEvents ? (id) => router.push({ pathname: "/event/edit", params: { id, date: sel } }) : undefined}
-        />
-        </Animated.View>
-      ) : null}
-      </View>
-
-      {perms.canWriteEvents ? (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="일정 추가"
-        onPress={() => router.push({ pathname: "/event/edit", params: { date: sel } })}
-        style={{ position: "absolute", right: 12, bottom: 12, width: 48, height: 48, alignItems: "center", justifyContent: "center" }}
-      >
-        {({ pressed }) => (
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: c.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: pressed ? 0.85 : 1,
-              shadowColor: "#0F172A",
-              shadowOpacity: 0.25,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 6,
-            }}
-          >
-            <Icon name="add" size={24} color={c.onPrimary} />
-          </View>
-        )}
-      </Pressable>
-      ) : null}
-    </View>
+    </>
   );
+});
+
+/** Selected-day outline. It doesn't slide between cells: the old one just goes, the new one fades in (One UI). */
+function SelRing({ color }: { color: string }) {
+  const [v] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    timeTo(v, 1, DUR.swap, EASE_OUT);
+  }, [v]);
+  return <Animated.View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: 10, borderWidth: 1, borderColor: color, opacity: v }} />;
 }
 
 /** Status dot in the bottom-right corner of a day cell (web: .fc-day-attendance / .fc-day-overtime). */

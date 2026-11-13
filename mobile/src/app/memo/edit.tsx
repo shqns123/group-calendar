@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DateField } from "@/components/DateField";
 import { Icon } from "@/components/Icon";
@@ -13,6 +13,8 @@ import type { DayNoteEntry, PersonalNoteItem } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { HIT, radius, type } from "@/theme/tokens";
+import { KeyboardAware } from "@/components/KeyboardAware";
+import { closeScreen } from "@/lib/nav";
 
 type Kind = "group" | "personal";
 type Item = { id: string; text: string; assignee: string; startDate?: string; endDate?: string };
@@ -67,7 +69,7 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
         });
       }
       invalidate();
-      router.back();
+      closeScreen(router);
     } catch (e) {
       setError(errorMessage(e));
       setSaving(false);
@@ -75,9 +77,9 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
+    <KeyboardAware style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ paddingTop: Platform.OS === "ios" ? 8 : insets.top, paddingHorizontal: 8, paddingBottom: 4, flexDirection: "row", alignItems: "center", backgroundColor: c.bg }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="취소" onPress={() => router.back()} style={{ minHeight: HIT, minWidth: 80, justifyContent: "center", paddingHorizontal: 8 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="취소" onPress={() => closeScreen(router)} style={{ minHeight: HIT, minWidth: 80, justifyContent: "center", paddingHorizontal: 8 }}>
           <T variant="body" color={c.primaryText}>
             취소
           </T>
@@ -158,6 +160,6 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
           </Pressable>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

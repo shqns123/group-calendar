@@ -29,6 +29,8 @@ const MAP = {
   sync: { ios: "cloud-upload-outline", iosOn: "cloud-upload", md: "cloud-upload" },
   join: { ios: "enter-outline", iosOn: "enter", md: "login" },
   info: { ios: "information-circle-outline", iosOn: "information-circle", md: "info-outline" },
+  time: { ios: "time-outline", iosOn: "time", md: "schedule" },
+  box: { ios: "cube-outline", iosOn: "cube", md: "inventory-2" },
 } as const;
 
 export type IconName = keyof typeof MAP;

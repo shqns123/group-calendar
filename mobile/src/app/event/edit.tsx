@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { ActivityIndicator, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { confirm } from "@/lib/confirm";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DateField } from "@/components/DateField";
-import { Icon } from "@/components/Icon";
-import { Card, Chip, ErrorBanner, Loading, Segmented, T, Toggle } from "@/components/ui";
+import { DateRangeField } from "@/components/DateRangeField";
+import { Icon, type IconName } from "@/components/Icon";
+import { Chip, ErrorBanner, Loading, Segmented, T, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { keyToIso, todayKey, toKey, type DateKey } from "@/lib/date";
 import { equipmentFor, formatAllocation, parseAllocation, splitList } from "@/lib/roster";
@@ -13,6 +14,11 @@ import type { CalEvent, EventCategory, EventInput } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { EVENT_COLORS, HIT, radius, type } from "@/theme/tokens";
+import { ColorDot } from "@/components/ColorDot";
+import type { SavePhase } from "@/components/SaveButton";
+import { DUR, prefersReducedMotion } from "@/lib/motion";
+import { KeyboardAware } from "@/components/KeyboardAware";
+import { closeScreen } from "@/lib/nav";
 
 const LEAVE_TYPES = ["월휴", "무휴", "유휴", "기타"] as const;
 const EQUIP_TABS = [
@@ -47,7 +53,7 @@ export default function EventEditScreen() {
 }
 
 function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate: DateKey }) {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { group, me } = useSession();
@@ -73,7 +79,9 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
   const [color, setColor] = useState(existing?.color ?? EVENT_COLORS[0].hex);
   const [eqTab, setEqTab] = useState<(typeof EQUIP_TABS)[number]["id"]>("tracker");
   const [equipOpen, setEquipOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savePhase, setSavePhase] = useState<SavePhase>("idle");
   const [error, setError] = useState<string | null>(null);
 
   // Equipment already booked by other events in the chosen range.
@@ -117,13 +125,17 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
       equipmentOnly: isTrip ? equipmentOnly : false,
     };
     setSaving(true);
+    setSavePhase("saving");
     setError(null);
     try {
       if (editingId) await api(`/api/events/${editingId}`, { method: "PATCH", body });
       else await api("/api/events", { method: "POST", body });
       invalidate();
-      router.back();
+      // Button → spinner → check, then close.
+      setSavePhase("done");
+      setTimeout(() => closeScreen(router), prefersReducedMotion() ? 0 : 420);
     } catch (e) {
+      setSavePhase("idle");
       setError(errorMessage(e));
     } finally {
       setSaving(false);
@@ -137,268 +149,325 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
       try {
         await api(`/api/events/${editingId}`, { method: "DELETE" });
         invalidate();
-        router.back();
+        closeScreen(router);
       } catch (e) {
         setError(errorMessage(e));
         setSaving(false);
       }
     };
-    if (Platform.OS === "web") {
-      void run();
-      return;
-    }
-    Alert.alert("일정 삭제", "이 일정을 삭제할까요? 되돌릴 수 없어요.", [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => void run() },
-    ]);
+    // App's own popup (fades + scales in, closes faster) instead of the OS alert.
+    void confirm("일정 삭제", "이 일정을 삭제할까요? 되돌릴 수 없어요.", "삭제", true).then((ok) => {
+      if (ok) void run();
+    });
   }
 
   const heading = editingId ? "일정 수정" : "일정 추가";
   const equipList = eqTab === "tracker" ? eq.trackers : eqTab === "laptop" ? eq.laptops : [];
-  // Shown on the collapsed equipment header: "T-03, N-01, 타겟 1 · 반출만".
+  // Shown on the collapsed equipment row: "T-03, N-01, 타겟 1, 반출만".
   const equipSummary = [
     ...Array.from(items),
     ...(targets ? [`타겟 ${targets}`] : []),
     ...(equipmentOnly ? ["반출만"] : []),
   ].join(", ");
+  const peopleSummary = people.size ? Array.from(people).join(", ") : `${myName} (기본)`;
+  const showPeople = !(isTrip && equipmentOnly);
+
+  // Rows open/close with the same short ease as the summary tab (open 220ms, close 180ms).
+  function animateNext(opening: boolean) {
+    if (prefersReducedMotion()) return;
+    const ms = opening ? DUR.open : DUR.close;
+    LayoutAnimation.configureNext({
+      duration: ms,
+      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: ms },
+      update: { type: LayoutAnimation.Types.easeOut, duration: ms },
+      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: Math.round(ms * 0.6) },
+    });
+  }
+
+  const divider = <View style={{ height: 1, backgroundColor: c.outline }} />;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
-      {Platform.OS === "android" ? (
-        <View style={{ paddingTop: insets.top, height: 64 + insets.top, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 4, paddingRight: 12, backgroundColor: c.surface }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="닫기" onPress={() => router.back()} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 24 }}>
-            <Icon name="close" color={c.text} />
-          </Pressable>
-          <T variant="title2" accessibilityRole="header" style={{ flex: 1, fontWeight: "400" }}>
-            {heading}
-          </T>
+    <KeyboardAware style={{ flex: 1, backgroundColor: c.bg }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: (Platform.OS === "ios" ? 16 : insets.top) + 28, paddingBottom: insets.bottom + BAR_H + 40, gap: 16 }}
+      >
+        <T variant="title1" accessibilityRole="header" style={{ fontSize: 26, lineHeight: 34, fontWeight: "700", marginLeft: 22, marginBottom: 8 }}>
+          {heading}
+        </T>
+
+        {error ? <ErrorBanner message={error} /> : null}
+
+        <Segmented label="일정 종류" values={["출장", "근태"]} index={isTrip ? 0 : 1} onChange={(i) => setCategory(i === 0 ? "BUSINESS_TRIP" : "ATTENDANCE")} />
+
+        {/* One card; rows split by thin dividers instead of separate section boxes. */}
+        <View style={{ backgroundColor: c.card, borderRadius: radius.sheet, paddingHorizontal: 22, paddingVertical: 4 }}>
+          {/* Title (or leave type) + colour */}
+          {isTrip ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 72, marginRight: -10 }}>
+              <TextInput
+                accessibilityLabel="제목 (필수)"
+                value={title}
+                onChangeText={setTitle}
+                maxLength={100}
+                placeholder="제목"
+                placeholderTextColor={c.muted}
+                style={[type.title2, { flex: 1, color: c.text, fontSize: 22, minHeight: 40, padding: 0 }]}
+              />
+              <ColorDot value={color} onChange={setColor} />
+            </View>
+          ) : (
+            <View style={{ paddingVertical: 14, gap: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginVertical: -10, marginRight: -10 }}>
+                <T variant="title2" style={{ fontSize: 22 }}>
+                  {leaveType}
+                </T>
+                <ColorDot value={color} onChange={setColor} />
+              </View>
+              <View accessibilityRole="radiogroup" accessibilityLabel="근태 종류" style={{ flexDirection: "row", gap: 6 }}>
+                {LEAVE_TYPES.map((l) => (
+                  <View key={l} style={{ flex: 1 }}>
+                    <Chip label={l} selected={leaveType === l} onPress={() => setLeaveType(l)} />
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          {divider}
+
+          {/* Dates: start → end */}
+          <DateRangeField icon="time" start={start} end={end} onChangeStart={setStart} onChangeEnd={setEnd} />
+          {divider}
+
+          {/* Memo */}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingVertical: 20 }}>
+            <RowIcon name="note" />
+            <View style={{ flex: 1, gap: 4 }}>
+              <TextInput
+                accessibilityLabel="메모"
+                value={description}
+                onChangeText={setDescription}
+                maxLength={500}
+                multiline
+                placeholder="메모"
+                placeholderTextColor={c.muted}
+                style={[type.body, { color: c.text, fontSize: 17, lineHeight: 24, minHeight: 24, padding: 0, textAlignVertical: "top" }]}
+              />
+              {description.length ? (
+                <T variant="caption" color={c.muted} accessibilityElementsHidden importantForAccessibility="no" style={{ alignSelf: "flex-end" }}>
+                  {`${description.length} / 500`}
+                </T>
+              ) : null}
+            </View>
+          </View>
+
+          {/* People: closed by default; the row shows who's picked. */}
+          {showPeople ? (
+            <>
+              {divider}
+              <ExpandRow
+                icon="people"
+                label="인원"
+                value={peopleSummary}
+                active={people.size > 0}
+                open={peopleOpen}
+                onToggle={() => {
+                  animateNext(!peopleOpen);
+                  setPeopleOpen(!peopleOpen);
+                }}
+              />
+              {peopleOpen ? (
+                <View style={{ paddingLeft: 40, paddingBottom: 16, gap: 10 }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {roster.map((n) => (
+                      <Chip key={n} label={n} selected={people.has(n)} onPress={() => toggle(people, n, setPeople)} />
+                    ))}
+                  </View>
+                  <T variant="footnote" color={c.muted} style={{ fontWeight: "400" }}>
+                    {`선택하지 않으면 작성자(${myName})가 기본 인원이 돼요.`}
+                  </T>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Equipment (trips only) */}
+          {isTrip ? (
+            <>
+              {divider}
+              <ExpandRow
+                icon="box"
+                label="장비"
+                value={equipSummary || "선택 없음"}
+                active={!!equipSummary}
+                open={equipOpen}
+                onToggle={() => {
+                  animateNext(!equipOpen);
+                  setEquipOpen(!equipOpen);
+                }}
+              />
+              {equipOpen ? (
+                <View style={{ paddingLeft: 40, paddingBottom: 12, gap: 10 }}>
+                  <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
+                    {EQUIP_TABS.map((tab) => {
+                      const count =
+                        tab.id === "target" ? targets : (tab.id === "tracker" ? eq.trackers : eq.laptops).filter((i) => items.has(i)).length;
+                      return (
+                        <View key={tab.id} style={{ flex: 1 }}>
+                          <Chip tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={eqTab === tab.id} onPress={() => setEqTab(tab.id)} />
+                        </View>
+                      );
+                    })}
+                  </View>
+                  {eqTab === "target" ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: HIT }}>
+                      <T variant="body">{`타겟 ${targets}개 (남은 ${eq.targetRemaining}개)`}</T>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <Stepper label="타겟 하나 빼기" sign="−" disabled={targets <= 0} onPress={() => setTargets(targets - 1)} />
+                        <Stepper label="타겟 하나 더하기" sign="+" disabled={targets >= eq.targetRemaining} onPress={() => setTargets(targets + 1)} />
+                      </View>
+                    </View>
+                  ) : equipList.length === 0 ? (
+                    <T variant="subhead" color={c.muted}>
+                      그룹에 등록된 장비가 없어요. 웹 그룹 설정에서 추가할 수 있어요.
+                    </T>
+                  ) : (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {equipList.map((code) => {
+                        const busy = eq.used.has(code) && !items.has(code);
+                        return (
+                          <View key={code} style={{ width: "31.5%" }}>
+                            <Chip tone="info" label={code} note={busy ? "사용 중" : undefined} disabled={busy} selected={items.has(code)} onPress={() => toggle(items, code, setItems)} />
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, paddingTop: 4 }}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <T variant="body">장비 반출만</T>
+                      <T variant="footnote" color={c.text2} style={{ fontWeight: "400" }}>
+                        검교정·대여처럼 인원 없이 장비만 나갈 때
+                      </T>
+                    </View>
+                    <Toggle
+                      label="장비 반출만"
+                      value={equipmentOnly}
+                      onChange={(v) => {
+                        animateNext(!v);
+                        setEquipmentOnly(v);
+                      }}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Delete (editing only): last row of the same card */}
+          {editingId ? (
+            <>
+              {divider}
+              <Pressable
+                accessibilityRole="button"
+                onPress={confirmDelete}
+                disabled={saving}
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 16, minHeight: 64, opacity: pressed ? 0.6 : 1 })}
+              >
+                <Icon name="trash" size={24} color={c.danger} />
+                <T variant="body" color={c.danger} style={{ fontSize: 17 }}>
+                  일정 삭제
+                </T>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {/* Floating 취소 | 저장 pill: stays put while the form scrolls under it. */}
+      <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: insets.bottom + 16, alignItems: "center" }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            height: BAR_H,
+            width: 232,
+            borderRadius: BAR_H / 2,
+            backgroundColor: c.card,
+            shadowColor: "#0F172A",
+            shadowOpacity: isDark ? 0.5 : 0.14,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 8,
+          }}
+        >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="저장"
-            onPress={save}
-            disabled={saving}
-            style={{ minHeight: 40, paddingHorizontal: 20, borderRadius: 20, backgroundColor: c.primary, justifyContent: "center", opacity: saving ? 0.5 : 1 }}
+            accessibilityLabel="취소"
+            onPress={() => closeScreen(router)}
+            style={({ pressed }) => ({ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", borderTopLeftRadius: BAR_H / 2, borderBottomLeftRadius: BAR_H / 2, backgroundColor: pressed ? c.subtle : "transparent" })}
           >
-            <T variant="subhead" style={{ fontWeight: "500" }} color={c.onPrimary}>
-              저장
-            </T>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={{ paddingTop: Platform.OS === "ios" ? 8 : insets.top, paddingHorizontal: 8, paddingBottom: 4, flexDirection: "row", alignItems: "center", backgroundColor: c.bg }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="취소" onPress={() => router.back()} style={{ minHeight: 44, minWidth: 80, justifyContent: "center", paddingHorizontal: 8 }}>
-            <T variant="body" color={c.primaryText}>
+            <T variant="headline" style={{ fontSize: 17, fontWeight: "700" }}>
               취소
             </T>
           </Pressable>
-          <T variant="headline" accessibilityRole="header" style={{ flex: 1, textAlign: "center" }}>
-            {heading}
-          </T>
-          <Pressable accessibilityRole="button" accessibilityLabel="저장" onPress={save} disabled={saving} style={{ minHeight: 44, minWidth: 80, alignItems: "flex-end", justifyContent: "center", paddingHorizontal: 8, opacity: saving ? 0.5 : 1 }}>
-            <T variant="headline" color={c.primaryText}>
-              저장
-            </T>
+          <View style={{ width: 1, height: 22, backgroundColor: c.outline }} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={savePhase === "saving" ? "저장 중" : savePhase === "done" ? "저장됨" : "저장"}
+            accessibilityState={{ busy: savePhase === "saving", disabled: savePhase !== "idle" }}
+            disabled={savePhase !== "idle"}
+            onPress={save}
+            style={({ pressed }) => ({ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", borderTopRightRadius: BAR_H / 2, borderBottomRightRadius: BAR_H / 2, backgroundColor: pressed ? c.subtle : "transparent" })}
+          >
+            {savePhase === "saving" ? (
+              <ActivityIndicator size="small" color={c.primary} />
+            ) : savePhase === "done" ? (
+              <Icon name="check" size={24} color={c.primary} />
+            ) : (
+              <T variant="headline" style={{ fontSize: 17, fontWeight: "700" }}>
+                저장
+              </T>
+            )}
           </Pressable>
         </View>
-      )}
-
-      {(
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 14 }}>
-          {error ? <ErrorBanner message={error} /> : null}
-
-          <Segmented label="일정 종류" values={["출장", "근태"]} index={isTrip ? 0 : 1} onChange={(i) => setCategory(i === 0 ? "BUSINESS_TRIP" : "ATTENDANCE")} />
-
-          <Card style={{ padding: 0, paddingVertical: 0, paddingHorizontal: 0, overflow: "hidden" }}>
-            {isTrip ? (
-              <View style={{ paddingHorizontal: 14, paddingVertical: 12, gap: 4, borderBottomWidth: 1, borderBottomColor: c.outline }}>
-                <T variant="footnote" color={c.text2} nativeID="title-label">
-                  제목 <T variant="footnote" color={c.danger}>*</T>
-                </T>
-                <TextInput
-                  accessibilityLabelledBy="title-label"
-                  accessibilityLabel="제목"
-                  value={title}
-                  onChangeText={setTitle}
-                  maxLength={100}
-                  placeholder="예: 광주 출장"
-                  placeholderTextColor={c.muted}
-                  style={[type.headline, { color: c.text, minHeight: 28, padding: 0 }]}
-                />
-              </View>
-            ) : (
-              <View style={{ paddingHorizontal: 14, paddingVertical: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: c.outline }}>
-                <T variant="footnote" color={c.text2}>
-                  근태 종류
-                </T>
-                <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: 6 }}>
-                  {LEAVE_TYPES.map((l) => (
-                    <View key={l} style={{ flex: 1 }}>
-                      <Chip label={l} selected={leaveType === l} onPress={() => setLeaveType(l)} />
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            <View style={{ flexDirection: "row" }}>
-              <DateField label="시작" value={start} onChange={(k) => { setStart(k); if (end < k) setEnd(k); }} />
-              <View style={{ width: 1, backgroundColor: c.outline }} />
-              <DateField label="종료" value={end} minimum={start} onChange={setEnd} />
-            </View>
-          </Card>
-
-          <Card style={{ gap: 6 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <T variant="footnote" color={c.text2}>
-                설명 (선택)
-              </T>
-              <T variant="footnote" color={c.muted} accessibilityElementsHidden importantForAccessibility="no">
-                {`${description.length} / 500`}
-              </T>
-            </View>
-            <TextInput
-              accessibilityLabel="설명"
-              value={description}
-              onChangeText={setDescription}
-              maxLength={500}
-              multiline
-              placeholder="업무 내용이나 준비물을 적어 주세요"
-              placeholderTextColor={c.muted}
-              style={[type.body, { color: c.text, minHeight: 72, padding: 0, textAlignVertical: "top" }]}
-            />
-          </Card>
-
-          {!(isTrip && equipmentOnly) ? (
-            <Card style={{ gap: 10 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-                <T variant="headline" accessibilityRole="header">
-                  인원 선택
-                </T>
-                <T variant="footnote" color={c.primaryText}>{`${people.size}명 선택`}</T>
-              </View>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                {roster.map((n) => (
-                  <Chip key={n} label={n} selected={people.has(n)} onPress={() => toggle(people, n, setPeople)} />
-                ))}
-              </View>
-              <T variant="footnote" color={c.muted} style={{ fontWeight: "400" }}>
-                {`선택하지 않으면 작성자(${myName})가 기본 인원이 돼요.`}
-              </T>
-            </Card>
-          ) : null}
-
-          {isTrip ? (
-            <Card style={{ gap: 10 }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`장비 선택${equipSummary ? `, ${equipSummary}` : ", 선택 없음"}`}
-                accessibilityState={{ expanded: equipOpen }}
-                onPress={() => setEquipOpen(!equipOpen)}
-                style={{ minHeight: HIT, flexDirection: "row", alignItems: "center", gap: 8, marginVertical: -6 }}
-              >
-                <T variant="headline" accessibilityRole="header">
-                  장비 선택
-                </T>
-                <T variant="footnote" color={equipSummary ? c.primaryText : c.muted} numberOfLines={1} style={{ flex: 1, textAlign: "right" }}>
-                  {equipSummary || "선택 없음"}
-                </T>
-                <View style={{ transform: [{ rotate: equipOpen ? "180deg" : "0deg" }] }}>
-                  <Icon name="down" size={20} color={c.text2} />
-                </View>
-              </Pressable>
-              {equipOpen ? (
-              <>
-              <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
-                {EQUIP_TABS.map((tab) => {
-                  const count =
-                    tab.id === "target" ? targets : (tab.id === "tracker" ? eq.trackers : eq.laptops).filter((i) => items.has(i)).length;
-                  return (
-                    <View key={tab.id} style={{ flex: 1 }}>
-                      <Chip tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={eqTab === tab.id} onPress={() => setEqTab(tab.id)} />
-                    </View>
-                  );
-                })}
-              </View>
-              {eqTab === "target" ? (
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: HIT }}>
-                  <T variant="body">{`타겟 ${targets}개 (남은 ${eq.targetRemaining}개)`}</T>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <Stepper label="타겟 하나 빼기" sign="−" disabled={targets <= 0} onPress={() => setTargets(targets - 1)} />
-                    <Stepper label="타겟 하나 더하기" sign="+" disabled={targets >= eq.targetRemaining} onPress={() => setTargets(targets + 1)} />
-                  </View>
-                </View>
-              ) : equipList.length === 0 ? (
-                <T variant="subhead" color={c.muted}>
-                  그룹에 등록된 장비가 없어요. 웹 그룹 설정에서 추가할 수 있어요.
-                </T>
-              ) : (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {equipList.map((code) => {
-                    const busy = eq.used.has(code) && !items.has(code);
-                    return (
-                      <View key={code} style={{ width: "23.5%" }}>
-                        <Chip tone="info" label={code} note={busy ? "사용 중" : undefined} disabled={busy} selected={items.has(code)} onPress={() => toggle(items, code, setItems)} />
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, paddingTop: 4 }}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T variant="body">장비 반출만</T>
-                  <T variant="footnote" color={c.text2} style={{ fontWeight: "400" }}>
-                    검교정·대여처럼 인원 없이 장비만 나갈 때
-                  </T>
-                </View>
-                <Toggle label="장비 반출만" value={equipmentOnly} onChange={setEquipmentOnly} />
-              </View>
-              </>
-              ) : null}
-            </Card>
-          ) : null}
-
-          <Card style={{ gap: 6 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <T variant="headline" accessibilityRole="header">
-                색상
-              </T>
-              <T variant="footnote" color={c.text2}>
-                {EVENT_COLORS.find((x) => x.hex === color)?.name ?? ""}
-              </T>
-            </View>
-            <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
-              {EVENT_COLORS.map((col) => {
-                const on = col.hex === color;
-                return (
-                  <Pressable
-                    key={col.hex}
-                    accessibilityRole="radio"
-                    accessibilityLabel={col.name}
-                    accessibilityState={{ checked: on }}
-                    onPress={() => setColor(col.hex)}
-                    style={{ width: "20%", height: 48, alignItems: "center", justifyContent: "center" }}
-                  >
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: col.hex, alignItems: "center", justifyContent: "center", borderWidth: on ? 3 : 0, borderColor: c.card, outlineColor: col.hex, outlineWidth: on ? 2 : 0, outlineStyle: "solid" }}>
-                      {on ? <Icon name="check" size={18} color="#FFFFFF" /> : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Card>
-
-          {editingId ? (
-            <Pressable accessibilityRole="button" onPress={confirmDelete} disabled={saving} style={{ minHeight: 56, borderRadius: radius.control, backgroundColor: c.card, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" }}>
-              <Icon name="trash" size={20} color={c.danger} />
-              <T variant="headline" color={c.danger}>
-                일정 삭제
-              </T>
-            </Pressable>
-          ) : null}
-        </ScrollView>
-      )}
-    </KeyboardAvoidingView>
+      </View>
+    </KeyboardAware>
   );
 }
+
+const BAR_H = 60;
+
+function RowIcon({ name }: { name: IconName }) {
+  const { c } = useTheme();
+  return <Icon name={name} size={24} color={c.text} />;
+}
+
+/** A form row that opens a panel under it: icon, label, current value, chevron. */
+function ExpandRow({ icon, label, value, active, open, onToggle }: { icon: IconName; label: string; value: string; active: boolean; open: boolean; onToggle: () => void }) {
+  const { c } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${value}`}
+      accessibilityState={{ expanded: open }}
+      onPress={onToggle}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 16, minHeight: 64, opacity: pressed ? 0.6 : 1 })}
+    >
+      <RowIcon name={icon} />
+      <T variant="body" style={{ fontSize: 17 }}>
+        {label}
+      </T>
+      <T variant="body" color={active ? c.primaryText : c.muted} numberOfLines={1} style={{ flex: 1, textAlign: "right", fontSize: 15 }}>
+        {value}
+      </T>
+      <View style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}>
+        <Icon name="down" size={22} color={c.text2} />
+      </View>
+    </Pressable>
+  );
+}
+
 
 function Stepper({ label, sign, onPress, disabled }: { label: string; sign: string; onPress: () => void; disabled?: boolean }) {
   const { c } = useTheme();

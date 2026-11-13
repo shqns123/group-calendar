@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, DEMO, getToken, setToken, setUnauthorizedHandler } from "./api";
 import type { Group, Me } from "./types";
+import { registerPush, unregisterPush, watchPushToken } from "./push";
+import { setWidgetGroup } from "./widgetSync";
 
 type SignInResult = { sessionToken: string; cookieName: string; pending: boolean };
 
@@ -102,6 +104,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [load],
   );
 
+  // Phone push: register this phone for the signed-in account — also while it waits for approval,
+  // so the "가입 승인" push reaches it.
+  const meId = me?.id ?? null;
+  useEffect(() => {
+    if (!ready || !meId) return;
+    void registerPush();
+    return watchPushToken();
+  }, [ready, meId]);
+
+  // The home-screen widget shows the group the app is on (and "로그인 필요" once signed out).
+  const current = groups.find((g) => g.id === groupId) ?? null;
+  const widgetId = me ? (current?.id ?? null) : null;
+  const widgetName = current?.name ?? "";
+  useEffect(() => {
+    if (!ready) return;
+    void setWidgetGroup(widgetId ? { id: widgetId, name: widgetName } : null);
+  }, [ready, widgetId, widgetName]);
+
   const value = useMemo<Session>(
     () => ({
       ready,
@@ -130,7 +150,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         });
         return finish(res);
       },
-      signOut: clear,
+      signOut: async () => {
+        await unregisterPush();
+        await clear();
+      },
     }),
     [ready, me, groups, allGroups, groupId, defaultGroupId, load, finish, clear],
   );

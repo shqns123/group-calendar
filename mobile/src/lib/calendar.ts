@@ -67,7 +67,9 @@ export function layoutWeek(events: CalEvent[], week: DateKey[], maxLanes: number
   }
 
   const lanes = laneEnds.length;
-  const visibleLanes = lanes > maxLanes ? Math.max(0, maxLanes - 1) : lanes;
+  // "+N" has its own reserved strip at the bottom of the cell, so an overflowing week still
+  // shows every lane that fits (it used to give up one more lane for "+N").
+  const visibleLanes = Math.min(lanes, maxLanes);
   const total = week.map((_, col) => placed.filter((p) => col >= p.startCol && col < p.startCol + p.span).length);
   const hidden = week.map((_, col) => placed.filter((p) => p.lane >= visibleLanes && col >= p.startCol && col < p.startCol + p.span).length);
   // Day background follows the top bar on that day (lowest lane): the cell takes a lighter

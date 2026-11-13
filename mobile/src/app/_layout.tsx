@@ -3,6 +3,9 @@ import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActionSheetProvider } from "@/components/ActionSheet";
+import { DialogHost } from "@/components/DialogHost";
+import { PaneFrame } from "@/components/PaneFrame";
+import { useSplit, WideModeProvider } from "@/lib/wide";
 import { SessionProvider, useSession } from "@/lib/session";
 import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 
@@ -23,6 +26,7 @@ const PUSHED = [
 function RootStack() {
   const { ready, me } = useSession();
   const { c, isDark } = useTheme();
+  const split = useSplit();
 
   if (!ready) {
     return (
@@ -34,21 +38,44 @@ function RootStack() {
 
   const active = me?.status === "ACTIVE";
   const pending = me != null && me.status !== "ACTIVE";
-  const pushed = {
-    headerShown: true,
-    headerTransparent: false,
-    headerStyle: { backgroundColor: c.surface },
-    headerTintColor: c.primaryText,
-    headerTitleStyle: { color: c.text },
-    headerShadowVisible: false,
-    headerBackTitle: "뒤로",
-    contentStyle: { backgroundColor: c.bg },
-  };
+  // Split screen: these screens open over the calendar but only in the right pane (PaneFrame), so
+  // they're transparent modals there — the calendar underneath stays on screen — and draw their
+  // own header. Otherwise: native header / full-screen modal as on a phone.
+  const pushed = split
+    ? { headerShown: false, presentation: "transparentModal" as const, animation: "slide_from_right" as const, contentStyle: { backgroundColor: "transparent" } }
+    : {
+        headerShown: true,
+        headerTransparent: false,
+        headerStyle: { backgroundColor: c.surface },
+        headerTintColor: c.primaryText,
+        headerTitleStyle: { color: c.text },
+        headerShadowVisible: false,
+        headerBackTitle: "뒤로",
+        contentStyle: { backgroundColor: c.bg },
+      };
+  const form = split
+    ? { presentation: "transparentModal" as const, animation: "slide_from_bottom" as const, contentStyle: { backgroundColor: "transparent" } }
+    : { presentation: "modal" as const, contentStyle: { backgroundColor: c.bg } };
 
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}
+        screenLayout={({ route, navigation, children }) => {
+          const name = route.name;
+          if (name === "day/[date]") return <PaneFrame transparent>{children}</PaneFrame>;
+          if (name === "event/edit" || name === "memo/edit") return <PaneFrame>{children}</PaneFrame>;
+          const p = PUSHED.find((s) => s.name === name);
+          if (p)
+            return (
+              <PaneFrame title={p.title} onBack={() => navigation.goBack()}>
+                {children}
+              </PaneFrame>
+            );
+          return <>{children}</>;
+        }}
+      >
         <Stack.Protected guard={active}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
@@ -56,12 +83,13 @@ function RootStack() {
             options={{
               // Centered popup over the calendar (the screen draws its own scrim + card).
               presentation: "transparentModal",
-              animation: "fade",
+              // The popup animates itself (grows out of the tapped cell).
+              animation: "none",
               contentStyle: { backgroundColor: "transparent" },
             }}
           />
-          <Stack.Screen name="event/edit" options={{ presentation: "modal", contentStyle: { backgroundColor: c.bg } }} />
-          <Stack.Screen name="memo/edit" options={{ presentation: "modal", contentStyle: { backgroundColor: c.bg } }} />
+          <Stack.Screen name="event/edit" options={form} />
+          <Stack.Screen name="memo/edit" options={form} />
           {PUSHED.map((s) => (
             <Stack.Screen key={s.name} name={s.name} options={{ ...pushed, title: s.title }} />
           ))}
@@ -82,9 +110,14 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <SessionProvider>
-          <ActionSheetProvider>
-            <RootStack />
-          </ActionSheetProvider>
+          {/* 분할 / 전체화면 mode: the tabs layout and every popup (they stay in the right pane). */}
+          <WideModeProvider>
+            <ActionSheetProvider>
+              <RootStack />
+              {/* Confirm / notice popups (lib/confirm) render here, above every screen. */}
+              <DialogHost />
+            </ActionSheetProvider>
+          </WideModeProvider>
         </SessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -1,11 +1,13 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { Field } from "@/components/list";
 import { Empty, ErrorBanner, PrimaryButton } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import type { Group } from "@/lib/types";
+import { KeyboardAware } from "@/components/KeyboardAware";
+import { closeScreen } from "@/lib/nav";
 
 export default function NewGroupScreen() {
   const router = useRouter();
@@ -28,7 +30,7 @@ export default function NewGroupScreen() {
       const g = await api<Group>("/api/groups", { method: "POST", body: { name: name.trim(), description: description.trim() } });
       await reloadGroups();
       if (g?.id) selectGroup(g.id);
-      router.back();
+      closeScreen(router, "/settings");
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
@@ -36,13 +38,13 @@ export default function NewGroupScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 18 }}>
         {error ? <ErrorBanner message={error} /> : null}
         <Field label="그룹 이름" value={name} onChangeText={setName} maxLength={50} autoFocus />
         <Field label="설명 (선택)" value={description} onChangeText={setDescription} maxLength={200} multiline />
         <PrimaryButton label="만들기" busy={busy} onPress={create} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Field, MiniButton, Section } from "@/components/list";
 import { Chip, Empty, ErrorBanner, Loading, PrimaryButton, T, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -9,6 +9,7 @@ import { useSession } from "@/lib/session";
 import type { NotificationSchedule } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
+import { KeyboardAware } from "@/components/KeyboardAware";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -57,7 +58,7 @@ function NotifyForm({ groupId, groupName }: { groupId: string; groupName: string
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: 40 }}>
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -123,7 +124,7 @@ function NotifyForm({ groupId, groupName }: { groupId: string; groupName: string
           />
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }
 

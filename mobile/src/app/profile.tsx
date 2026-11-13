@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { Field, Row, Section } from "@/components/list";
 import { Empty, ErrorBanner, PrimaryButton } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -7,6 +7,7 @@ import { notice } from "@/lib/confirm";
 import { permissionsFor, roleLabel } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
 import { invalidate } from "@/lib/useData";
+import { KeyboardAware } from "@/components/KeyboardAware";
 
 export default function ProfileScreen() {
   const { me, group, reloadGroups } = useSession();
@@ -34,7 +35,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 24 }}>
         {error ? <ErrorBanner message={error} /> : null}
         <Section title="계정">
@@ -53,6 +54,6 @@ export default function ProfileScreen() {
         />
         <PrimaryButton label="저장" busy={busy} onPress={save} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { Field } from "@/components/list";
 import { ErrorBanner, PrimaryButton, T } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { notice } from "@/lib/confirm";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme/ThemeProvider";
+import { KeyboardAware } from "@/components/KeyboardAware";
 
 export default function JoinScreen() {
   const { c } = useTheme();
@@ -35,7 +36,7 @@ export default function JoinScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 18 }}>
         <T variant="subhead" color={c.text2}>
           그룹장·파트장에게 받은 초대 코드를 입력하세요. 승인되면 그룹 전환 목록에 나타나요.
@@ -45,6 +46,6 @@ export default function JoinScreen() {
         <Field label="닉네임 (선택)" value={nickname} onChangeText={setNickname} maxLength={30} hint="그룹 안에서 표시될 이름이에요. 비우면 계정 이름을 써요." />
         <PrimaryButton label="가입 요청" busy={busy} onPress={join} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }

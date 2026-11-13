@@ -1,5 +1,6 @@
-import { useRouter } from "expo-router";
+import { useState } from "react";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
+import { MarqueeText } from "@/components/MarqueeText";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Empty, ErrorBanner, Loading, T } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -33,22 +34,28 @@ function timeAgo(iso: string) {
 
 export default function NotificationsScreen() {
   const { c, isDark } = useTheme();
-  const router = useRouter();
   const { group } = useSession();
   const { data, error, loading, refreshing, refresh } = useData(`unread:${group?.id ?? ""}`, () =>
     api<{ items: AppNotification[]; unreadCount: number }>("/api/notifications", { query: { groupId: group?.id } }),
   );
+  // Tapped notifications show as read at once (dot gone, title normal weight) — not only after the
+  // server answers and the list reloads, which used to happen hidden behind the day popup.
+  const [readNow, setReadNow] = useState<Set<string>>(() => new Set());
+  const isRead = (n: AppNotification) => !!n.readAt || readNow.has(n.id);
+
   const items = data?.items ?? [];
-  const unread = data?.unreadCount ?? 0;
+  const unread = Math.max(0, (data?.unreadCount ?? 0) - items.filter((i) => !i.readAt && readNow.has(i.id)).length);
   const today = todayKey();
   const yesterday = addDays(today, -1);
 
-  async function open(n: AppNotification) {
-    if (!n.readAt) {
-      await api(`/api/notifications/${n.id}/read`, { method: "POST" }).catch(() => null);
-      invalidate();
+  function open(n: AppNotification) {
+    if (!isRead(n)) {
+      setReadNow((cur) => new Set(cur).add(n.id));
+      void api(`/api/notifications/${n.id}/read`, { method: "POST" })
+        .catch(() => null)
+        .then(() => invalidate());
     }
-    if (n.targetDate) router.push({ pathname: "/day/[date]", params: { date: n.targetDate.slice(0, 10) } });
+    // A tap only marks it read — it doesn't open the day.
   }
 
   async function readAll() {
@@ -62,7 +69,7 @@ export default function NotificationsScreen() {
         title="알림"
         trailing={
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: unread === 0 }} disabled={unread === 0} onPress={readAll} style={{ minHeight: 44, paddingHorizontal: 8, justifyContent: "center" }}>
-            <T variant="body" color={unread === 0 ? c.muted : c.primaryText}>
+            <T variant="body" color={unread === 0 ? c.muted : c.primaryText} style={{ fontSize: 15, fontWeight: "600" }}>
               모두 읽음
             </T>
           </Pressable>
@@ -83,18 +90,19 @@ export default function NotificationsScreen() {
             const prevDay = index > 0 ? toKey(items[index - 1].createdAt) : null;
             const heading = day !== prevDay ? (day === today ? "오늘" : day === yesterday ? "어제" : `${Number(day.slice(5, 7))}월 ${Number(day.slice(8))}일`) : null;
             const k = kind(n, isDark);
-            const isUnread = !n.readAt;
+            const isUnread = !isRead(n);
             return (
               <View style={{ gap: 8 }}>
                 {heading ? (
-                  <T variant="footnote" color={c.text2} accessibilityRole="header" style={{ marginTop: index ? 8 : 0, marginLeft: 2 }}>
+                  <T variant="footnote" color={c.text2} accessibilityRole="header" style={{ marginTop: index ? 8 : 0, marginLeft: 2, fontSize: 13, fontWeight: "700" }}>
                     {heading}
                   </T>
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${isUnread ? "읽지 않음, " : ""}${n.title}, ${n.body}, ${timeAgo(n.createdAt)}`}
-                  onPress={() => void open(n)}
+                  accessibilityHint={isUnread ? "읽음으로 표시" : undefined}
+                  onPress={() => open(n)}
                   style={({ pressed }) => ({
                     flexDirection: "row",
                     gap: 12,
@@ -110,18 +118,21 @@ export default function NotificationsScreen() {
                       {k.glyph}
                     </T>
                   </View>
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-                      <T variant="headline" style={{ flexShrink: 1, fontWeight: isUnread ? "700" : "500" }}>
+                  {/* Line 1: title … time at the far right. Line 2: body, one line; a body longer than the
+                      card slides slowly left so all of it can be read (canvas sizes 13 / 13 / 11). */}
+                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      {/* Titles are short labels (새 일정 등록, 특근 가능 요청 …) — plain text, no scrolling. */}
+                      <T variant="footnote" numberOfLines={1} style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18, fontWeight: isUnread ? "700" : "500" }}>
                         {n.title}
                       </T>
-                      <T variant="footnote" color={c.muted} style={{ fontWeight: "500" }}>
+                      <T variant="footnote" color={c.muted} numberOfLines={1} style={{ fontSize: 13, lineHeight: 18, fontWeight: "500" }}>
                         {timeAgo(n.createdAt)}
                       </T>
                     </View>
-                    <T variant="subhead" color={c.text2}>
+                    <MarqueeText variant="caption" color={c.text2} style={{ fontSize: 11, lineHeight: 16, fontWeight: "400" }}>
                       {n.body}
-                    </T>
+                    </MarqueeText>
                   </View>
                   {isUnread ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.primary, marginTop: 7 }} /> : null}
                 </Pressable>

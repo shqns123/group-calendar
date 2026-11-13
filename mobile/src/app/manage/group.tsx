@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Field, Section } from "@/components/list";
 import { Empty, ErrorBanner, PrimaryButton, T } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -10,6 +10,8 @@ import { useSession } from "@/lib/session";
 import { invalidate } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { HIT, radius } from "@/theme/tokens";
+import { KeyboardAware } from "@/components/KeyboardAware";
+import { closeScreen } from "@/lib/nav";
 
 export default function GroupSettingsScreen() {
   const { group, me } = useSession();
@@ -60,7 +62,7 @@ function GroupForm() {
     try {
       await api(`/api/groups/${g.id}`, { method: "DELETE" });
       await reloadGroups();
-      router.back();
+      closeScreen(router, "/settings");
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
@@ -68,7 +70,7 @@ function GroupForm() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAware style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 18, paddingBottom: 40 }}>
         {error ? <ErrorBanner message={error} /> : null}
         <Field label="그룹 이름" value={name} onChangeText={setName} maxLength={50} />
@@ -100,7 +102,7 @@ function GroupForm() {
           </Pressable>
         </Section>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }
 

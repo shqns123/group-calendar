@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, View } from "react-native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Keyboard, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { ErrorBanner, IconButton, Loading, T, Tag } from "@/components/ui";
@@ -15,7 +15,12 @@ import { useHolidays } from "@/lib/useHolidays";
 import type { CalEvent, DayNote, PersonalNoteItem } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
+import { OvertimeChips } from "@/components/OvertimeChips";
+import { DismissLayer } from "@/components/DismissLayer";
+import { QuickAddBar } from "@/components/QuickAddBar";
+import { DUR, EASE_IN, EASE_OUT, prefersReducedMotion, timeTo } from "@/lib/motion";
 import { HIT, radius } from "@/theme/tokens";
+import { closeScreen } from "@/lib/nav";
 
 /** Event color as a soft card background (hex only; anything else falls back to the card color). */
 function tint(color: string, alpha: number) {
@@ -41,14 +46,49 @@ export default function DaySheet() {
  * The selected day's detail. As a popup (default) it floats over a light wash; with `inline`
  * it fills the right pane of the unfolded (wide) layout instead.
  */
-export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onChangeDate: (d: DateKey) => void; inline?: boolean }) {
+export function DayDetail({
+  date,
+  onChangeDate,
+  inline,
+}: {
+  date: DateKey;
+  onChangeDate: (d: DateKey) => void;
+  inline?: boolean;
+}) {
   const { c, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
   const router = useRouter();
+  const navigation = useNavigation();
+  // Samsung-style entrance: the card fades in at the center while scaling 0.95 → 1 (220ms,
+  // decelerating) over a fading wash; it leaves faster (180ms). No grow-out-of-the-cell.
+  const [show] = useState(() => new Animated.Value(inline || prefersReducedMotion() ? 1 : 0));
+  const closing = useRef(false);
+  useEffect(() => {
+    if (!inline) timeTo(show, 1, DUR.open, EASE_OUT);
+  }, [inline, show]);
+  // Back gesture / scrim tap: fade out first, then leave.
+  useEffect(() => {
+    if (inline) return;
+    // Minimal typing of the stack's beforeRemove event (typed routes don't expose it here).
+    const nav = navigation as unknown as {
+      addListener: (ev: "beforeRemove", cb: (e: { preventDefault: () => void; data: { action: unknown } }) => void) => () => void;
+      dispatch: (action: unknown) => void;
+    };
+    return nav.addListener("beforeRemove", (e) => {
+      if (closing.current || prefersReducedMotion()) return;
+      e.preventDefault();
+      closing.current = true;
+      timeTo(show, 0, DUR.close, EASE_IN, true, () => nav.dispatch(e.data.action));
+    });
+  }, [navigation, inline, show]);
+  const cardMotion = inline ? null : { opacity: show, transform: [{ scale: show.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] };
   const { group, me } = useSession();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [memoOpen, setMemoOpen] = useState(false);
+  // Quick-add typing mode: a tap anywhere else in the popup just ends it.
+  const [typing, setTyping] = useState(false);
   // Personnel chips in the header: which list is open, and the drop-down animation.
   type PeekKey = "ot" | "left" | "eq";
   const [peek, setPeek] = useState<PeekKey | null>(null);
@@ -71,6 +111,47 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
     peekAnim.setValue(0);
     grow(1);
   };
+  // ‹ › day change: the day's content slides out the way you're going and the next day slides in
+  // from the other side (next day: out to the left, in from the right). Out fast, in a bit slower.
+  const [dayX] = useState(() => new Animated.Value(0));
+  const [dayFade] = useState(() => new Animated.Value(1));
+  const shifting = useRef(false);
+  const dayMotion = { opacity: dayFade, transform: [{ translateX: dayX }] };
+  const shiftDay = (delta: 1 | -1) => {
+    closePeek();
+    const next = addDays(date, delta);
+    if (prefersReducedMotion()) {
+      onChangeDate(next);
+      return;
+    }
+    if (shifting.current) return;
+    shifting.current = true;
+    // Swap the day exactly once: when the slide-out ends, or on a timer if it gets cut off.
+    let swapped = false;
+    const swap = () => {
+      if (swapped) return;
+      swapped = true;
+      onChangeDate(next);
+      dayX.setValue(delta * 28);
+      dayFade.setValue(0);
+      shifting.current = false;
+      Animated.parallel([
+        Animated.timing(dayX, { toValue: 0, duration: DUR.open, easing: EASE_OUT, useNativeDriver: true }),
+        Animated.timing(dayFade, { toValue: 1, duration: DUR.open, easing: EASE_OUT, useNativeDriver: true }),
+      ]).start();
+      // Never leave the day half-faded if the slide-in gets cut off (it has long ended by then).
+      setTimeout(() => {
+        dayX.setValue(0);
+        dayFade.setValue(1);
+      }, DUR.open + 200);
+    };
+    Animated.parallel([
+      Animated.timing(dayX, { toValue: -delta * 28, duration: 110, easing: EASE_IN, useNativeDriver: true }),
+      Animated.timing(dayFade, { toValue: 0, duration: 110, easing: EASE_IN, useNativeDriver: true }),
+    ]).start(swap);
+    setTimeout(swap, 260);
+  };
+
   const closePeek = () => {
     if (!peek) return;
     setPeek(null);
@@ -90,18 +171,24 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
   const day = events ? eventsOn(events, date) : [];
   const work = day.filter((e) => !e.isOvertimeOnly);
   const mine = day.find((e) => e.isOvertimeOnly && e.creatorId === me?.id);
-  const otState: "yes" | "no" | "none" = mine ? (mine.overtimeAvailable ? "yes" : "no") : "none";
+  const serverOt: "yes" | "no" | "none" = mine ? (mine.overtimeAvailable ? "yes" : "no") : "none";
+  // Optimistic: the chip moves on tap; the server answer catches up (or rolls it back).
+  const [otPending, setOtPending] = useState<"yes" | "no" | "none" | null>(null);
+  const otState = otPending ?? serverOt;
+  if (otPending !== null && otPending === serverOt) setOtPending(null);
   const people = personnelFor(group, day);
   const eq = equipmentFor(group, day);
 
   async function clearOvertime() {
     if (!group) return;
+    setOtPending("none");
     setSaving(true);
     setSaveError(null);
     try {
       await api("/api/overtime-status", { method: "DELETE", query: { groupId: group.id, date } });
       invalidate();
     } catch (e) {
+      setOtPending(null);
       setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
@@ -110,6 +197,7 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
 
   async function setOvertime(available: boolean) {
     if (!group) return;
+    setOtPending(available ? "yes" : "no");
     setSaving(true);
     setSaveError(null);
     try {
@@ -119,6 +207,7 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
       });
       invalidate();
     } catch (e) {
+      setOtPending(null);
       setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
@@ -130,6 +219,9 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
   const noteItems = (note?.note?.items ?? []) as { text: string; assignee?: string; startDate?: string; endDate?: string }[];
   const p = permissionsFor(group, me);
   const hol = holidayInfo(date, holidays);
+  // 특근 is only marked for days off: weekends and holidays (a weekend turned into a 근무일 doesn't count).
+  const wdNum = weekday(date);
+  const offDay = hol.holiday || ((wdNum === 0 || wdNum === 6) && !hol.workday);
   const personalItems = personal?.note?.items ?? [];
   const eqItems = [
     ...(eq.trackers.length ? [`트래커 ${eq.trackerRemaining}/${eq.trackers.length}`] : []),
@@ -138,8 +230,10 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
   ];
   type Section = { label?: string; items: string[]; fg: string };
   const groups = {
-    ot: { key: "ot" as const, label: "특근 가능", count: people.overtime.length as number | null, bg: c.warnContainer, fg: c.onWarn, note: `전체 ${people.total}명 중`,
+    // 특근: the count is who can actually work — marked 가능 and not on 출장 / 근태 that day.
+    ot: { key: "ot" as const, label: "특근 가능", count: people.overtimeHere.length as number | null, bg: c.warnContainer, fg: c.onWarn, note: "출장·근태 제외",
       sections: [
+        { label: "울산 근무 가능", items: people.overtimeHere, fg: c.onOk },
         { label: "가능", items: people.overtime, fg: c.onWarn },
         { label: "불가능", items: people.overtimeNo, fg: c.danger },
       ] as Section[] },
@@ -155,27 +249,37 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
       ? { x: chipRow.x + shownBox.x, y: chipRow.y + shownBox.y, w: shownBox.w, h: shownBox.h, openW: headerW - OPEN_INSET * 2 }
       : null;
 
+  // Popup card: about two thirds of the screen, centered (One UI proportions), so plenty of the
+  // calendar shows around it — and a tap anywhere there closes it.
+  const popupH = Math.min(Math.round(winH * 0.66), winH - insets.top - insets.bottom - 32);
+
   return (
     <View
       style={
         inline
           ? { flex: 1, padding: 16, paddingTop: insets.top + 8, backgroundColor: c.bg }
-          : { flex: 1, paddingHorizontal: 16, paddingTop: insets.top + 56, paddingBottom: Math.max(insets.bottom - 10, 16) }
+          : { flex: 1, paddingHorizontal: 16, paddingTop: insets.top, paddingBottom: insets.bottom, justifyContent: "center" }
       }
     >
       {/* Light wash over the calendar (it stays faintly visible behind the card); tap to close. */}
       {inline ? null : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="닫기"
-          onPress={() => router.back()}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(246,247,249,0.78)" }}
-        />
+        <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: show }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+            onPress={() => {
+              Keyboard.dismiss();
+              closeScreen(router);
+            }}
+            style={{ flex: 1, backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(246,247,249,0.78)" }}
+          />
+        </Animated.View>
       )}
-      <View
+      <Animated.View
         accessibilityViewIsModal={!inline}
         style={{
-          flex: 1,
+          ...(cardMotion ?? {}),
+          ...(inline ? { flex: 1 } : { height: popupH }),
           backgroundColor: c.sheet,
           borderRadius: radius.sheet,
           overflow: "hidden",
@@ -186,34 +290,37 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
           elevation: 10,
         }}
       >
+      <View style={{ flex: 1 }}>
       <View onLayout={(e) => setHeaderW(e.nativeEvent.layout.width)} style={{ zIndex: 3, backgroundColor: c.subtle, paddingTop: 18, paddingBottom: 12, paddingLeft: 24, paddingRight: 8, gap: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <Pressable
             onPress={peek ? closePeek : undefined}
-            style={{ flex: 1, flexDirection: "row", alignItems: "baseline", gap: 10 }}
+            style={{ flex: 1 }}
             accessible
             accessibilityRole="header"
             accessibilityLabel={longLabel(date)}
           >
-            <T variant="title1" style={{ fontSize: 34, lineHeight: 40 }} color={hol.holiday || weekday(date) === 0 ? c.sunday : weekday(date) === 6 ? c.saturday : c.text}>
-              {String(parseKey(date).day)}
-            </T>
-            <T variant="headline" style={{ fontSize: 18 }} color={c.text}>
-              {WEEKDAYS_LONG[weekday(date)]}
-            </T>
+            <Animated.View style={[{ flexDirection: "row", alignItems: "baseline", gap: 10 }, dayMotion]}>
+              <T variant="title1" style={{ fontSize: 34, lineHeight: 40 }} color={hol.holiday || weekday(date) === 0 ? c.sunday : weekday(date) === 6 ? c.saturday : c.text}>
+                {String(parseKey(date).day)}
+              </T>
+              <T variant="headline" style={{ fontSize: 18 }} color={c.text}>
+                {WEEKDAYS_LONG[weekday(date)]}
+              </T>
+            </Animated.View>
           </Pressable>
-          <IconButton icon="back" tone="plain" label={`이전 날, ${longLabel(addDays(date, -1))}`} onPress={() => { closePeek(); onChangeDate(addDays(date, -1)); }} />
-          <IconButton icon="forward" tone="plain" label={`다음 날, ${longLabel(addDays(date, 1))}`} onPress={() => { closePeek(); onChangeDate(addDays(date, 1)); }} />
+          <IconButton icon="back" tone="plain" label={`이전 날, ${longLabel(addDays(date, -1))}`} onPress={() => shiftDay(-1)} />
+          <IconButton icon="forward" tone="plain" label={`다음 날, ${longLabel(addDays(date, 1))}`} onPress={() => shiftDay(1)} />
         </View>
 
         {/* 인원 현황 chips: tap one to drop its list down; tap anywhere else to close. */}
         {events ? (
-          <View
+          <Animated.View
             onLayout={(e) => {
               const l = e.nativeEvent.layout;
               setChipRow({ x: l.x, y: l.y, w: l.width, h: l.height });
             }}
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginLeft: -8 }}
+            style={[{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginLeft: -8 }, dayMotion]}
           >
             {chips.map((ch) => {
               const on = peek === ch.key;
@@ -254,7 +361,7 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
                 </Pressable>
               );
             })}
-          </View>
+          </Animated.View>
         ) : null}
 
         {/* The tapped chip stretches (left/width/height/corners) into a box; its own label
@@ -337,6 +444,7 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
         ) : null}
       </View>
 
+      <Animated.View style={[{ flex: 1 }, dayMotion]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 8 }}>
         <T variant="footnote" color={hol.holiday ? c.sunday : c.text2} style={{ marginHorizontal: 8, marginBottom: 2, fontWeight: "400" }}>
           {[`${parseKey(date).month}월 ${parseKey(date).day}일`, hol.name ? (hol.workday ? `${hol.name} (근무일)` : hol.name) : null].filter(Boolean).join(" · ")}
@@ -344,8 +452,8 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
         {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
         {saveError ? <ErrorBanner message={saveError} /> : null}
 
-        {p.canWriteEvents ? (
-          // Not marked yet → amber card with an outline and a prompt, so it gets noticed.
+        {p.canWriteEvents && offDay ? (
+          // Not marked yet → amber card with a dot and a prompt, so it gets noticed.
           <View
             style={{
               flexDirection: "row",
@@ -357,8 +465,6 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
               paddingVertical: otState === "none" ? 8 : 0,
               borderRadius: 16,
               backgroundColor: otState === "none" ? c.warnContainer : c.card,
-              borderWidth: otState === "none" ? 1.5 : 0,
-              borderColor: c.overtimeTrack,
             }}
           >
             {otState === "none" ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.overtimeTrack }} /> : null}
@@ -370,43 +476,8 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
                 {otText}
               </T>
             </View>
-            {/* Pick one chip; nothing picked = not marked yet. */}
-            <View accessibilityRole="radiogroup" accessibilityLabel="내 특근" style={{ flexDirection: "row", gap: 6 }}>
-              {([
-                { value: "no", label: "불가능", bg: c.dangerContainer, fg: c.danger },
-                { value: "yes", label: "가능", bg: c.warnContainer, fg: c.onWarn },
-              ] as const).map((o) => {
-                const on = otState === o.value;
-                return (
-                  <Pressable
-                    key={o.value}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`특근 ${o.label}`}
-                    accessibilityState={{ checked: on, disabled: saving }}
-                    disabled={saving}
-                    hitSlop={6}
-                    // Tapping the picked chip again clears the mark (back to 미표시).
-                    onPress={() => void (on ? clearOvertime() : setOvertime(o.value === "yes"))}
-                    style={({ pressed }) => ({
-                      minHeight: 34,
-                      paddingHorizontal: 14,
-                      borderRadius: radius.pill,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 4,
-                      backgroundColor: on ? o.bg : pressed ? c.fill : c.card,
-                      borderWidth: on ? 1.5 : 1,
-                      borderColor: on ? o.fg : c.outline,
-                      opacity: saving && !on ? 0.6 : 1,
-                    })}
-                  >
-                    <T variant="footnote" color={on ? o.fg : c.text2} style={{ fontWeight: "700" }}>
-                      {o.label}
-                    </T>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {/* Pick one chip; nothing picked = not marked yet. The indicator slides between them. */}
+            <OvertimeChips value={otState} disabled={saving} onPick={(v) => void (v === "none" ? clearOvertime() : setOvertime(v === "yes"))} />
           </View>
         ) : null}
 
@@ -501,33 +572,19 @@ export function DayDetail({ date, onChangeDate, inline }: { date: DateKey; onCha
         </View>
 
       </ScrollView>
+      </Animated.View>
 
       {peek ? <Pressable accessibilityRole="button" accessibilityLabel="인원 목록 닫기" onPress={closePeek} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} /> : null}
 
+      {/* Same quick add as under the month: one line → dates, time, people, title. */}
+      {typing ? <DismissLayer zIndex={4} /> : null}
       {p.canWriteEvents ? (
-        <View style={{ paddingHorizontal: 28, paddingTop: 8, paddingBottom: 20 }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${parseKey(date).month}월 ${parseKey(date).day}일에 일정 추가`}
-            onPress={() => router.push({ pathname: "/event/edit", params: { date } })}
-            style={({ pressed }) => ({
-              minHeight: 56,
-              borderRadius: radius.pill,
-              paddingLeft: 24,
-              paddingRight: 18,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: pressed ? c.fill : c.subtle,
-            })}
-          >
-            <T variant="subhead" color={c.text2} style={{ flex: 1, fontSize: 16, fontWeight: "500" }}>
-              {`${parseKey(date).month}월 ${parseKey(date).day}일에 추가`}
-            </T>
-            <Icon name="add" size={26} color={c.text} />
-          </Pressable>
+        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, zIndex: 5 }}>
+          <QuickAddBar date={date} tone="inset" onActiveChange={setTyping} />
         </View>
       ) : null}
       </View>
+      </Animated.View>
     </View>
   );
 }
