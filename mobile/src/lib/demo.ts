@@ -2,6 +2,7 @@
 // for the server so screens can be previewed without signing in.
 
 import { addDays, keyToIso, todayKey, toKey, covers } from "./date";
+import { parseQuickAdd } from "./quickAdd";
 import type { AdminUser, AppNotification, CalEvent, CustomHoliday, Group, Me, NotificationSchedule, PendingUser } from "./types";
 
 // Demo user is the group admin and an operator, so every management screen is visible.
@@ -115,6 +116,14 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
       events.filter((e) => (!end || toKey(e.startDate) <= end) && (!start || toKey(e.endDate) >= start)),
     );
   }
+  // Demo stand-in for the AI reading: the rule parser, shaped like the server's answer.
+  if (path === "/api/events/parse" && method === "POST") {
+    const d = parseQuickAdd(String(b.text ?? ""), String(b.date ?? todayKey()), group.members.map((m) => m.nickname ?? m.user.name ?? ""));
+    const leave = d.category === "ATTENDANCE";
+    return out({
+      draft: { status: "ok", category: d.category, leaveType: leave ? d.title : null, title: d.title, startDate: d.start, endDate: d.end, time: d.time, people: d.people, unknownPeople: [], detail: "", note: "" },
+    });
+  }
   if (path === "/api/events" && method === "POST") {
     if (b.isOvertimeOnly) {
       const key = toKey(String(b.startDate));
@@ -157,6 +166,11 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
       const shown = new Set(dayNotes.filter((n) => n.startDate <= date && n.endDate >= date).map((n) => n.id));
       dayNotes = [...dayNotes.filter((n) => !shown.has(n.id) && !entries.some((e) => e.id === n.id)), ...entries];
       return out({ success: true });
+    }
+    if (q.start && q.end) {
+      const dates = new Set<string>();
+      for (const n of dayNotes) for (let d = n.startDate; d <= n.endDate; d = addDays(d, 1)) if (d >= q.start && d <= q.end) dates.add(d);
+      return out({ notes: [...dates].map((date) => ({ id: `d-${date}`, date, items: dayNotes.filter((n) => n.startDate <= date && n.endDate >= date) })), canEdit: true });
     }
     const items = dayNotes.filter((n) => n.startDate <= q.date && n.endDate >= q.date);
     return out({

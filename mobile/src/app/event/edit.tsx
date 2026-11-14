@@ -1,10 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { confirm } from "@/lib/confirm";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActionBar, ACTION_BAR_H } from "@/components/ActionBar";
+import { Collapse } from "@/components/Collapse";
 import { DateRangeField } from "@/components/DateRangeField";
-import { Icon, type IconName } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
 import { Chip, ErrorBanner, Loading, Segmented, T, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { keyToIso, todayKey, toKey, type DateKey } from "@/lib/date";
@@ -53,7 +55,7 @@ export default function EventEditScreen() {
 }
 
 function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate: DateKey }) {
-  const { c, isDark } = useTheme();
+  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { group, me } = useSession();
@@ -190,7 +192,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
     <KeyboardAware style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: (Platform.OS === "ios" ? 16 : insets.top) + 28, paddingBottom: insets.bottom + BAR_H + 40, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: (Platform.OS === "ios" ? 16 : insets.top) + 28, paddingBottom: insets.bottom + ACTION_BAR_H + 40, gap: 16 }}
       >
         <T variant="title1" accessibilityRole="header" style={{ fontSize: 26, lineHeight: 34, fontWeight: "700", marginLeft: 22, marginBottom: 8 }}>
           {heading}
@@ -212,14 +214,14 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                 maxLength={100}
                 placeholder="제목"
                 placeholderTextColor={c.muted}
-                style={[type.title2, { flex: 1, color: c.text, fontSize: 22, minHeight: 40, padding: 0 }]}
+                style={[type.title2, { flex: 1, color: c.text, fontSize: 17, minHeight: 40, padding: 0 }]}
               />
               <ColorDot value={color} onChange={setColor} />
             </View>
           ) : (
             <View style={{ paddingVertical: 14, gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginVertical: -10, marginRight: -10 }}>
-                <T variant="title2" style={{ fontSize: 22 }}>
+                <T variant="title2" style={{ fontSize: 17 }}>
                   {leaveType}
                 </T>
                 <ColorDot value={color} onChange={setColor} />
@@ -236,12 +238,11 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
           {divider}
 
           {/* Dates: start → end */}
-          <DateRangeField icon="time" start={start} end={end} onChangeStart={setStart} onChangeEnd={setEnd} />
+          <DateRangeField start={start} end={end} onChangeStart={setStart} onChangeEnd={setEnd} />
           {divider}
 
           {/* Memo */}
-          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingVertical: 20 }}>
-            <RowIcon name="note" />
+          <View style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 20 }}>
             <View style={{ flex: 1, gap: 4 }}>
               <TextInput
                 accessibilityLabel="메모"
@@ -251,7 +252,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                 multiline
                 placeholder="메모"
                 placeholderTextColor={c.muted}
-                style={[type.body, { color: c.text, fontSize: 17, lineHeight: 24, minHeight: 24, padding: 0, textAlignVertical: "top" }]}
+                style={[type.body, { color: c.text, fontSize: 15, lineHeight: 24, minHeight: 24, padding: 0, textAlignVertical: "top" }]}
               />
               {description.length ? (
                 <T variant="caption" color={c.muted} accessibilityElementsHidden importantForAccessibility="no" style={{ alignSelf: "flex-end" }}>
@@ -266,18 +267,14 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
             <>
               {divider}
               <ExpandRow
-                icon="people"
                 label="인원"
                 value={peopleSummary}
                 active={people.size > 0}
                 open={peopleOpen}
-                onToggle={() => {
-                  animateNext(!peopleOpen);
-                  setPeopleOpen(!peopleOpen);
-                }}
+                onToggle={() => setPeopleOpen(!peopleOpen)}
               />
-              {peopleOpen ? (
-                <View style={{ paddingLeft: 40, paddingBottom: 16, gap: 10 }}>
+              <Collapse open={peopleOpen}>
+                <View style={{ paddingBottom: 16, gap: 10 }}>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                     {roster.map((n) => (
                       <Chip key={n} label={n} selected={people.has(n)} onPress={() => toggle(people, n, setPeople)} />
@@ -287,7 +284,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                     {`선택하지 않으면 작성자(${myName})가 기본 인원이 돼요.`}
                   </T>
                 </View>
-              ) : null}
+              </Collapse>
             </>
           ) : null}
 
@@ -296,18 +293,14 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
             <>
               {divider}
               <ExpandRow
-                icon="box"
                 label="장비"
                 value={equipSummary || "선택 없음"}
                 active={!!equipSummary}
                 open={equipOpen}
-                onToggle={() => {
-                  animateNext(!equipOpen);
-                  setEquipOpen(!equipOpen);
-                }}
+                onToggle={() => setEquipOpen(!equipOpen)}
               />
-              {equipOpen ? (
-                <View style={{ paddingLeft: 40, paddingBottom: 12, gap: 10 }}>
+              <Collapse open={equipOpen}>
+                <View style={{ paddingBottom: 12, gap: 10 }}>
                   <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
                     {EQUIP_TABS.map((tab) => {
                       const count =
@@ -360,7 +353,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                     />
                   </View>
                 </View>
-              ) : null}
+              </Collapse>
             </>
           ) : null}
 
@@ -384,67 +377,14 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
         </View>
       </ScrollView>
 
-      {/* Floating 취소 | 저장 pill: stays put while the form scrolls under it. */}
-      <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: insets.bottom + 16, alignItems: "center" }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            height: BAR_H,
-            width: 232,
-            borderRadius: BAR_H / 2,
-            backgroundColor: c.card,
-            shadowColor: "#0F172A",
-            shadowOpacity: isDark ? 0.5 : 0.14,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 8,
-          }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="취소"
-            onPress={() => closeScreen(router)}
-            style={({ pressed }) => ({ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", borderTopLeftRadius: BAR_H / 2, borderBottomLeftRadius: BAR_H / 2, backgroundColor: pressed ? c.subtle : "transparent" })}
-          >
-            <T variant="headline" style={{ fontSize: 17, fontWeight: "700" }}>
-              취소
-            </T>
-          </Pressable>
-          <View style={{ width: 1, height: 22, backgroundColor: c.outline }} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={savePhase === "saving" ? "저장 중" : savePhase === "done" ? "저장됨" : "저장"}
-            accessibilityState={{ busy: savePhase === "saving", disabled: savePhase !== "idle" }}
-            disabled={savePhase !== "idle"}
-            onPress={save}
-            style={({ pressed }) => ({ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", borderTopRightRadius: BAR_H / 2, borderBottomRightRadius: BAR_H / 2, backgroundColor: pressed ? c.subtle : "transparent" })}
-          >
-            {savePhase === "saving" ? (
-              <ActivityIndicator size="small" color={c.primary} />
-            ) : savePhase === "done" ? (
-              <Icon name="check" size={24} color={c.primary} />
-            ) : (
-              <T variant="headline" style={{ fontSize: 17, fontWeight: "700" }}>
-                저장
-              </T>
-            )}
-          </Pressable>
-        </View>
-      </View>
+      <ActionBar onCancel={() => closeScreen(router)} onSave={save} phase={savePhase} />
     </KeyboardAware>
   );
 }
 
-const BAR_H = 60;
-
-function RowIcon({ name }: { name: IconName }) {
-  const { c } = useTheme();
-  return <Icon name={name} size={24} color={c.text} />;
-}
 
 /** A form row that opens a panel under it: icon, label, current value, chevron. */
-function ExpandRow({ icon, label, value, active, open, onToggle }: { icon: IconName; label: string; value: string; active: boolean; open: boolean; onToggle: () => void }) {
+function ExpandRow({ label, value, active, open, onToggle }: { label: string; value: string; active: boolean; open: boolean; onToggle: () => void }) {
   const { c } = useTheme();
   return (
     <Pressable
@@ -454,11 +394,10 @@ function ExpandRow({ icon, label, value, active, open, onToggle }: { icon: IconN
       onPress={onToggle}
       style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 16, minHeight: 64, opacity: pressed ? 0.6 : 1 })}
     >
-      <RowIcon name={icon} />
-      <T variant="body" style={{ fontSize: 17 }}>
+      <T variant="body" style={{ fontSize: 15 }}>
         {label}
       </T>
-      <T variant="body" color={active ? c.primaryText : c.muted} numberOfLines={1} style={{ flex: 1, textAlign: "right", fontSize: 15 }}>
+      <T variant="body" color={active ? c.primaryText : c.muted} numberOfLines={1} style={{ flex: 1, textAlign: "right", fontSize: 13 }}>
         {value}
       </T>
       <View style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}>

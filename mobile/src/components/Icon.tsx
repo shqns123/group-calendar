@@ -31,6 +31,7 @@ const MAP = {
   info: { ios: "information-circle-outline", iosOn: "information-circle", md: "info-outline" },
   time: { ios: "time-outline", iosOn: "time", md: "schedule" },
   box: { ios: "cube-outline", iosOn: "cube", md: "inventory-2" },
+  arrow: { ios: "arrow-forward", iosOn: "arrow-forward", md: "arrow-forward" },
 } as const;
 
 export type IconName = keyof typeof MAP;

@@ -32,8 +32,17 @@ const BAR = { washAlpha: "28", fontSize: 10, lineHeight: 12.5, radius: 4 } as co
 const OTHER_MONTH_FADE = "A3";
 // "+N" under the bars when a day has more than fit.
 const MORE = { fontSize: 11, lineHeight: 14 } as const;
+/** Row under "+N" for the status dots (6px dot + 2px gap), so the two never share a line. */
+const DOT_ROW = 8;
 // Day cells (canvas): faint gray base; days with events take a lighter wash of the top bar color.
-const CELL = { alpha: { light: "0B", dark: "14" }, base: { light: "#FBFBFC", dark: "#1D2229" } } as const;
+// Day cell tint from its top event color: ≈2.7% (light) / ≈4.7% (dark) over the gray base.
+const CELL = { alpha: { light: "07", dark: "0C" }, base: { light: "#FBFBFC", dark: "#141414" } } as const;
+/**
+ * Dark calendar palette, sampled from Samsung Calendar's dark month view: a black page with
+ * neutral gray day cells (no blue cast), so the cells read clearly against the page. Light mode
+ * keeps the app theme.
+ */
+const CAL_DARK = { page: "#000000", pill: "#1E1E1E", fade: "80" } as const;
 // Split view (swipe up): the month shrinks, bars become thin lines, and the selected day's list shows below.
 const COMPACT = { line: 4, gap: 2, lanes: 3 } as const;
 
@@ -53,7 +62,7 @@ export default function CalendarScreen() {
 
 /** The month view. `pane`: left half of the wide layout — date taps fill the right pane. */
 export function CalendarView({ pane }: { pane?: boolean }) {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { group, me } = useSession();
@@ -159,14 +168,15 @@ export function CalendarView({ pane }: { pane?: boolean }) {
     }),
   );
   return (
-    <View style={{ flex: 1, backgroundColor: c.surface }}>
+    <View style={{ flex: 1, backgroundColor: isDark ? CAL_DARK.page : c.surface }}>
       <View style={{ paddingTop: insets.top + 6, paddingLeft: 20, paddingRight: 12, paddingBottom: 8, gap: 2 }}>
         {/* Canvas: no top row (group switch and 오늘 live elsewhere) — just ‹ 11월 ›. */}
         {/* Layout from the design canvas: ‹  2026년 11월  › with the month centered between the arrows. */}
         <View style={{ flexDirection: "row", alignItems: "center", marginLeft: -12, marginRight: -4 }}>
           <IconButton tone="plain" icon="back" label={`이전 달, ${monthLabel(prev.year, prev.month)}`} onPress={() => pager.go(-1)} />
-          <T variant="title1" accessibilityRole="header" accessibilityLabel={monthLabel(ym.year, ym.month)} style={{ flex: 1, textAlign: "center" }}>
-            {`${ym.month}월`}
+          {/* Flips the moment the finger lifts (pager.heading), not when the slide lands. */}
+          <T variant="title1" accessibilityRole="header" accessibilityLabel={monthLabel(Math.floor(pager.heading / 12), (pager.heading % 12) + 1)} style={{ flex: 1, textAlign: "center" }}>
+            {`${(pager.heading % 12) + 1}월`}
           </T>
           <IconButton tone="plain" icon="forward" label={`다음 달, ${monthLabel(next.year, next.month)}`} onPress={() => pager.go(1)} />
           {/* Wide screens: 분할 ↔ 전체화면. */}
@@ -259,7 +269,7 @@ export function CalendarView({ pane }: { pane?: boolean }) {
         // A short pill centered under the month (One UI: about two thirds of the width);
         // typing opens it into a card almost as wide as the screen.
         <View style={{ paddingHorizontal: 48, paddingTop: 6, paddingBottom: 10 }}>
-          <QuickAddBar date={sel} widen={40} onActiveChange={setTyping} />
+          <QuickAddBar date={sel} widen={40} onActiveChange={setTyping} surface={isDark ? CAL_DARK.pill : undefined} />
         </View>
       ) : null}
     </View>
@@ -273,9 +283,9 @@ function cellMetrics(fontScale: number) {
     barH: Math.ceil((BAR.lineHeight + 3) * fontScale),
     laneGap: 2,
     numH: 4 + Math.ceil(24 * fontScale) + 2,
-    // Bottom strip of the cell for "+N" and the status dots (they share it: +N centered, dots right),
-    // plus the cell's bottom padding.
-    moreH: Math.ceil(MORE.lineHeight * fontScale) + 6,
+    // Bottom of the cell: the "+N" line, the dot row under it (memo left; attendance/overtime
+    // right), and the cell's bottom padding.
+    moreH: Math.ceil(MORE.lineHeight * fontScale) + 6 + DOT_ROW,
   };
 }
 
@@ -312,6 +322,14 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
   const { data: events } = useData(groupId ? `events:${groupId}:${first}` : null, () =>
     api<CalEvent[]>("/api/events", { query: { groupId: groupId!, start: keyToIso(first), end: keyToIso(last) } }),
   );
+  // Days with a work memo (업무 메모) get a yellow dot, like the web calendar's memo mark.
+  const { data: memoData } = useData(groupId ? `daynotes:${groupId}:${first}` : null, () =>
+    api<{ notes: { date: string; items?: { text?: string }[] }[] }>("/api/day-notes", { query: { groupId: groupId!, start: first, end: last } }),
+  );
+  const memoDays = useMemo(
+    () => new Set((memoData?.notes ?? []).filter((n) => n.items?.some((i) => i.text?.trim())).map((n) => n.date)),
+    [memoData],
+  );
   const sel = selProp ?? defaultSel(cells, today);
 
   // How many bar lanes fit: measured row height and OS text size, capped by the
@@ -319,6 +337,7 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
   const rows = cells.length / 7;
   const rowH = gridH > 0 ? gridH / rows : 0;
   const { fontScale, barH, laneGap, numH, moreH } = cellMetrics(PixelRatio.getFontScale());
+  const numDot = Math.round(24 * fontScale);
   const fit = rowH > 0 ? Math.max(0, Math.floor((rowH - numH - moreH) / (barH + laneGap))) : 0;
   const maxLanes = Math.min(fit, limit);
   const compactLanes = Math.min(COMPACT.lanes, limit);
@@ -356,6 +375,7 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
                   bars ? `일정 ${bars}개` : "일정 없음",
                   marks.attendance ? "근태 있음" : null,
                   marks.overtime ? "특근 가능 표시" : null,
+                  memoDays.has(key) ? "업무 메모 있음" : null,
                   isToday ? "오늘" : null,
                 ]
                   .filter(Boolean)
@@ -372,7 +392,8 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
                       flex: 1,
                       overflow: "hidden",
                       paddingTop: 4,
-                      paddingBottom: 4,
+                      // Dots sit in their own row at the very bottom; "+N" stays above them.
+                      paddingBottom: 4 + DOT_ROW,
                       // A multi-day top bar joins its cells into one block (square inner corners).
                       borderTopLeftRadius: tint.joinPrev ? 0 : 10,
                       borderBottomLeftRadius: tint.joinPrev ? 0 : 10,
@@ -389,7 +410,9 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
                     {wash ? <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: wash }} /> : null}
                     {/* Selected day: a thin gray, fully rounded outline (even inside a joined multi-day block). */}
                     {isSel ? <SelRing color={c.text2} /> : null}
-                    <View style={{ alignSelf: "center", minWidth: 24, height: 24 * fontScale, paddingHorizontal: 4, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: isToday ? c.primary : "transparent" }}>
+                    {/* Fixed square box → a true circle for every date (a padded min-width box stretched
+                        two-digit dates into a pill). */}
+                    <View style={{ alignSelf: "center", width: numDot, height: numDot, borderRadius: numDot / 2, alignItems: "center", justifyContent: "center", backgroundColor: isToday ? c.primary : "transparent" }}>
                       <T variant="footnote" color={numColor}>
                         {parseKey(key).day}
                       </T>
@@ -403,6 +426,8 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
                     {/* Web calendar marks: blue dot = attendance, red dot = overtime (blue sits left of red). */}
                     {inMonth && marks.attendance ? <Dot color={c.saturday} right={marks.overtime ? 14 : 4} /> : null}
                     {inMonth && marks.overtime ? <Dot color={c.sunday} right={4} /> : null}
+                    {/* Work memo: yellow dot at the bottom left. */}
+                    {inMonth && memoDays.has(key) ? <Dot color={isDark ? MEMO_DOT.dark : MEMO_DOT.light} left={4} /> : null}
                   </Pressable>
                 );
               })}
@@ -481,7 +506,7 @@ const MonthPage = memo(function MonthPage({ year, month, sel: selProp, groupId, 
                   <View
                     key={`fade-${key}`}
                     pointerEvents="none"
-                    style={{ position: "absolute", top: 0, bottom: 0, left: `${(col / 7) * 100}%`, width: `${100 / 7}%`, backgroundColor: `${c.surface}${OTHER_MONTH_FADE}` }}
+                    style={{ position: "absolute", top: 0, bottom: 0, left: `${(col / 7) * 100}%`, width: `${100 / 7}%`, backgroundColor: isDark ? `${CAL_DARK.page}${CAL_DARK.fade}` : `${c.surface}${OTHER_MONTH_FADE}` }}
                   />
                 ),
               )}
@@ -502,9 +527,12 @@ function SelRing({ color }: { color: string }) {
 }
 
 /** Status dot in the bottom-right corner of a day cell (web: .fc-day-attendance / .fc-day-overtime). */
-function Dot({ color, right }: { color: string; right: number }) {
-  return <View style={{ position: "absolute", bottom: 4, right, width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />;
+function Dot({ color, right, left }: { color: string; right?: number; left?: number }) {
+  return <View style={{ position: "absolute", bottom: 4, right, left, width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />;
 }
+
+/** Work-memo dot: yellow. A deeper yellow on the light page so the small dot still shows. */
+const MEMO_DOT = { light: "#EAB308", dark: "#FACC15" } as const;
 
 /** Selected day's events under the shrunken month (split view). */
 function DayList({

@@ -5,7 +5,7 @@ import { holidayInfo } from "@/lib/holidays";
 import { EASE_IN, EASE_OUT, prefersReducedMotion } from "@/lib/motion";
 import { useHolidays } from "@/lib/useHolidays";
 import { useTheme } from "@/theme/ThemeProvider";
-import { Icon, type IconName } from "./Icon";
+import { Icon } from "./Icon";
 import { T } from "./ui";
 
 type Target = "start" | "end";
@@ -28,13 +28,11 @@ const FADE_OUT_MS = 140;
  * calendar under the row to pick it; tapping it again (or the other date) folds or switches.
  */
 export function DateRangeField({
-  icon,
   start,
   end,
   onChangeStart,
   onChangeEnd,
 }: {
-  icon: IconName;
   start: DateKey;
   end: DateKey;
   onChangeStart: (k: DateKey) => void;
@@ -102,15 +100,11 @@ export function DateRangeField({
 
   return (
     <View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 72 }}>
-        <View style={{ marginRight: 6 }}>
-          <Icon name={icon} size={24} color={c.text} />
-        </View>
+      {/* The pills' own side padding hangs outside the row, so the dates line up with the card's text. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 72, marginHorizontal: -12 }}>
         <DatePill label="시작" value={start} active={target === "start"} onPress={() => tap("start")} />
-        <View style={{ flex: 1, alignItems: "center" }} importantForAccessibility="no" accessibilityElementsHidden>
-          <T variant="body" color={c.text2} style={{ fontSize: 20 }}>
-            →
-          </T>
+        <View style={{ flex: 1, alignItems: "center" }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <Icon name="arrow" size={20} color={c.text2} />
         </View>
         <DatePill label="종료" value={end} active={target === "end"} onPress={() => tap("end")} />
       </View>
@@ -159,7 +153,7 @@ function DatePill({ label, value, active, onPress }: { label: string; value: Dat
       style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: "center", borderRadius: 22 }}
     >
       <Animated.View style={{ position: "absolute", top: 2, bottom: 2, left: 0, right: 0, borderRadius: 20, backgroundColor: c.fill, opacity: on }} />
-      <T variant="body" style={{ fontSize: 17, fontWeight: active ? "700" : "500" }}>
+      <T variant="body" style={{ fontSize: 15, fontWeight: active ? "700" : "500" }}>
         {shortLabel(value)}
       </T>
     </Pressable>

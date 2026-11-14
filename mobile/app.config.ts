@@ -12,8 +12,10 @@ const nameSuffix = isProd ? "" : variant === "test" ? " (테스트)" : " (개발
 const googleIosUrlScheme = process.env.GOOGLE_IOS_URL_SCHEME;
 
 // Firebase (phone push). google-services.json is registered for kr.groupcalendar.app only, so the
-// test/development variants (".test" / ".development" package) build without push.
-const googleServicesFile = isProd ? "./google-services.json" : undefined;
+// test/development variants (".test" / ".development" package) build without push. It isn't in git:
+// EAS builds get it from the secret file variable GOOGLE_SERVICES_JSON (preview + production),
+// local builds from mobile/google-services.json.
+const googleServicesFile = isProd ? (process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json") : undefined;
 
 // A release build without a server address would silently run on demo data, and
 // Android release builds refuse plain http. Fail the build instead.

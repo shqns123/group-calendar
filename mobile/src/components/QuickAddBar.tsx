@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, Animated, Keyboard, Platform, Pressable, ScrollView, TextInput, View, type KeyboardEvent } from "react-native";
-import { api, errorMessage } from "@/lib/api";
+import { api, ApiError, errorMessage } from "@/lib/api";
 import { parseKey, keyToIso, type DateKey } from "@/lib/date";
 import { notice } from "@/lib/confirm";
 import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
 import { parseQuickAdd } from "@/lib/quickAdd";
 import { myLabel, rosterOf, useSession } from "@/lib/session";
-import type { EventInput } from "@/lib/types";
+import type { AiDraft, EventInput } from "@/lib/types";
 import { invalidate } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { EVENT_COLORS, radius } from "@/theme/tokens";
@@ -30,6 +30,11 @@ const STARTERS = ["오늘", "내일", "오전 9시", "오후 2시", "월휴"];
  * Samsung-style quick add (month view and day popup). Type one line ("20~22일 광주 출장 김민수
  * 최유진", "내일 월휴", "오전 9시 회의") and it picks out the dates, time, people and title.
  *
+ * Two readers: while typing, the on-device rule parser fills the chips at once. The check button
+ * then asks the server's AI reader (POST /api/events/parse), which copes with typos and loose
+ * phrasing ("이틀ㄷ ㅢ 광주 출장", "3일뒤 일주일간 광주출장"); its reading replaces the chips and a
+ * second check saves it. If the AI can't answer, the rule parser's draft is saved as before.
+ *
  * Motion, measured from a One UI screen recording:
  * - Tap: the pill grows into a taller, wider card (~200ms, decelerating), anchored at its bottom;
  *   its chip row fades in after the card has room; + turns into a check (gray until the line is ready).
@@ -42,6 +47,7 @@ export function QuickAddBar({
   tone = "float",
   widen = WIDEN,
   onActiveChange,
+  surface,
 }: {
   date: DateKey;
   tone?: "float" | "inset";
@@ -49,6 +55,8 @@ export function QuickAddBar({
   widen?: number;
   /** Typing mode on/off — the host lays a tap-to-dismiss layer over everything else while on. */
   onActiveChange?: (active: boolean) => void;
+  /** Pill/card color when it floats over a page with its own palette (e.g. the dark calendar). */
+  surface?: string;
 }) {
   const { c, isDark } = useTheme();
   const router = useRouter();
@@ -56,12 +64,18 @@ export function QuickAddBar({
   const [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
   const [saving, setSaving] = useState(false);
+  // AI reading for exactly this text (stale as soon as the text changes).
+  const [ai, setAi] = useState<{ text: string; draft: AiDraft } | null>(null);
+  const [asking, setAsking] = useState(false);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const anchor = useRef<ComponentRef<typeof View>>(null);
   const roster = useMemo(() => rosterOf(group), [group]);
 
   const draft = useMemo(() => (text.trim() ? parseQuickAdd(text, date, roster) : null), [text, date, roster]);
-  const ready = !!draft && (draft.category === "ATTENDANCE" || !!draft.title);
+  const aiNow = ai && ai.text === text ? ai.draft : null;
+  // Any line can go to the AI; its own reading must be clear before it can be saved.
+  const ready = aiNow ? aiNow.status === "ok" : !!draft;
+  const busy = saving || asking;
 
   // --- Pill ⇄ card. Layout props (height/insets) → JS driver.
   const [open] = useState(() => new Animated.Value(0));
@@ -107,32 +121,12 @@ export function QuickAddBar({
 
   // --- Button: 0 = clear (+), 1 = gray (check, not ready), 2 = accent (check/+, ready).
   const [tint] = useState(() => new Animated.Value(0));
-  const tintTo = saving || ready ? 2 : focused ? 1 : 0;
+  const tintTo = busy || ready ? 2 : focused ? 1 : 0;
   useEffect(() => {
     timeTo(tint, tintTo, DUR.swap, EASE_OUT, false);
   }, [tint, tintTo]);
 
-  async function submit() {
-    if (!draft) {
-      router.push({ pathname: "/event/edit", params: { date } });
-      return;
-    }
-    if (!group || !ready || saving) return;
-    const body: EventInput = {
-      category: draft.category,
-      title: draft.title,
-      description: draft.time ? `시간 ${draft.time}` : "",
-      startDate: keyToIso(draft.start),
-      endDate: keyToIso(draft.end),
-      allDay: true,
-      color: EVENT_COLORS[0].hex,
-      groupId: group.id,
-      // Same rule as the full form: nobody picked → trips default to the writer on the server,
-      // 근태 is recorded for the writer.
-      personnel: draft.people.length ? draft.people.join(", ") : draft.category === "ATTENDANCE" ? myLabel(group, me) : null,
-      equipment: null,
-      equipmentOnly: false,
-    };
+  async function save(body: EventInput) {
     setSaving(true);
     // Put the input away first (card → pill, keyboard down) …
     onBlur();
@@ -142,6 +136,7 @@ export function QuickAddBar({
       await Promise.all([api("/api/events", { method: "POST", body }), new Promise((r) => setTimeout(r, DUR.keyboard))]);
       // … then the result lands on the calendar.
       setText("");
+      setAi(null);
       invalidate();
     } catch (e) {
       notice("추가하지 못했어요", errorMessage(e));
@@ -150,13 +145,99 @@ export function QuickAddBar({
     }
   }
 
+  // Same rule as the full form: nobody picked → trips default to the writer on the server,
+  // 근태 is recorded for the writer.
+  const personnelFor = (category: EventInput["category"], people: string[]) =>
+    people.length ? people.join(", ") : category === "ATTENDANCE" ? myLabel(group, me) : null;
+
+  function saveRule() {
+    if (!group || !draft) return;
+    if (draft.category !== "ATTENDANCE" && !draft.title) {
+      notice("제목을 적어 주세요", "어디로 가는지, 무슨 일인지 함께 적어 주세요.");
+      return;
+    }
+    void save({
+      category: draft.category,
+      title: draft.title,
+      description: draft.time ? `시간 ${draft.time}` : "",
+      startDate: keyToIso(draft.start),
+      endDate: keyToIso(draft.end),
+      allDay: true,
+      color: EVENT_COLORS[0].hex,
+      groupId: group.id,
+      personnel: personnelFor(draft.category, draft.people),
+      equipment: null,
+      equipmentOnly: false,
+    });
+  }
+
+  function saveAi(d: AiDraft) {
+    if (!group) return;
+    void save({
+      category: d.category,
+      title: d.title,
+      description: [d.time ? `시간 ${d.time}` : null, d.detail || null].filter(Boolean).join(" · "),
+      startDate: keyToIso(d.startDate),
+      endDate: keyToIso(d.endDate),
+      allDay: true,
+      color: EVENT_COLORS[0].hex,
+      groupId: group.id,
+      personnel: personnelFor(d.category, d.people),
+      equipment: null,
+      equipmentOnly: false,
+    });
+  }
+
+  async function submit() {
+    if (!draft) {
+      router.push({ pathname: "/event/edit", params: { date } });
+      return;
+    }
+    if (!group || busy) return;
+    // Second check on an AI reading: save it.
+    if (aiNow) {
+      if (aiNow.status === "ok") saveAi(aiNow);
+      return;
+    }
+    // First check: ask the AI, show its reading, wait for the confirming check.
+    const asked = text;
+    setAsking(true);
+    try {
+      const res = await api<{ draft: AiDraft }>("/api/events/parse", { method: "POST", body: { groupId: group.id, text: asked, date } });
+      setAi({ text: asked, draft: res.draft });
+    } catch (e) {
+      // AI unavailable (no key, limit, timeout, offline, or a server without this route yet):
+      // fall back to the rule parser's draft, as before. Only a lost login is reported.
+      if (e instanceof ApiError && e.status === 401) notice("다시 로그인해 주세요", errorMessage(e));
+      else saveRule();
+    } finally {
+      setAsking(false);
+    }
+  }
+
   const add = (word: string) => {
     setText((t) => (t.trim() ? `${t.trimEnd()} ${word} ` : `${word} `));
     input.current?.focus();
   };
 
-  // --- Chip row: what was understood, or starters while empty.
-  const chips: { k: string; label: string; warn?: boolean }[] = draft
+  // --- Chip row: what was understood (the AI reading once asked), or starters while empty.
+  const chips: { k: string; label: string; warn?: boolean; accent?: boolean }[] = aiNow
+    ? aiNow.status === "unclear"
+      ? [
+          { k: "ai", label: "AI", accent: true },
+          { k: "note", label: aiNow.note || "일정으로 읽지 못했어요", warn: true },
+        ]
+      : [
+          { k: "ai", label: "AI", accent: true },
+          { k: "date", label: aiNow.startDate === aiNow.endDate ? md(aiNow.startDate) : `${md(aiNow.startDate)} – ${md(aiNow.endDate)}` },
+          ...(aiNow.time ? [{ k: "time", label: aiNow.time }] : []),
+          aiNow.category === "ATTENDANCE"
+            ? { k: "kind", label: `근태 · ${aiNow.title}${aiNow.detail && aiNow.detail !== aiNow.title ? ` (${aiNow.detail})` : ""}` }
+            : { k: "kind", label: `출장 · ${aiNow.title}` },
+          ...(aiNow.people.length ? [{ k: "people", label: aiNow.people.join(", ") }] : []),
+          ...aiNow.unknownPeople.map((n, i) => ({ k: `unknown-${i}`, label: `${n} 님 없음`, warn: true })),
+        ]
+    : draft
     ? [
         { k: "date", label: draft.start === draft.end ? md(draft.start) : `${md(draft.start)} – ${md(draft.end)}` },
         ...(draft.time ? [{ k: "time", label: draft.time }] : []),
@@ -172,8 +253,20 @@ export function QuickAddBar({
   const inset = tone === "inset";
   const example = `예: 내일 오전 9시 광주 출장 ${roster[0] ?? "김민수"}`;
   const btnBg = tint.interpolate({ inputRange: [0, 1, 2], outputRange: [`${c.fill}00`, c.fill, c.primary] });
-  const glyph = saving ? "spin" : focused || ready ? "check" : "add";
-  const label = saving ? "추가하는 중" : draft ? "추가" : focused ? "추가할 내용을 적어 주세요" : "자세히 입력";
+  const glyph = busy ? "spin" : focused || ready ? "check" : "add";
+  const label = saving
+    ? "추가하는 중"
+    : asking
+      ? "AI가 읽는 중"
+      : aiNow
+        ? aiNow.status === "ok"
+          ? "이대로 추가"
+          : "다시 적어 주세요"
+        : draft
+          ? "AI로 읽기"
+          : focused
+            ? "추가할 내용을 적어 주세요"
+            : "자세히 입력";
 
   return (
     <View ref={anchor} collapsable={false} style={{ height: BAR_H }}>
@@ -188,7 +281,7 @@ export function QuickAddBar({
             borderRadius: open.interpolate({ inputRange: [0, 1], outputRange: [BAR_H / 2, 24] }),
             overflow: "hidden",
             justifyContent: "flex-end",
-            backgroundColor: inset && !focused ? c.subtle : c.card,
+            backgroundColor: inset && !focused ? c.subtle : (surface ?? c.card),
             shadowColor: "#0F172A",
             shadowOpacity: inset && !focused ? 0 : isDark ? 0.5 : focused ? 0.16 : 0.12,
             shadowRadius: 16,
@@ -206,7 +299,7 @@ export function QuickAddBar({
               contentContainerStyle={{ alignItems: "flex-end", gap: 6, paddingLeft: 18, paddingRight: 12, paddingTop: 12 }}
             >
               {chips.length
-                ? chips.map((x) => <Chip key={x.k} label={x.label} warn={!!x.warn} />)
+                ? chips.map((x) => <Chip key={x.k} label={x.label} warn={!!x.warn} accent={!!x.accent} />)
                 : STARTERS.map((w) => <Chip key={w} label={w} onPress={() => add(w)} />)}
             </ScrollView>
           </Animated.View>
@@ -223,7 +316,7 @@ export function QuickAddBar({
               onSubmitEditing={() => void submit()}
               submitBehavior="submit"
               returnKeyType="done"
-              editable={!saving}
+              editable={!busy}
               placeholder={focused ? example : `${md(date)}에 추가`}
               placeholderTextColor={c.muted}
               accessibilityLabel={`${md(date)}에 일정 빠르게 추가`}
@@ -233,8 +326,8 @@ export function QuickAddBar({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={label}
-              accessibilityState={{ busy: saving, disabled: focused && !ready }}
-              disabled={saving || (!!draft && !ready) || (focused && !draft)}
+              accessibilityState={{ busy, disabled: focused && !ready }}
+              disabled={busy || (!!draft && !ready) || (focused && !draft)}
               onPress={() => void submit()}
               hitSlop={6}
             >
@@ -270,7 +363,7 @@ export function QuickAddBar({
 }
 
 /** A chip in the card's row: tappable starter, or a read-only "understood" chip that pops in. */
-function Chip({ label, warn, onPress }: { label: string; warn?: boolean; onPress?: () => void }) {
+function Chip({ label, warn, accent, onPress }: { label: string; warn?: boolean; accent?: boolean; onPress?: () => void }) {
   const { c } = useTheme();
   const [v] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -283,14 +376,14 @@ function Chip({ label, warn, onPress }: { label: string; warn?: boolean; onPress
         height: 30,
         justifyContent: "center",
         borderRadius: radius.pill,
-        backgroundColor: onPress ? c.subtle : c.card,
-        borderWidth: onPress ? 0 : 1,
+        backgroundColor: accent ? c.primaryContainer : onPress ? c.subtle : c.card,
+        borderWidth: onPress || accent ? 0 : 1,
         borderColor: c.outline,
         opacity: v,
         transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
       }}
     >
-      <T variant="caption" color={warn ? c.danger : onPress ? c.text : c.text2} style={{ fontWeight: "600" }}>
+      <T variant="caption" color={warn ? c.danger : accent ? c.onPrimaryContainer : onPress ? c.text : c.text2} style={{ fontWeight: "600" }}>
         {label}
       </T>
     </Animated.View>

@@ -95,6 +95,21 @@ export type AppNotification = {
   readAt: string | null;
 };
 
+/** AI reading of a quick-add line (POST /api/events/parse). Dates are YYYY-MM-DD. */
+export type AiDraft = {
+  status: "ok" | "unclear";
+  category: EventCategory;
+  leaveType: "월휴" | "무휴" | "유휴" | "기타" | null;
+  title: string;
+  startDate: string;
+  endDate: string;
+  time: string | null;
+  people: string[];
+  unknownPeople: string[];
+  detail: string;
+  note: string;
+};
+
 export type DayNote = {
   id: string;
   date: string;

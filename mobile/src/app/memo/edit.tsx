@@ -2,7 +2,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DateField } from "@/components/DateField";
+import { ActionBar, ACTION_BAR_H } from "@/components/ActionBar";
+import { DateRangeField } from "@/components/DateRangeField";
+import type { SavePhase } from "@/components/SaveButton";
 import { Icon } from "@/components/Icon";
 import { Empty, ErrorBanner, Loading, T } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -15,6 +17,7 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { HIT, radius, type } from "@/theme/tokens";
 import { KeyboardAware } from "@/components/KeyboardAware";
 import { closeScreen } from "@/lib/nav";
+import { prefersReducedMotion } from "@/lib/motion";
 
 type Kind = "group" | "personal";
 type Item = { id: string; text: string; assignee: string; startDate?: string; endDate?: string };
@@ -47,17 +50,18 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
   const router = useRouter();
   const { group } = useSession();
   const [items, setItems] = useState<Item[]>(initial.length ? initial : [{ id: newId(), text: "", assignee: "" }]);
-  const [saving, setSaving] = useState(false);
+  const [phase, setPhase] = useState<SavePhase>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const title = kind === "group" ? "업무 메모" : "개인 메모";
   const limit = kind === "group" ? 200 : 1000;
 
-  const update = (id: string, patch: Partial<Item>) => setItems(items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  // Functional update: the date picker can change start and end in the same tap.
+  const update = (id: string, patch: Partial<Item>) => setItems((cur) => cur.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
   async function save() {
     const clean = items.filter((i) => i.text.trim());
-    setSaving(true);
+    setPhase("saving");
     setError(null);
     try {
       if (kind === "personal") {
@@ -69,39 +73,32 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
         });
       }
       invalidate();
-      closeScreen(router);
+      // 저장 → spinner → check, then close (same as the event form).
+      setPhase("done");
+      setTimeout(() => closeScreen(router), prefersReducedMotion() ? 0 : 420);
     } catch (e) {
       setError(errorMessage(e));
-      setSaving(false);
+      setPhase("idle");
     }
   }
 
   return (
     <KeyboardAware style={{ flex: 1, backgroundColor: c.bg }}>
-      <View style={{ paddingTop: Platform.OS === "ios" ? 8 : insets.top, paddingHorizontal: 8, paddingBottom: 4, flexDirection: "row", alignItems: "center", backgroundColor: c.bg }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="취소" onPress={() => closeScreen(router)} style={{ minHeight: HIT, minWidth: 80, justifyContent: "center", paddingHorizontal: 8 }}>
-          <T variant="body" color={c.primaryText}>
-            취소
-          </T>
-        </Pressable>
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <T variant="headline" accessibilityRole="header">
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 12, gap: 10, paddingTop: (Platform.OS === "ios" ? 16 : insets.top) + 28, paddingBottom: insets.bottom + ACTION_BAR_H + 40 }}
+      >
+        {/* Big left title like the event form; 취소 | 저장 float at the bottom. */}
+        <View style={{ marginLeft: 22, marginBottom: 8, gap: 2 }}>
+          <T variant="title1" accessibilityRole="header" style={{ fontSize: 26, lineHeight: 34, fontWeight: "700" }}>
             {title}
           </T>
           <T variant="footnote" color={c.text2} style={{ fontWeight: "400" }}>
             {longLabel(date)}
           </T>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="저장" onPress={save} disabled={saving} style={{ minHeight: HIT, minWidth: 80, alignItems: "flex-end", justifyContent: "center", paddingHorizontal: 8, opacity: saving ? 0.5 : 1 }}>
-          <T variant="headline" color={c.primaryText}>
-            저장
-          </T>
-        </Pressable>
-      </View>
-
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: insets.bottom + 24 }}>
         {error ? <ErrorBanner message={error} /> : null}
-        <T variant="footnote" color={c.muted} style={{ fontWeight: "400" }}>
+        <T variant="footnote" color={c.muted} style={{ fontWeight: "400", marginHorizontal: 22 }}>
           {kind === "group" ? "그룹 멤버 모두에게 보여요. 항목마다 기간과 담당자를 정할 수 있고, 기간 안의 날짜마다 같은 메모가 보여요." : "나만 볼 수 있는 메모예요."}
         </T>
         {items.map((item, idx) => (
@@ -124,14 +121,14 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
             />
             {kind === "group" ? (
               // 기간: the server copies the memo onto every day in the range (web: lib/dayNotes expandDayNoteDateRange).
-              <View style={{ flexDirection: "row", backgroundColor: c.subtle, borderRadius: radius.control, marginTop: 2 }}>
-                <DateField
-                  label="시작"
-                  value={item.startDate ?? date}
-                  onChange={(k) => update(item.id, { startDate: k, endDate: (item.endDate ?? date) < k ? k : item.endDate ?? date })}
+              // Same picker as the event form: tap a date and a month calendar unfolds under it.
+              <View style={{ borderTopWidth: 1, borderTopColor: c.outline }}>
+                <DateRangeField
+                  start={item.startDate ?? date}
+                  end={item.endDate ?? date}
+                  onChangeStart={(k) => update(item.id, { startDate: k })}
+                  onChangeEnd={(k) => update(item.id, { endDate: k })}
                 />
-                <View style={{ width: 1, marginVertical: 12, backgroundColor: c.outline }} />
-                <DateField label="종료" value={item.endDate ?? date} minimum={item.startDate ?? date} onChange={(k) => update(item.id, { endDate: k })} />
               </View>
             ) : null}
             {kind === "group" ? (
@@ -160,6 +157,7 @@ function MemoForm({ kind, date, initial }: { kind: Kind; date: DateKey; initial:
           </Pressable>
         ) : null}
       </ScrollView>
+      <ActionBar onCancel={() => closeScreen(router)} onSave={save} phase={phase} />
     </KeyboardAware>
   );
 }

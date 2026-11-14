@@ -1,5 +1,8 @@
 // Google Sign-In is a native module: it exists only in a development/production
 // build, never in Expo Go or on web. Load it lazily so the app still runs there.
+// On web the package does load, but only as a stub that throws "not-implemented
+// method on web platform" (its web build is sponsor-only), so it's skipped there.
+import { Platform } from "react-native";
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
@@ -7,7 +10,7 @@ const IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 type GoogleModule = typeof import("@react-native-google-signin/google-signin");
 
 function load(): GoogleModule | null {
-  if (!WEB_CLIENT_ID) return null;
+  if (!WEB_CLIENT_ID || Platform.OS === "web") return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("@react-native-google-signin/google-signin") as GoogleModule;
