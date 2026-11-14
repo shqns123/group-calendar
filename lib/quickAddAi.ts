@@ -80,15 +80,23 @@ export const SYSTEM_PROMPT = `너는 그룹 캘린더 앱의 "빠른 일정 추�
 - 시간은 title에 넣지 않는다.
 
 [사람]
+- 여러 명은 쉼표(,), 공백, "랑/이랑/과/와/하고/및"으로 이어 쓴다. 언급된 사람을 모두 people에 넣는다.
+  예: "김민수, 최유진 광주" / "민수 유진 광주" / "민수랑 유진이랑 광주" → ["김민수", "최유진"]
 - 사람은 [인원 명단]에 있는 이름으로만 고른다. 오타나 성 빠진 이름은 가장 가까운 명단 이름으로 맞춘다
   (예: "민수" → "김민수"). 확실하지 않으면 people에 넣지 말고 unknownPeople에 원문을 넣는다.
 - "나", "내가", "저"는 [작성자] 이름이다.
-- 사람이 없으면 people은 빈 배열이다.
+- 문장에 사람이 나오지 않으면 people은 빈 배열이다. 작성자를 마음대로 넣지 않는다
+  (근태의 기본 인원은 앱이 정한다).
 
 [오타]
 - 자모가 흩어진 입력은 붙여서 읽는다. 예: "이틀ㄷ ㅢ" → "이틀 뒤", "낼" → "내일", "출쟝" → "출장".
-- 장소·업무명 오타는 [최근 일정 제목]을 참고해 고친다. 예: "남영연구소" → "남양연구소".
-  비슷한 것이 없으면 원문 그대로 둔다.
+- 출장지·업무명은 [기존 출장지]에서 비슷한 것을 먼저 찾는다. 글자 한두 개가 다르거나, 띄어쓰기·
+  받침·모음만 다른 오타면 [기존 출장지]의 표기로 고친다.
+  예: "남영연구소" → "남양연구소", "화성오토랜드" → "화성 오토랜드", "인도1공장" → "인도 1공장"
+- 사용자가 쓴 만큼만 쓴다. 지역 이름만 썼으면("화성", "광주") 더 긴 기존 제목으로 늘리지 않는다.
+  예: "화성 출쟝" → "화성 출장" (O), "화성 오토랜드 무빙창고" (X)
+  [기존 출장지]의 일정 제목에 "출장" 같은 말이 붙어 있어도 장소 부분만 가져와 title을 만든다.
+  비슷한 것이 없으면 원문 표기를 띄어쓰기만 다듬어 쓴다. 없는 장소를 지어내지 않는다.
 
 [판단할 수 없을 때]
 - 일정으로 볼 수 없는 문장(인사, 질문, 의미 없는 글자)이거나 날짜가 서로 모순되면
@@ -103,7 +111,8 @@ export const QUICK_ADD_SCHEMA = {
   properties: {
     status: { type: "string", enum: ["ok", "unclear"] },
     category: { type: "string", enum: ["BUSINESS_TRIP", "ATTENDANCE"] },
-    leaveType: { type: ["string", "null"], enum: ["월휴", "무휴", "유휴", "기타", null] },
+    // anyOf, not a type list with null inside enum: Anthropic's schema check rejects the latter.
+    leaveType: { anyOf: [{ type: "string", enum: ["월휴", "무휴", "유휴", "기타"] }, { type: "null" }] },
     title: { type: "string" },
     startDate: { type: "string", description: "YYYY-MM-DD" },
     endDate: { type: "string", description: "YYYY-MM-DD" },
@@ -176,7 +185,7 @@ export function buildUserMessage(ctx: AiContext) {
     `[날짜표]\n${dateTable(ctx.today)}`,
     `[작성자] ${ctx.me}`,
     `[인원 명단] ${ctx.roster.join(", ") || "(없음)"}`,
-    `[최근 일정 제목] ${ctx.recentTitles.join(", ") || "(없음)"}`,
+    `[기존 출장지] ${ctx.recentTitles.join(", ") || "(없음)"}`,
     "",
     "[입력]",
     ctx.text,

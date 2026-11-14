@@ -55,15 +55,21 @@ export async function POST(req: Request) {
   const mine = members.find((m) => m.userId === userId);
   const me = mine ? label(mine) : session.user?.name?.trim() || "";
 
-  // Recent trip titles: the model fixes place-name typos against these ("남영연구소" → "남양연구소").
-  const since = new Date(Date.now() - 180 * 86_400_000);
+  // Trip titles the group already used (past year and ahead), most frequent first: the model
+  // matches place-name typos to these ("남영연구소" → "남양연구소").
+  const since = new Date(Date.now() - 365 * 86_400_000);
   const events = await prisma.event.findMany({
     where: { groupId, category: "BUSINESS_TRIP", startDate: { gte: since } },
     select: { title: true },
     orderBy: { startDate: "desc" },
-    take: 200,
+    take: 800,
   });
-  const recentTitles = [...new Set(events.map((e) => e.title.trim()).filter(Boolean))].slice(0, 30);
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    const t = e.title.trim();
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  const recentTitles = [...counts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 60).map(([t]) => t);
 
   try {
     const draft = await parseQuickAddWithAi({ text, today, selected, me, roster, recentTitles });
