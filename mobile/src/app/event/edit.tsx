@@ -241,16 +241,16 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
           <DateRangeField start={start} end={end} onChangeStart={setStart} onChangeEnd={setEnd} />
           {divider}
 
-          {/* Memo */}
+          {/* Description (설명), same field for 출장 and 근태 */}
           <View style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 20 }}>
             <View style={{ flex: 1, gap: 4 }}>
               <TextInput
-                accessibilityLabel="메모"
+                accessibilityLabel="설명 (선택)"
                 value={description}
                 onChangeText={setDescription}
                 maxLength={500}
                 multiline
-                placeholder="메모"
+                placeholder="설명 (선택)"
                 placeholderTextColor={c.muted}
                 style={[type.body, { color: c.text, fontSize: 15, lineHeight: 24, minHeight: 24, padding: 0, textAlignVertical: "top" }]}
               />
