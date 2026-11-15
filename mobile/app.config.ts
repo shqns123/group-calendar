@@ -34,7 +34,8 @@ const config: ExpoConfig = {
   name: `그룹 캘린더${nameSuffix}`,
   // Must match the EAS project (EAS_PROJECT_ID) slug.
   slug: "woojin",
-  version: "1.0.0",
+  // Each version can carry release notes (src/lib/releaseNotes.ts), shown once after the update.
+  version: "1.1.0",
   scheme: "groupcalendar",
   orientation: "portrait",
   icon: "./assets/icon.png",
@@ -45,6 +46,10 @@ const config: ExpoConfig = {
   },
   android: {
     package: `kr.groupcalendar.app${suffix}`,
+    // EAS cloud builds take versionCode from EAS's remote counter. A local release build
+    // (scripts/build-android-local.ps1) passes ANDROID_VERSION_CODE so the APK still installs as
+    // an update over the last EAS one (Android refuses a lower versionCode).
+    ...(process.env.ANDROID_VERSION_CODE ? { versionCode: Number(process.env.ANDROID_VERSION_CODE) } : {}),
     adaptiveIcon: {
       backgroundColor: "#2E63F6",
       foregroundImage: "./assets/android-icon-foreground.png",
@@ -64,6 +69,17 @@ const config: ExpoConfig = {
     "@react-native-community/datetimepicker",
     // Push: status-bar glyph (white on transparent), brand tint, and the channel server pushes use.
     ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#2E63F6", defaultChannel: "default" }],
+    // Local release builds: sign with the EAS keystore (no-op on EAS cloud builds).
+    "./plugins/withLocalReleaseSigning",
+    // Voice input in the quick-add bar: microphone (Android RECORD_AUDIO) + the phone's speech
+    // recognizer (Google app on Android, Apple Speech on iOS).
+    [
+      "expo-speech-recognition",
+      {
+        microphonePermission: "말로 일정을 추가하려면 마이크가 필요해요.",
+        speechRecognitionPermission: "말한 내용을 글자로 바꾸려면 음성 인식이 필요해요.",
+      },
+    ],
     // Android home-screen widgets: the 일정 요약 tab (today … 3 months ahead). Three entries in the
     // widget picker (4x1 / 4x2 / 4x3); all are resizable and switch layout by their real size.
     [

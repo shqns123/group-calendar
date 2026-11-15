@@ -51,3 +51,8 @@ yarn-error.*
 
 # Firebase client config (kept out of git; EAS builds get it from the secret file variable GOOGLE_SERVICES_JSON)
 google-services.json
+
+# Local release signing (downloaded from EAS; never commit)
+credentials.json
+credentials/
+*.keystore

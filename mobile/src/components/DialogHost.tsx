@@ -21,14 +21,14 @@ export function DialogHost() {
     if (req) timeTo(v, 1, DUR.open, EASE_OUT);
   }, [req, v]);
 
-  function answer(ok: boolean) {
+  function answer(ok: boolean, key: string | null = null) {
     const r = shown;
     if (!r || !req) return;
     timeTo(v, 0, DUR.close, EASE_IN);
     // Unmount after the exit animation — on a timer, not the animation callback, so an
     // interrupted animation can never leave an invisible popup blocking touches.
     setTimeout(() => setShown((s) => (s === r ? null : s)), DUR.close + 40);
-    closeDialog(r, ok);
+    closeDialog(r, ok, key);
   }
 
   // Android back = cancel.
@@ -49,7 +49,7 @@ export function DialogHost() {
   );
 }
 
-function Dialog({ r, v, onAnswer }: { r: DialogRequest; v: Animated.Value; onAnswer: (ok: boolean) => void }) {
+function Dialog({ r, v, onAnswer }: { r: DialogRequest; v: Animated.Value; onAnswer: (ok: boolean, key?: string | null) => void }) {
   const { c, isDark } = useTheme();
   const single = r.kind === "notice";
   // Split screen: the popup and its dim wash stay in the right pane; a tap on the calendar side
@@ -91,11 +91,29 @@ function Dialog({ r, v, onAnswer }: { r: DialogRequest; v: Animated.Value; onAns
             {r.message}
           </T>
         ) : null}
+        {r.rows?.length ? (
+          <View style={{ marginTop: 14, borderRadius: radius.control, backgroundColor: c.subtle, paddingHorizontal: 14, paddingVertical: 4 }}>
+            {r.rows.map((row, i) => (
+              <View key={`${row.label}-${i}`} style={{ flexDirection: "row", gap: 12, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: c.outline }}>
+                <T variant="subhead" color={c.text2} style={{ width: 44 }}>
+                  {row.label}
+                </T>
+                <T variant="subhead" color={row.warn ? c.danger : c.text} style={{ flex: 1, fontWeight: "600" }}>
+                  {row.value}
+                </T>
+              </View>
+            ))}
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", marginTop: 20, gap: 8 }}>
           {single ? null : (
             <DialogButton label="취소" color={c.text} onPress={() => onAnswer(false)} />
           )}
-          <DialogButton label={r.confirmLabel} color={r.destructive ? c.danger : c.primaryText} strong onPress={() => onAnswer(true)} />
+          {r.kind === "choice"
+            ? (r.choices ?? []).map((x) => (
+                <DialogButton key={x.key} label={x.label} color={x.strong ? c.primaryText : c.text} strong={!!x.strong} onPress={() => onAnswer(true, x.key)} />
+              ))
+            : <DialogButton label={r.confirmLabel} color={r.destructive ? c.danger : c.primaryText} strong onPress={() => onAnswer(true)} />}
         </View>
       </Animated.View>
       </View>

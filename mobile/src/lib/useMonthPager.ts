@@ -20,9 +20,12 @@ const DISTANCE = 0.2;
  * for a moment on release. The next month is already on screen beside the current one, so nothing
  * waits for it. `heading` is the month the strip is heading to, set the moment the finger lifts,
  * so the title can flip with the slide; only that text re-renders then.
- * `onVertical(dir)` (optional) gets a clear vertical swipe: -1 = up, 1 = down.
+ * `vertical` (optional) follows a clear vertical drag: start, then every move (dy from where the
+ * drag was recognised), then end with the whole drag's dy and the release speed (px/ms).
  */
-export function useMonthPager(index: number, onChange: (delta: number) => void, onVertical?: (dir: -1 | 1) => void) {
+export type VerticalDrag = { start: () => void; move: (dy: number) => void; end: (dy: number, vy: number) => void };
+
+export function useMonthPager(index: number, onChange: (delta: number) => void, vertical?: VerticalDrag) {
   const [slide] = useState(() => new Animated.Value(0));
   const [width, setWidthState] = useState(0);
   // Strip origin: page `m` sits at (m - base + STRIP_SPAN) * width.
@@ -34,12 +37,12 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
   const baseRef = useRef(index);
   const axis = useRef<"x" | "y">("x");
   const grabDx = useRef(0);
-  const handlers = useRef({ onChange, onVertical });
+  const handlers = useRef({ onChange, vertical });
   // Title month during a glide: { from: month the caller still shows, to: where the strip is going }.
   const [ahead, setAhead] = useState<{ from: number; to: number } | null>(null);
   const heading = ahead && ahead.from === index ? ahead.to : index;
   useLayoutEffect(() => {
-    handlers.current = { onChange, onVertical };
+    handlers.current = { onChange, vertical };
   });
 
   // Size or origin changed (at rest): put the strip where the current month is.
@@ -119,6 +122,18 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
     [slide, landed],
   );
 
+  /** Straight to month `i` (no slide), even mid-glide: the 오늘 button from a far month. */
+  const jump = useCallback(
+    (i: number) => {
+      slide.stopAnimation();
+      setAhead(null);
+      target.current = i;
+      slide.setValue(-(i - baseRef.current) * w.current);
+      landed();
+    },
+    [slide, landed],
+  );
+
   // The handlers below only touch refs when a gesture event fires, never during render;
   // the lint rule cannot see that through PanResponder.create.
   /* eslint-disable react-hooks/refs */
@@ -126,20 +141,24 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
     () =>
       PanResponder.create({
         // Only claim clear drags so taps still reach the day cells:
-        // horizontal = month paging, vertical = the caller's onVertical (if any).
+        // horizontal = month paging, vertical = the caller's vertical drag (if any).
         onMoveShouldSetPanResponderCapture: (_, g) => {
           if (Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5) {
             axis.current = "x";
             return true;
           }
-          if (handlers.current.onVertical && Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5) {
+          if (handlers.current.vertical && Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5) {
             axis.current = "y";
             return true;
           }
           return false;
         },
         onPanResponderGrant: (_, g) => {
-          if (axis.current !== "x") return;
+          if (axis.current === "y") {
+            grabDx.current = g.dy;
+            handlers.current.vertical?.start();
+            return;
+          }
           // Catch the strip wherever it is (even mid-glide) and drag from there, without the hop
           // of the distance the finger already moved before the drag was recognised.
           slide.stopAnimation();
@@ -147,12 +166,12 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
           grabDx.current = g.dx;
         },
         onPanResponderMove: (_, g) => {
-          if (axis.current === "x" && !prefersReducedMotion()) slide.setValue(g.dx - grabDx.current);
+          if (axis.current === "y") handlers.current.vertical?.move(g.dy - grabDx.current);
+          else if (!prefersReducedMotion()) slide.setValue(g.dx - grabDx.current);
         },
         onPanResponderRelease: (_, g) => {
           if (axis.current === "y") {
-            if (g.dy < -24 || g.vy < -0.3) handlers.current.onVertical?.(-1);
-            else if (g.dy > 24 || g.vy > 0.3) handlers.current.onVertical?.(1);
+            handlers.current.vertical?.end(g.dy, g.vy);
             return;
           }
           slide.flattenOffset();
@@ -170,7 +189,10 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
           glideTo(target.current, g.vx);
         },
         onPanResponderTerminate: (_, g) => {
-          if (axis.current === "y") return;
+          if (axis.current === "y") {
+            handlers.current.vertical?.end(0, 0);
+            return;
+          }
           slide.flattenOffset();
           glideTo(target.current, g.vx);
         },
@@ -183,5 +205,5 @@ export function useMonthPager(index: number, onChange: (delta: number) => void, 
     setWidthState((cur) => (Math.abs(cur - next) < 0.5 ? cur : next));
   }, []);
 
-  return { slide, panHandlers: pan.panHandlers, go, setWidth, width, base, heading };
+  return { slide, panHandlers: pan.panHandlers, go, jump, setWidth, width, base, heading };
 }

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { LayoutAnimation, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { confirm } from "@/lib/confirm";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,11 +31,43 @@ const EQUIP_TABS = [
 
 type LeaveType = (typeof LEAVE_TYPES)[number];
 
+/** A new event's starting values handed over by the quick-add bar ("수정" on its AI reading). */
+export type EventPrefill = {
+  category: EventCategory;
+  title: string;
+  start: DateKey;
+  end: DateKey;
+  people: string[];
+  description: string;
+};
+
+function readPrefill(raw: string | undefined): EventPrefill | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as Partial<EventPrefill>;
+    const key = (k: unknown) => (typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k) ? k : null);
+    const start = key(o.start);
+    if (!start) return null;
+    const end = key(o.end) ?? start;
+    return {
+      category: o.category === "ATTENDANCE" ? "ATTENDANCE" : "BUSINESS_TRIP",
+      title: typeof o.title === "string" ? o.title : "",
+      start,
+      end: end < start ? start : end,
+      people: Array.isArray(o.people) ? o.people.filter((x): x is string => typeof x === "string") : [],
+      description: typeof o.description === "string" ? o.description : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function EventEditScreen() {
   const { c } = useTheme();
-  const params = useLocalSearchParams<{ id?: string; date?: string }>();
+  const params = useLocalSearchParams<{ id?: string; date?: string; draft?: string }>();
   const editingId = params.id ?? null;
-  const baseDate: DateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : todayKey();
+  const prefill = editingId ? null : readPrefill(params.draft);
+  const baseDate: DateKey = prefill?.start ?? (params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : todayKey());
   const { group } = useSession();
 
   // Load the event being edited (the server has no single-event GET; read its day).
@@ -51,10 +83,10 @@ export default function EventEditScreen() {
       </View>
     );
   }
-  return <EventForm key={existing?.id ?? "new"} existing={existing} baseDate={baseDate} />;
+  return <EventForm key={existing?.id ?? params.draft ?? "new"} existing={existing} baseDate={baseDate} prefill={prefill} />;
 }
 
-function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate: DateKey }) {
+function EventForm({ existing, baseDate, prefill }: { existing: CalEvent | null; baseDate: DateKey; prefill: EventPrefill | null }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -64,17 +96,21 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
   const editingId = existing?.id ?? null;
   const alloc = parseAllocation(existing?.equipment);
 
-  const [category, setCategory] = useState<EventCategory>(existing?.category ?? "BUSINESS_TRIP");
-  const [title, setTitle] = useState(existing && existing.category !== "ATTENDANCE" ? existing.title : "");
+  // Starting values: the event being edited, else the quick-add bar's reading, else blank.
+  const seed = existing
+    ? { category: existing.category, title: existing.title, start: toKey(existing.startDate), end: toKey(existing.endDate), people: splitList(existing.personnel), description: existing.description ?? "" }
+    : prefill;
+  const [category, setCategory] = useState<EventCategory>(seed?.category ?? "BUSINESS_TRIP");
+  const [title, setTitle] = useState(seed && seed.category !== "ATTENDANCE" ? seed.title : "");
   const [leaveType, setLeaveType] = useState<LeaveType>(() =>
-    existing?.category === "ATTENDANCE"
-      ? ((LEAVE_TYPES as readonly string[]).includes(existing.title) ? (existing.title as LeaveType) : "기타")
+    seed?.category === "ATTENDANCE"
+      ? ((LEAVE_TYPES as readonly string[]).includes(seed.title) ? (seed.title as LeaveType) : "기타")
       : "월휴",
   );
-  const [start, setStart] = useState<DateKey>(existing ? toKey(existing.startDate) : baseDate);
-  const [end, setEnd] = useState<DateKey>(existing ? toKey(existing.endDate) : baseDate);
-  const [description, setDescription] = useState(existing?.description ?? "");
-  const [people, setPeople] = useState<Set<string>>(() => new Set(splitList(existing?.personnel)));
+  const [start, setStart] = useState<DateKey>(seed?.start ?? baseDate);
+  const [end, setEnd] = useState<DateKey>(seed?.end ?? baseDate);
+  const [description, setDescription] = useState(seed?.description ?? "");
+  const [people, setPeople] = useState<Set<string>>(() => new Set(seed?.people ?? []));
   const [items, setItems] = useState<Set<string>>(() => new Set(alloc.items));
   const [targets, setTargets] = useState(alloc.targetCount);
   const [equipmentOnly, setEquipmentOnly] = useState(Boolean(existing?.equipmentOnly));
@@ -94,11 +130,14 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
 
   const isTrip = category === "BUSINESS_TRIP";
 
-  function toggle(set: Set<string>, value: string, update: (s: Set<string>) => void) {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    update(next);
+  // From the latest selection, so quick taps on several rows all count.
+  function toggle(update: (fn: (cur: Set<string>) => Set<string>) => void, value: string) {
+    update((cur) => {
+      const next = new Set(cur);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
   }
 
   async function save() {
@@ -275,11 +314,12 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
               />
               <Collapse open={peopleOpen}>
                 <View style={{ paddingBottom: 16, gap: 10 }}>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {roster.map((n) => (
-                      <Chip key={n} label={n} selected={people.has(n)} onPress={() => toggle(people, n, setPeople)} />
+                  {/* A checklist: one person per row, tap to pick. */}
+                  <CheckList>
+                    {roster.map((n, i) => (
+                      <CheckRow key={n} label={n} first={i === 0} checked={people.has(n)} onPress={() => toggle(setPeople, n)} />
                     ))}
-                  </View>
+                  </CheckList>
                   <T variant="footnote" color={c.muted} style={{ fontWeight: "400" }}>
                     {`선택하지 않으면 작성자(${myName})가 기본 인원이 돼요.`}
                   </T>
@@ -307,7 +347,7 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                         tab.id === "target" ? targets : (tab.id === "tracker" ? eq.trackers : eq.laptops).filter((i) => items.has(i)).length;
                       return (
                         <View key={tab.id} style={{ flex: 1 }}>
-                          <Chip tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={eqTab === tab.id} onPress={() => setEqTab(tab.id)} />
+                          <Chip size="sm" tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={eqTab === tab.id} onPress={() => setEqTab(tab.id)} />
                         </View>
                       );
                     })}
@@ -325,16 +365,22 @@ function EventForm({ existing, baseDate }: { existing: CalEvent | null; baseDate
                       그룹에 등록된 장비가 없어요. 웹 그룹 설정에서 추가할 수 있어요.
                     </T>
                   ) : (
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {equipList.map((code) => {
+                    <CheckList>
+                      {equipList.map((code, i) => {
                         const busy = eq.used.has(code) && !items.has(code);
                         return (
-                          <View key={code} style={{ width: "31.5%" }}>
-                            <Chip tone="info" label={code} note={busy ? "사용 중" : undefined} disabled={busy} selected={items.has(code)} onPress={() => toggle(items, code, setItems)} />
-                          </View>
+                          <CheckRow
+                            key={code}
+                            label={code}
+                            first={i === 0}
+                            note={busy ? "다른 일정에서 사용 중" : undefined}
+                            disabled={busy}
+                            checked={items.has(code)}
+                            onPress={() => toggle(setItems, code)}
+                          />
                         );
                       })}
-                    </View>
+                    </CheckList>
                   )}
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52, paddingTop: 4 }}>
                     <View style={{ flex: 1, gap: 2 }}>
@@ -407,6 +453,89 @@ function ExpandRow({ label, value, active, open, onToggle }: { label: string; va
   );
 }
 
+
+/** Rows a pick-list shows at once; longer lists scroll inside their own box. */
+const LIST_ROWS = 5;
+
+/**
+ * Pick-list box: up to five rows visible, the rest scroll inside it (nested in the form's own
+ * scroll, so Android needs nestedScrollEnabled). The scrollbar stays visible as the hint.
+ */
+function CheckList({ children }: { children: ReactNode }) {
+  return (
+    <ScrollView
+      accessibilityRole="list"
+      nestedScrollEnabled
+      persistentScrollbar
+      keyboardShouldPersistTaps="handled"
+      style={{ maxHeight: LIST_ROWS * HIT + (LIST_ROWS - 1) }}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+/** One row of a pick-list (인원, 장비): name on the left, a round check on the right. */
+function CheckRow({
+  label,
+  note,
+  checked,
+  disabled,
+  first,
+  onPress,
+}: {
+  label: string;
+  note?: string;
+  checked: boolean;
+  disabled?: boolean;
+  first?: boolean;
+  onPress: () => void;
+}) {
+  const { c } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={note ? `${label}, ${note}` : label}
+      accessibilityState={{ checked, disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: HIT,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        borderTopWidth: first ? 0 : 1,
+        borderTopColor: c.outline,
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T variant="body" numberOfLines={1} color={disabled ? c.muted : c.text} style={{ fontSize: 15, fontWeight: checked ? "600" : "400" }}>
+          {label}
+        </T>
+        {note ? (
+          <T variant="caption" color={c.muted} style={{ fontSize: 12 }}>
+            {note}
+          </T>
+        ) : null}
+      </View>
+      <View
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: checked ? c.primary : "transparent",
+          borderWidth: checked ? 0 : 1.5,
+          borderColor: disabled ? c.outline : c.strong,
+        }}
+      >
+        {checked ? <Icon name="check" size={16} color={c.onPrimary} /> : null}
+      </View>
+    </Pressable>
+  );
+}
 
 function Stepper({ label, sign, onPress, disabled }: { label: string; sign: string; onPress: () => void; disabled?: boolean }) {
   const { c } = useTheme();

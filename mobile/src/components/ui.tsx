@@ -120,9 +120,20 @@ export function Chip({
   disabled,
   note,
   tone = "primary",
+  size = "md",
   ...rest
-}: { label: string; selected?: boolean; onPress?: () => void; disabled?: boolean; note?: string; tone?: "primary" | "info" | "ink" } & Omit<PressableProps, "children">) {
+}: {
+  label: string;
+  selected?: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
+  note?: string;
+  tone?: "primary" | "info" | "ink";
+  /** `sm`: compact grid chip (36 high, 13px) for dense pickers like 인원·장비, four to a row. */
+  size?: "md" | "sm";
+} & Omit<PressableProps, "children">) {
   const { c } = useTheme();
+  const sm = size === "sm";
   const on = {
     primary: { bg: c.primaryContainer, fg: c.onPrimaryContainer },
     info: { bg: c.infoContainer, fg: c.onInfo },
@@ -137,8 +148,8 @@ export function Chip({
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        minHeight: HIT,
-        paddingHorizontal: 16,
+        minHeight: sm ? 36 : HIT,
+        paddingHorizontal: sm ? 6 : 16,
         borderRadius: radius.pill,
         borderWidth: disabled ? 1 : 0,
         borderStyle: "dashed",
@@ -151,11 +162,16 @@ export function Chip({
       })}
     >
       <View style={{ alignItems: "center" }}>
-        <T variant="subhead" style={{ fontWeight: "600" }} color={disabled ? c.muted : selected ? on.fg : c.text}>
+        <T
+          variant="subhead"
+          numberOfLines={sm ? 1 : undefined}
+          style={sm ? { fontWeight: "600", fontSize: 13, lineHeight: 17 } : { fontWeight: "600" }}
+          color={disabled ? c.muted : selected ? on.fg : c.text}
+        >
           {label}
         </T>
         {note ? (
-          <T variant="caption" color={c.muted}>
+          <T variant="caption" color={c.muted} style={sm ? { fontSize: 10, lineHeight: 12 } : undefined}>
             {note}
           </T>
         ) : null}

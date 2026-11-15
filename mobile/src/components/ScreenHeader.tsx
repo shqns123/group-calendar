@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme/ThemeProvider";
 import { T } from "./ui";
 
-/** Top-level tab screen header: large title + optional subtitle and trailing action. */
+/** Top-level tab screen header: title (22, like the calendar's month) + optional subtitle and trailing action. */
 export function ScreenHeader({ title, subtitle, trailing }: { title: string; subtitle?: string; trailing?: ReactNode }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -22,7 +22,7 @@ export function ScreenHeader({ title, subtitle, trailing }: { title: string; sub
       }}
     >
       <View style={{ flex: 1, gap: 2 }}>
-        <T variant="title1" accessibilityRole="header">
+        <T variant="title2" accessibilityRole="header">
           {title}
         </T>
         {subtitle ? (

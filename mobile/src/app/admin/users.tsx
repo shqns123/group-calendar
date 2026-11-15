@@ -55,6 +55,26 @@ export default function UsersScreen() {
           }),
       });
     }
+    // Take someone out of a group (not the group's own leader: the group would lose its admin).
+    const leavable = u.groupMembers.filter((m) => m.group.leaderId !== u.id);
+    if (leavable.length) {
+      options.push({
+        label: "그룹에서 빼기",
+        onPress: () =>
+          showSheet({
+            title: `${name} 님을 뺄 그룹`,
+            message: "그룹에서 빼도 계정과 이 사람이 만든 일정은 그대로 남아요.",
+            options: leavable.map((m) => ({
+              label: m.group.name,
+              destructive: true,
+              onPress: async () => {
+                if (await confirm("그룹에서 빼기", `${name} 님을 ${m.group.name}에서 뺄까요?`, "빼기", true))
+                  void run(() => api(`/api/groups/${m.group.id}/members/${m.id}`, { method: "DELETE" }), `${m.group.name}에서 뺐어요`);
+              },
+            })),
+          }),
+      });
+    }
     if (!isMe) {
       options.push({
         label: u.isOperator ? "운영자 권한 해제" : "운영자로 지정",
@@ -101,7 +121,7 @@ export default function UsersScreen() {
       {error || actionError ? <ErrorBanner message={(actionError ?? error)!} /> : null}
       {!data ? <Loading /> : null}
       {data ? (
-        <Section title={`사용자 ${list.length}명`} footer="사용자를 누르면 그룹 추가, 운영자 지정, 삭제를 할 수 있어요.">
+        <Section title={`사용자 ${list.length}명`} footer="사용자를 누르면 그룹 추가·빼기, 운영자 지정, 삭제를 할 수 있어요.">
           {list.map((u) => (
             <Row
               key={u.id}

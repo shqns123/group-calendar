@@ -1,9 +1,13 @@
-import { useState } from "react";
-import { FlatList, Pressable, RefreshControl, View } from "react-native";
+import { useEffect, useRef, useState, type ComponentRef } from "react";
+import { Animated, FlatList, Modal, Pressable, RefreshControl, useWindowDimensions, View } from "react-native";
+import Feather from "@expo/vector-icons/Feather";
 import { MarqueeText } from "@/components/MarqueeText";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Empty, ErrorBanner, Loading, T } from "@/components/ui";
 import { api } from "@/lib/api";
+import { confirm } from "@/lib/confirm";
+import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
+import { useTabBarSpace } from "@/lib/quickAddDock";
 import { toKey, todayKey, addDays } from "@/lib/date";
 import { useSession } from "@/lib/session";
 import type { AppNotification } from "@/lib/types";
@@ -20,6 +24,30 @@ function kind(n: AppNotification, dark: boolean) {
   if (n.eventCategory === "ATTENDANCE") return pick("휴", "#EDE9FE", "#6D28D9", "#2E1065", "#DDD6FE");
   return pick("출", "#DBEAFE", "#1D4ED8", "#1E3A8A", "#BFDBFE");
 }
+
+/** Notification tabs: 전체, plus one per kind (근태 / 출장 by the event's category, 승인대기 = join requests). */
+const FILTERS = [
+  { key: "all", label: "전체" },
+  { key: "attendance", label: "근태" },
+  { key: "trip", label: "출장" },
+  { key: "pending", label: "승인대기" },
+] as const;
+type FilterKey = (typeof FILTERS)[number]["key"];
+
+function matches(n: AppNotification, f: FilterKey) {
+  if (f === "all") return true;
+  if (f === "attendance") return n.eventCategory === "ATTENDANCE";
+  if (f === "trip") return n.eventCategory === "BUSINESS_TRIP";
+  const t = n.type.toUpperCase();
+  return t.includes("JOIN") || t.includes("PENDING");
+}
+
+const EMPTY: Record<FilterKey, string> = {
+  all: "새 알림이 없어요",
+  attendance: "근태 알림이 없어요",
+  trip: "출장 알림이 없어요",
+  pending: "승인을 기다리는 요청이 없어요",
+};
 
 function timeAgo(iso: string) {
   const diff = Date.now() - Date.parse(iso);
@@ -43,8 +71,11 @@ export default function NotificationsScreen() {
   const [readNow, setReadNow] = useState<Set<string>>(() => new Set());
   const isRead = (n: AppNotification) => !!n.readAt || readNow.has(n.id);
 
-  const items = data?.items ?? [];
-  const unread = Math.max(0, (data?.unreadCount ?? 0) - items.filter((i) => !i.readAt && readNow.has(i.id)).length);
+  const all = data?.items ?? [];
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const items = filter === "all" ? all : all.filter((n) => matches(n, filter));
+  const unread = Math.max(0, (data?.unreadCount ?? 0) - all.filter((i) => !i.readAt && readNow.has(i.id)).length);
+  const unreadIn = (f: FilterKey) => all.filter((n) => matches(n, f) && !isRead(n)).length;
   const today = todayKey();
   const yesterday = addDays(today, -1);
 
@@ -59,22 +90,65 @@ export default function NotificationsScreen() {
   }
 
   async function readAll() {
-    await api("/api/notifications/read-all", { method: "POST", body: { notificationIds: items.filter((i) => !i.readAt).map((i) => i.id) } }).catch(() => null);
+    await api("/api/notifications/read-all", { method: "POST", body: { notificationIds: all.filter((i) => !i.readAt).map((i) => i.id) } }).catch(() => null);
     invalidate();
   }
 
+  async function clearAll() {
+    if (!(await confirm("알림 모두 삭제", `알림 ${all.length}개를 모두 지울까요? 지운 알림은 되돌릴 수 없어요.`, "삭제", true))) return;
+    await api("/api/notifications/clear-all", { method: "POST", body: { groupId: group?.id } }).catch(() => null);
+    invalidate();
+  }
+
+  const barSpace = useTabBarSpace();
+
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScreenHeader
-        title="알림"
-        trailing={
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: unread === 0 }} disabled={unread === 0} onPress={readAll} style={{ minHeight: 44, paddingHorizontal: 8, justifyContent: "center" }}>
-            <T variant="body" color={unread === 0 ? c.muted : c.primaryText} style={{ fontSize: 15, fontWeight: "600" }}>
-              모두 읽음
-            </T>
-          </Pressable>
-        }
+      <ScreenHeader title="알림" />
+      {/* 전체 / 근태 / 출장 / 승인대기, with each tab's unread count. */}
+      <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: 16, paddingRight: 8, paddingTop: 4, paddingBottom: 4 }}>
+      <View accessibilityRole="tablist" style={{ flex: 1, flexDirection: "row", gap: 6 }}>
+        {FILTERS.map((f) => {
+          const on = filter === f.key;
+          const count = f.key === "all" ? 0 : unreadIn(f.key);
+          return (
+            <Pressable
+              key={f.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={count ? `${f.label}, 읽지 않음 ${count}개` : f.label}
+              onPress={() => setFilter(f.key)}
+              style={({ pressed }) => ({
+                minHeight: 36,
+                paddingHorizontal: 14,
+                borderRadius: radius.pill,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                backgroundColor: on ? c.text : pressed ? c.fill : c.card,
+              })}
+            >
+              <T variant="subhead" color={on ? c.surface : c.text} style={{ fontSize: 14, fontWeight: on ? "700" : "500" }}>
+                {f.label}
+              </T>
+              {count ? (
+                <View style={{ minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}>
+                  <T variant="caption" color={c.onDanger} style={{ fontSize: 11, fontWeight: "700" }}>
+                    {count > 99 ? "99+" : count}
+                  </T>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+      <MoreMenu
+        items={[
+          { key: "read", label: "모두 읽음", icon: "check-circle", disabled: unread === 0, onPress: readAll },
+          { key: "clear", label: "모두 삭제", icon: "trash-2", danger: true, disabled: all.length === 0, onPress: clearAll },
+        ]}
       />
+      </View>
       {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
       {loading ? (
         <Loading />
@@ -82,9 +156,9 @@ export default function NotificationsScreen() {
         <FlatList
           data={items}
           keyExtractor={(n) => n.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 8 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: barSpace, gap: 8 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
-          ListEmptyComponent={<Empty title="새 알림이 없어요" body="일정이 등록되거나 바뀌면 여기에 표시돼요." />}
+          ListEmptyComponent={<Empty title={EMPTY[filter]} body={filter === "pending" ? "가입 요청이 오면 여기에 표시돼요." : "일정이 등록되거나 바뀌면 여기에 표시돼요."} />}
           renderItem={({ item: n, index }) => {
             const day = toKey(n.createdAt);
             const prevDay = index > 0 ? toKey(items[index - 1].createdAt) : null;
@@ -142,5 +216,101 @@ export default function NotificationsScreen() {
         />
       )}
     </View>
+  );
+}
+
+type MenuItem = { key: string; label: string; icon: "check-circle" | "trash-2"; danger?: boolean; disabled?: boolean; onPress: () => void };
+
+/**
+ * ⋮ button with a small popup menu under it: grows out of the button's corner (fade + scale), and
+ * shrinks back on a pick, a tap outside, or back.
+ */
+function MoreMenu({ items }: { items: MenuItem[] }) {
+  const { c, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const btn = useRef<ComponentRef<typeof View>>(null);
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [p] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (open) timeTo(p, 1, DUR.open, EASE_OUT);
+  }, [open, p]);
+
+  function show() {
+    btn.current?.measureInWindow((x, y, w, h) => {
+      setAt({ top: y + h + 4, right: Math.max(8, width - (x + w)) });
+      p.setValue(0);
+      setOpen(true);
+    });
+  }
+  function hide(then?: () => void) {
+    timeTo(p, 0, DUR.close, EASE_IN, true, () => {
+      setOpen(false);
+      then?.();
+    });
+  }
+
+  return (
+    <>
+      <View ref={btn} collapsable={false}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="알림 메뉴"
+          accessibilityState={{ expanded: open }}
+          onPress={show}
+          hitSlop={4}
+          style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: pressed || open ? c.fill : "transparent" })}
+        >
+          <Feather name="more-vertical" size={20} color={c.text2} />
+        </Pressable>
+      </View>
+      <Modal visible={open} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => hide()}>
+        <Pressable accessibilityLabel="메뉴 닫기" onPress={() => hide()} style={{ flex: 1 }}>
+          {at ? (
+            <Animated.View
+              accessibilityRole="menu"
+              style={{
+                position: "absolute",
+                top: at.top,
+                right: at.right,
+                minWidth: 168,
+                paddingVertical: 6,
+                borderRadius: 18,
+                backgroundColor: c.card,
+                borderWidth: isDark ? 1 : 0,
+                borderColor: c.outline,
+                shadowColor: "#0F172A",
+                shadowOpacity: isDark ? 0 : 0.16,
+                shadowRadius: 20,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 12,
+                opacity: p,
+                transformOrigin: "top right",
+                transform: [{ scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }, { translateY: p.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }],
+              }}
+            >
+              {items.map((it) => {
+                const color = it.disabled ? c.muted : it.danger ? c.danger : c.text;
+                return (
+                  <Pressable
+                    key={it.key}
+                    accessibilityRole="menuitem"
+                    accessibilityState={{ disabled: !!it.disabled }}
+                    disabled={it.disabled}
+                    onPress={() => hide(it.onPress)}
+                    style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: pressed ? c.fill : "transparent" })}
+                  >
+                    <Feather name={it.icon} size={18} color={color} />
+                    <T variant="body" color={color} style={{ fontSize: 15, fontWeight: "600" }}>
+                      {it.label}
+                    </T>
+                  </Pressable>
+                );
+              })}
+            </Animated.View>
+          ) : null}
+        </Pressable>
+      </Modal>
+    </>
   );
 }

@@ -7,17 +7,19 @@ import { Icon } from "@/components/Icon";
 import { Row, Section } from "@/components/list";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { T } from "@/components/ui";
-import { api, API_URL, DEMO, errorMessage } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { confirm, notice } from "@/lib/confirm";
 import { googleSignOut } from "@/lib/google";
 import { permissionsFor, roleLabel } from "@/lib/permissions";
 import { groupOptions } from "@/lib/pickGroup";
 import { myLabel, useSession } from "@/lib/session";
+import { useTabBarSpace } from "@/lib/quickAddDock";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
 
 export default function SettingsScreen() {
   const { c } = useTheme();
+  const barSpace = useTabBarSpace();
   const router = useRouter();
   const showSheet = useActionSheet();
   const { me, group, groups, selectGroup, defaultGroupId, setDefaultGroup, reloadGroups, signOut } = useSession();
@@ -58,7 +60,7 @@ export default function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScreenHeader title="설정" />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: barSpace }}>
         <Section title="내 정보">
           <Row
             compact
@@ -128,7 +130,6 @@ export default function SettingsScreen() {
         ) : null}
 
         <Section title="앱 정보" footer="화면 모드는 휴대폰의 라이트/다크 설정을 따라가요.">
-          <Row compact icon="info" label="서버" value={DEMO ? "예시 데이터 (데모 모드)" : API_URL.replace(/^https?:\/\//, "")} />
           <Row compact icon="note" label="버전" value={`${Constants.expoConfig?.version ?? "1.0.0"} · ${String(Constants.expoConfig?.extra?.appVariant ?? "")}`} />
         </Section>
 

@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session";
 import type { CalEvent } from "@/lib/types";
 import { DUR, EASE_OUT, prefersReducedMotion, timeTo } from "@/lib/motion";
 import { useData } from "@/lib/useData";
+import { useTabBarSpace } from "@/lib/quickAddDock";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
 
@@ -19,6 +20,7 @@ const LABEL: Record<Bucket, string> = { today: "오늘", tomorrow: "내일", wee
 
 export default function SummaryScreen() {
   const { c } = useTheme();
+  const barSpace = useTabBarSpace();
   const router = useRouter();
   const { group } = useSession();
   const today = todayKey();
@@ -60,7 +62,7 @@ export default function SummaryScreen() {
           sections={sections}
           keyExtractor={(e) => e.id}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: barSpace }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
           ListEmptyComponent={<Empty title="다가오는 일정이 없어요" body="아래로 당기면 새로고침돼요." />}
           renderSectionHeader={({ section }) => {

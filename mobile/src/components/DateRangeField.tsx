@@ -177,13 +177,12 @@ function MonthPanel({
   onMonth: (delta: number) => void;
   onPick: (k: DateKey) => void;
 }) {
-  const { c, isDark } = useTheme();
+  const { c } = useTheme();
   const holidays = useHolidays();
   const today = todayKey();
   const first = makeKey(year, month, 1);
   const gridStart = addDays(first, -weekday(first));
   const weeks = Array.from({ length: 6 }, (_, w) => Array.from({ length: 7 }, (_, d) => addDays(gridStart, w * 7 + d)));
-  const ring = isDark ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.55)";
 
   return (
     <View style={{ paddingBottom: 10 }}>
@@ -246,7 +245,6 @@ function MonthPanel({
                     }}
                   />
                 ) : null}
-                {editing ? <View style={{ position: "absolute", width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: ring }} /> : null}
                 <T
                   variant="subhead"
                   color={color}

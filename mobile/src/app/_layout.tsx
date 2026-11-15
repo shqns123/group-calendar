@@ -1,9 +1,11 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActionSheetProvider } from "@/components/ActionSheet";
 import { DialogHost } from "@/components/DialogHost";
+import { WhatsNew } from "@/components/WhatsNew";
 import { PaneFrame } from "@/components/PaneFrame";
 import { useSplit, WideModeProvider } from "@/lib/wide";
 import { SessionProvider, useSession } from "@/lib/session";
@@ -101,12 +103,16 @@ function RootStack() {
           <Stack.Screen name="login" />
         </Stack.Protected>
       </Stack>
+      {/* Update notice (AI quick add): once per phone, after sign-in. */}
+      <WhatsNew enabled={active} />
     </>
   );
 }
 
 export default function RootLayout() {
   return (
+    // Gesture Handler: the calendar's up / down swipe runs on the UI thread through it.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <ThemeProvider>
         <SessionProvider>
@@ -121,5 +127,6 @@ export default function RootLayout() {
         </SessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

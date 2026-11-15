@@ -79,13 +79,14 @@ let events: CalEvent[] = [
   ev(3, 1, { title: "특근 가능", isOvertimeOnly: true, overtimeAvailable: true, personnel: "정하늘", color: "#F59E0B", creatorId: "u5" }),
   ev(6, 3, { title: "인천 출장", personnel: "한도윤, 오세린", equipment: "T-04", color: "#6366F1" }),
   ev(9, 1, { category: "ATTENDANCE", title: "무휴", personnel: "최유진", color: "#8B5CF6" }),
-  ev(13, 3, { title: "평택 출장", personnel: "김민수, 정하늘", color: "#10B981" }),
+  ev(13, 4, { title: "평택 출장", personnel: "김민수, 정하늘", color: "#10B981" }),
   ev(24, 2, { title: "대구 출장", personnel: "박지훈", color: "#3B82F6" }),
 ];
 
 let notifications: AppNotification[] = [
   { id: "n1", groupId: "g1", type: "EVENT_CREATED", title: "새 일정 등록", body: "김민수 님이 광주 출장을 등록했습니다.", createdAt: new Date(Date.now() - 600_000).toISOString(), readAt: null, eventCategory: "BUSINESS_TRIP", targetDate: addDays(t, 1) },
   { id: "n2", groupId: "g1", type: "OVERTIME", title: "특근 가능 요청", body: "이번 주말 특근 가능 여부를 표시해 주세요.", createdAt: new Date(Date.now() - 3_600_000).toISOString(), readAt: null, targetDate: addDays(t, 3) },
+  { id: "n5", groupId: "g1", type: "EVENT_CREATED", title: "새 일정 등록", body: "최유진 님이 월휴를 등록했습니다.", createdAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), readAt: null, eventCategory: "ATTENDANCE", targetDate: addDays(t, 2) },
   { id: "n3", groupId: "g1", type: "JOIN_REQUEST", title: "가입 승인 요청", body: "오세린 님이 기술지원 1팀 가입을 요청했습니다.", createdAt: new Date(Date.now() - 3 * 3_600_000).toISOString(), readAt: null },
   { id: "n4", groupId: "g1", type: "DAY_NOTE", title: "그룹 메모 수정", body: "메모가 수정되었습니다: 광주 현장 오전 9시 집결.", createdAt: new Date(Date.now() - 26 * 3_600_000).toISOString(), readAt: new Date().toISOString(), targetDate: addDays(t, 1) },
 ];
@@ -245,6 +246,11 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
   if (path === "/api/notifications/read-all") {
     notifications = notifications.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() }));
     return out({ count: notifications.length });
+  }
+  if (path === "/api/notifications/clear-all") {
+    const count = notifications.length;
+    notifications = [];
+    return out({ count });
   }
   const readMatch = path.match(/^\/api\/notifications\/([^/]+)\/read$/);
   if (readMatch) {

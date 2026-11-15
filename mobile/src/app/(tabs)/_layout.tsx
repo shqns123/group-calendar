@@ -3,16 +3,21 @@
 // canvas (the native Android bar hides labels of unselected tabs).
 import { Tabs, usePathname, useRouter } from "expo-router";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, PanResponder, Platform, Pressable, Text, useWindowDimensions, View, type ColorValue } from "react-native";
+import { Animated, Keyboard, PanResponder, Platform, Pressable, Text, useWindowDimensions, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Feather from "@expo/vector-icons/Feather";
+import { DismissLayer } from "@/components/DismissLayer";
+import { QuickAddBar } from "@/components/QuickAddBar";
 import { api } from "@/lib/api";
+import { todayKey } from "@/lib/date";
+import { permissionsFor } from "@/lib/permissions";
+import { QuickAddDockProvider, TAB_BAR_H, TAB_BAR_TOP, useQuickAddDock, useTabBarBand } from "@/lib/quickAddDock";
 import { useSession } from "@/lib/session";
 import type { AppNotification } from "@/lib/types";
 import { useData } from "@/lib/useData";
 import { useTheme } from "@/theme/ThemeProvider";
-import { clampSplit, useWide, useWideMode, WideDayProvider } from "@/lib/wide";
-import { DUR, EASE_IN, SPRING_LEAD, SPRING_TRAIL, springTo, timeTo } from "@/lib/motion";
+import { clampSplit, usePaneLeft, useWide, useWideMode, WideDayProvider } from "@/lib/wide";
+import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
 import { CalendarView } from "./index";
 
 const android = Platform.OS === "android";
@@ -77,10 +82,13 @@ export default function TabsLayout() {
   if (!wide)
     return (
       <WideDayProvider>
-        <View style={{ flex: 1, backgroundColor: c.surface }}>
-          <View style={{ flex: 1 }}>{tabs}</View>
-          <AppTabBar unread={unread} />
-        </View>
+        <QuickAddDockProvider>
+          <View style={{ flex: 1, backgroundColor: c.surface }}>
+            <View style={{ flex: 1 }}>{tabs}</View>
+            <AppTabBar unread={unread} />
+            <QuickAddDock />
+          </View>
+        </QuickAddDockProvider>
       </WideDayProvider>
     );
 
@@ -89,7 +97,9 @@ export default function TabsLayout() {
   // (The 분할 / 전체화면 mode itself is provided by the root layout: popups use it too.)
   return (
     <WideDayProvider>
-      <WidePanes tabs={tabs} unread={unread} />
+      <QuickAddDockProvider>
+        <WidePanes tabs={tabs} unread={unread} />
+      </QuickAddDockProvider>
     </WideDayProvider>
   );
 }
@@ -146,6 +156,7 @@ function WidePanes({ tabs, unread }: { tabs: ReactNode; unread: number }) {
         )}
       </View>
       <AppTabBar unread={unread} />
+      <QuickAddDock />
     </View>
   );
 }
@@ -268,103 +279,180 @@ const WIDE_TABS = [
 ] as const;
 
 /**
- * The app's tab bar (phones and the unfolded layout). On Android the active pill is one
- * element that slides to the tapped tab: its edges ride different springs, so it stretches
- * toward the new tab and settles. No press ripple.
+ * The app's tab bar (phones and the unfolded layout): a rounded bar a little above the bottom
+ * edge and in from the sides, with a soft shadow, and a + in the middle that brings out the quick
+ * add bar. It floats over the page: lists scroll under it, and the calendar shows one more week of
+ * the next month beneath it.
  */
 function AppTabBar({ unread }: { unread: number }) {
   const { c, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const path = usePathname();
+  const { group, me } = useSession();
+  const canAdd = !!group && permissionsFor(group, me).canWriteEvents;
+  const dock = useQuickAddDock();
+  const wide = useWide();
+  const { full } = useWideMode();
   const activeIndex = Math.max(0, WIDE_TABS.findIndex((t) => t.match(path)));
-  const [slots, setSlots] = useState<{ x: number; w: number }[]>([]);
-  const [left] = useState(() => new Animated.Value(-1));
-  const [right] = useState(() => new Animated.Value(-1));
-  const placed = useRef<number | null>(null);
-  const slot = slots[activeIndex];
+  // Floats over every page (not beside the calendar pane on a wide screen, where it spans both).
+  const floating = !(wide && !full);
+  // Page color behind the bar: the calendar is black in dark mode (CalendarView), the rest use bg.
+  const pageBg = activeIndex === 0 ? (isDark ? "#000000" : c.surface) : c.bg;
+
+  // + turns into × while the quick add bar is out.
+  const [spin] = useState(() => new Animated.Value(dock.open ? 1 : 0));
   useEffect(() => {
-    if (!slot) return;
-    const l = slot.x + slot.w / 2 - PILL_W / 2;
-    const r = l + PILL_W;
-    if (placed.current === null) {
-      left.setValue(l);
-      right.setValue(r);
-    } else {
-      const toRight = activeIndex > placed.current;
-      springTo(left, l, toRight ? SPRING_TRAIL : SPRING_LEAD);
-      springTo(right, r, toRight ? SPRING_LEAD : SPRING_TRAIL);
-    }
-    placed.current = activeIndex;
-  }, [slot, activeIndex, left, right]);
+    timeTo(spin, dock.open ? 1 : 0, dock.open ? DUR.open : DUR.close, dock.open ? EASE_OUT : EASE_IN);
+  }, [dock.open, spin]);
+
+  const tab = (t: (typeof WIDE_TABS)[number], i: number) => {
+    const focused = i === activeIndex;
+    const color = focused ? c.primaryText : c.text2;
+    const badge = t.icon === "bell" && unread > 0 ? (unread > 99 ? "99+" : String(unread)) : null;
+    return (
+      <Pressable
+        key={t.href}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        accessibilityLabel={badge ? `${t.label}, 읽지 않음 ${unread}개` : t.label}
+        onPress={() => router.navigate(t.href)}
+        style={({ pressed }) => ({ flex: 1, height: "100%", alignItems: "center", justifyContent: "center", gap: 3, opacity: pressed ? 0.6 : 1 })}
+      >
+        <View>
+          <TabIcon name={t.icon} color={color} />
+          {badge ? (
+            <View style={{ position: "absolute", top: -5, right: -9, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, borderWidth: 2, borderColor: c.card, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: c.onDanger, fontSize: 10, fontWeight: "700" }}>{badge}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={{ color, fontSize: 11, lineHeight: 14, fontWeight: focused ? "700" : "500" }}>{t.label}</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View
-      accessibilityRole="tablist"
-      style={{
-        flexDirection: "row",
-        height: (android ? 10 + 54 : 8 + 48) + Math.max(insets.bottom, 12),
-        paddingTop: android ? 10 : 8,
-        paddingBottom: Math.max(insets.bottom, 12),
-        backgroundColor: c.surface,
-        borderTopWidth: 1,
-        borderTopColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-      }}
+      pointerEvents="box-none"
+      style={[
+        { paddingHorizontal: 16, paddingTop: TAB_BAR_TOP, paddingBottom: Math.max(insets.bottom, 10) + 4 },
+        floating ? { position: "absolute", left: 0, right: 0, bottom: 0 } : { backgroundColor: pageBg },
+      ]}
     >
-      {android && slot ? (
-        <Animated.View
-          pointerEvents="none"
-          style={{ position: "absolute", top: 10, height: 32, left, width: Animated.subtract(right, left), borderRadius: 16, backgroundColor: c.primaryContainer }}
-        />
-      ) : null}
-      {WIDE_TABS.map((t, i) => {
-        const focused = i === activeIndex;
-        const color = focused ? c.primaryText : c.text2;
-        const badge = t.icon === "bell" && unread > 0 ? (unread > 99 ? "99+" : String(unread)) : null;
-        return (
+      <View
+        accessibilityRole="tablist"
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          height: TAB_BAR_H,
+          borderRadius: TAB_BAR_H / 2,
+          backgroundColor: c.card,
+          // Light: soft lift. Dark: a hairline edge reads better than a shadow on a dark page.
+          borderWidth: isDark ? 1 : 0,
+          borderColor: c.outline,
+          shadowColor: "#0F172A",
+          shadowOpacity: isDark ? 0 : floating ? 0.14 : 0.1,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: isDark ? 0 : 10,
+        }}
+      >
+        {WIDE_TABS.slice(0, 2).map((t, i) => tab(t, i))}
+        {canAdd ? (
           <Pressable
-            key={t.href}
-            onLayout={(e) => {
-              const { x, width } = e.nativeEvent.layout;
-              setSlots((prev) => {
-                if (prev[i]?.x === x && prev[i]?.w === width) return prev;
-                const next = [...prev];
-                next[i] = { x, w: width };
-                return next;
-              });
+            accessibilityRole="button"
+            accessibilityLabel={dock.open ? "빠른 일정 추가 닫기" : "빠른 일정 추가"}
+            accessibilityState={{ expanded: dock.open }}
+            onPress={() => {
+              if (dock.open) Keyboard.dismiss();
+              dock.toggle();
             }}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: focused }}
-            accessibilityLabel={badge ? `${t.label}, 읽지 않음 ${unread}개` : t.label}
-            onPress={() => router.navigate(t.href)}
-            style={{ flex: 1, alignItems: "center", justifyContent: "flex-start" }}
+            style={{ flex: 1, height: "100%", alignItems: "center", justifyContent: "center" }}
           >
-            <View>
-              <TabIcon name={t.icon} color={color} />
-              {badge ? (
-                <View style={{ position: "absolute", top: -4, right: android ? 6 : -10, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: c.onDanger, fontSize: 12, fontWeight: "700" }}>{badge}</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={{ color, fontSize: 10, lineHeight: 14, fontWeight: focused ? "700" : "500", marginTop: android ? 4 : 2 }}>{t.label}</Text>
+            {({ pressed }) => (
+              <Animated.View
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 23,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: c.primary,
+                  opacity: pressed ? 0.8 : 1,
+                  transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] }) }, { scale: pressed ? 0.94 : 1 }],
+                }}
+              >
+                <Feather name="plus" size={26} color={c.onPrimary} />
+              </Animated.View>
+            )}
           </Pressable>
-        );
-      })}
+        ) : null}
+        {WIDE_TABS.slice(2).map((t, i) => tab(t, i + 2))}
+      </View>
     </View>
   );
 }
 
-const PILL_W = 64;
-
 /**
- * Feather line icons — the same set the design canvas draws (calendar, list, bell, sliders).
- * On Android the active pill behind it is drawn by the tab bar (it slides between tabs).
+ * The quick add bar the tab bar's + brings out: it floats just above the tab bar on whatever tab
+ * is open (fading and rising in), and goes away on the next +. On the calendar a line without a
+ * date goes on the selected day; elsewhere on today.
  */
+function QuickAddDock() {
+  const { isDark } = useTheme();
+  const dock = useQuickAddDock();
+  const { group, me } = useSession();
+  const canAdd = !!group && permissionsFor(group, me).canWriteEvents;
+  const band = useTabBarBand();
+  // Split screen (unfolded): over the calendar pane on the left only, whatever the right shows.
+  const paneLeft = usePaneLeft();
+  const { width } = useWindowDimensions();
+  const path = usePathname();
+  const onCalendar = paneLeft > 0 || WIDE_TABS[0].match(path);
+  // Typing: a tap anywhere else only ends typing.
+  const [typing, setTyping] = useState(false);
+  // Stays mounted through the closing animation.
+  const [shown, setShown] = useState(dock.open);
+  if (dock.open && !shown) setShown(true);
+  const [p] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (dock.open) timeTo(p, 1, DUR.open, EASE_OUT);
+    else timeTo(p, 0, DUR.close, EASE_IN, true, () => setShown(false));
+  }, [dock.open, p]);
+
+  if (!shown || !canAdd) return null;
+  return (
+    <>
+      {typing ? <DismissLayer /> : null}
+      {/* Full-screen layer (touches pass through) so the card lifted over the keyboard stays
+          inside its parent and taps in the field reach it on Android. */}
+      <Animated.View
+        pointerEvents={dock.open ? "box-none" : "none"}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: paneLeft > 0 ? width - paneLeft : 0,
+          bottom: band,
+          paddingHorizontal: 48,
+          paddingBottom: 10,
+          opacity: p,
+          transformOrigin: "bottom",
+          transform: [{ translateY: p.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }, { scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+        }}
+      >
+        <QuickAddBar fill date={onCalendar ? dock.date : todayKey()} widen={40} onActiveChange={setTyping} surface={isDark && onCalendar ? "#1E1E1E" : undefined} aiToggle />
+      </Animated.View>
+    </>
+  );
+}
+
+/** Feather line icons — the same set the design canvas draws (calendar, list, bell, sliders). */
 function TabIcon({ name, color }: { name: "calendar" | "list" | "bell" | "sliders"; color: string }) {
   return (
-    <View style={{ width: android ? PILL_W : 30, height: android ? 32 : 28, alignItems: "center", justifyContent: "center" }}>
-      <Feather name={name} size={20} color={color} />
+    <View style={{ width: 30, height: 26, alignItems: "center", justifyContent: "center" }}>
+      <Feather name={name} size={22} color={color} />
     </View>
   );
 }
