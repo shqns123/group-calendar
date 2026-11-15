@@ -182,42 +182,16 @@ export async function resolveJoinRequestNotification(groupMemberId: string) {
   });
 }
 
-export async function listNotificationsForUser(input: {
-  userId: string;
-  selectedGroupId?: string | null;
-  includePendingAcrossGroups?: boolean;
-}) {
-  const { userId, selectedGroupId, includePendingAcrossGroups = false } = input;
-
-  const visibleGroupIds = new Set<string>();
-
-  if (selectedGroupId) {
-    visibleGroupIds.add(selectedGroupId);
-  }
-
-  if (includePendingAcrossGroups) {
-    const accessibleGroups = await prisma.group.findMany({
-      where: {
-        OR: [
-          { leaderId: userId },
-          { members: { some: { userId, status: "ACTIVE" } } },
-        ],
-      },
-      select: { id: true },
-    });
-    for (const group of accessibleGroups) {
-      visibleGroupIds.add(group.id);
-    }
-  }
-
-  if (visibleGroupIds.size === 0) {
-    return [];
-  }
+/**
+ * The selected group's notifications only. (Operators used to get every group they lead or belong
+ * to mixed into one list; the list now always matches the group on screen.)
+ */
+export async function listNotificationsForUser(input: { selectedGroupId?: string | null }) {
+  const { selectedGroupId } = input;
+  if (!selectedGroupId) return [];
 
   return prisma.notification.findMany({
-    where: {
-      groupId: { in: [...visibleGroupIds] },
-    },
+    where: { groupId: selectedGroupId },
     orderBy: [{ createdAt: "desc" }],
   });
 }

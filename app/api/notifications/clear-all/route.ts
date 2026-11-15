@@ -33,11 +33,7 @@ export async function POST(request: Request) {
     return Response.json({ count: 0 });
   }
 
-  const notifications = await listNotificationsForUser({
-    userId: session.user.id,
-    selectedGroupId: groupId,
-    includePendingAcrossGroups: user?.isOperator ?? false,
-  });
+  const notifications = await listNotificationsForUser({ selectedGroupId: groupId });
 
   const result = await deleteNotifications(notifications.map((item) => item.id));
   return Response.json({ count: result.count });

@@ -33,11 +33,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ items: [], unreadCount: 0 });
   }
 
-  const items = await listNotificationsForUser({
-    userId: session.user.id,
-    selectedGroupId: groupId,
-    includePendingAcrossGroups: user?.isOperator ?? false,
-  });
+  const items = await listNotificationsForUser({ selectedGroupId: groupId });
   const eventIds = items
     .map((item) => item.eventId)
     .filter((value): value is string => typeof value === "string" && value.length > 0);
