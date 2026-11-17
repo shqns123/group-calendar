@@ -1,26 +1,13 @@
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { peekQr } from "@/lib/qrInvite";
 import JoinOnboardingClient from "./JoinOnboardingClient";
 
 type Props = {
   params: Promise<{ token: string }>;
 };
 
+/** Opened by scanning a group QR code with a phone camera. Rendering doesn't use the code up. */
 export default async function JoinQrPage({ params }: Props) {
   const { token } = await params;
-
-  const qrToken = await prisma.qrInviteToken.findUnique({
-    where: { token },
-    select: {
-      token: true,
-      expiresAt: true,
-      group: { select: { name: true } },
-    },
-  });
-
-  if (!qrToken || qrToken.expiresAt < new Date()) {
-    redirect("/login");
-  }
-
-  return <JoinOnboardingClient token={qrToken.token} groupName={qrToken.group.name} />;
+  const qr = await peekQr(token);
+  return <JoinOnboardingClient token={token} groupName={qr?.group.name ?? null} />;
 }

@@ -14,12 +14,12 @@ export type Permissions = {
   canApproveJoin: boolean; // approve/reject join requests
   canChangeRoles: boolean;
   canRemoveMembers: boolean; // group admin or operator (server: DELETE members/[id])
-  canAddMembers: boolean; // operators add any user directly; others invite by code
+  canAddMembers: boolean; // operators add any user directly; others invite by QR
   canGrantNotify: boolean; // only the group admin
   canTransferAdmin: boolean; // only the group admin (operators use their own route)
   canEditGroup: boolean;
-  canInviteCode: boolean; // regenerate invite code
-  canQrInvite: boolean;
+  canQrInvite: boolean; // show a group QR (any active member)
+  qrAutoApprove: boolean; // people joining by my QR skip approval (operator / group admin / 그룹장 / 파트장)
   canCalendarSync: boolean;
   canNotify: boolean; // send now + schedules
   anyGroupManagement: boolean;
@@ -47,13 +47,13 @@ export function permissionsFor(group: Group | null, me: Me | null): Permissions 
     canGrantNotify: isGroupAdmin,
     canTransferAdmin: isGroupAdmin || isOperator,
     canEditGroup: isGroupAdmin || isOperator,
-    canInviteCode: isGroupAdmin || isLeaderRole,
-    canQrInvite: isGroupAdmin || isOperator || isLeaderRole,
+    canQrInvite: !!group && (isGroupAdmin || isOperator || active),
+    qrAutoApprove: isGroupAdmin || isOperator || isLeaderRole,
     canCalendarSync: isGroupAdmin || isOperator || isLeaderRole,
     canNotify: isGroupAdmin || (active && !!mine?.canNotify),
     anyGroupManagement: false,
   };
-  p.anyGroupManagement = !!group && (p.canApproveJoin || p.canEditGroup || p.canInviteCode || p.canQrInvite || p.canNotify || p.canCalendarSync);
+  p.anyGroupManagement = !!group && (p.canApproveJoin || p.canEditGroup || p.canNotify || p.canCalendarSync);
   return p;
 }
 

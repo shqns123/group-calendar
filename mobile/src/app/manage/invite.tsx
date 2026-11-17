@@ -1,105 +1,108 @@
-import * as Linking from "expo-linking";
-import { useState } from "react";
-import { ScrollView, Share, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ScrollView, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { MiniButton, Row, Section } from "@/components/list";
-import { Empty, ErrorBanner, PrimaryButton, T } from "@/components/ui";
+import { Section } from "@/components/list";
+import { Empty, ErrorBanner, SecondaryButton, T } from "@/components/ui";
 import { api, API_URL, errorMessage } from "@/lib/api";
-import { confirm } from "@/lib/confirm";
 import { permissionsFor } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
 
+type Issued = { token: string; autoApprove: boolean; refreshSeconds?: number };
+
+/**
+ * The group's join QR. Every code works once and only for about a minute: a new one comes every
+ * minute, and right after someone scans the current one.
+ */
 export default function InviteScreen() {
   const { c } = useTheme();
-  const { group, me, reloadGroups } = useSession();
+  const { group, me } = useSession();
   const p = permissionsFor(group, me);
-  const [code, setCode] = useState(group?.inviteCode ?? "");
-  const [qr, setQr] = useState<{ url: string; expiresAt: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const groupId = group?.id ?? null;
+  const [qr, setQr] = useState<Issued | null>(null);
+  const [left, setLeft] = useState(60);
+  const [scanned, setScanned] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped to ask for a new code (button, timer, after a scan).
+  const [round, setRound] = useState(0);
+
+  useEffect(() => {
+    if (!groupId) return;
+    let live = true;
+    void (async () => {
+      try {
+        const res = await api<Issued>(`/api/groups/${groupId}/qr-invite`, { method: "POST" });
+        if (!live) return;
+        setQr(res);
+        setLeft(res.refreshSeconds ?? 60);
+        setError(null);
+      } catch (e) {
+        if (live) setError(errorMessage(e));
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [groupId, round]);
+
+  // The countdown for the code on screen; at zero, a new code.
+  useEffect(() => {
+    if (!qr) return;
+    const until = Date.now() + (qr.refreshSeconds ?? 60) * 1000;
+    const tick = setInterval(() => {
+      const s = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      setLeft(s);
+      if (s === 0) {
+        clearInterval(tick);
+        setRound((r) => r + 1);
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [qr]);
+
+  // Someone scanned it: show that, and replace it at once.
+  const token = qr?.token ?? null;
+  useEffect(() => {
+    if (!groupId || !token) return;
+    const poll = setInterval(async () => {
+      const res = await api<{ scanned: boolean }>(`/api/groups/${groupId}/qr-invite`, { query: { token } }).catch(() => null);
+      if (res?.scanned) {
+        setScanned(true);
+        setRound((r) => r + 1);
+      }
+    }, 4000);
+    return () => clearInterval(poll);
+  }, [groupId, token]);
 
   if (!group) return <Empty title="선택된 그룹이 없어요" />;
+  if (!p.canQrInvite) return <Empty title="초대 권한이 없어요" body="이 그룹의 승인된 멤버만 QR로 초대할 수 있어요." />;
 
   const base = API_URL || "https://<서버 주소>";
-
-  async function regenerate() {
-    if (!(await confirm("초대 코드 다시 만들기", "지금 코드는 더 이상 쓸 수 없게 돼요.", "다시 만들기", true))) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api<{ inviteCode: string }>(`/api/groups/${group!.id}/invite`, { method: "POST" });
-      setCode(res.inviteCode);
-      await reloadGroups();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function makeQr() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await api<{ token: string; expiresAt: string }>(`/api/groups/${group!.id}/qr-invite`, { method: "POST" });
-      setQr({ url: `${base}/join/qr/${res.token}`, expiresAt: res.expiresAt });
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const share = (message: string) => Share.share({ message }).catch(() => null);
+  const url = qr ? `${base}/join/qr/${qr.token}` : null;
+  const autoApprove = qr?.autoApprove ?? p.qrAutoApprove;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: 40 }}>
-      {error ? <ErrorBanner message={error} /> : null}
+      {error ? <ErrorBanner message={error} onRetry={() => setRound((r) => r + 1)} /> : null}
 
-      {code ? (
-        <Section title="초대 코드" footer="앱 설정 › 초대 코드로 그룹 가입, 또는 웹에서 이 코드를 입력하면 가입 요청이 와요.">
-          <View style={{ padding: 16, gap: 12, alignItems: "center" }}>
-            <T variant="title1" selectable style={{ letterSpacing: 4 }}>
-              {code}
-            </T>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <MiniButton tone="neutral" label="공유" onPress={() => share(`${group.name} 그룹 초대 코드: ${code}\n${base}/join/${code}`)} />
-              {p.canInviteCode ? <MiniButton tone="danger" label="다시 만들기" disabled={busy} onPress={regenerate} /> : null}
-            </View>
+      <Section
+        title={`${group.name} QR 초대`}
+        footer={`QR 코드는 한 번만 쓸 수 있고 1분마다 바뀌어요. ${autoApprove ? "이 QR로 가입하면 승인 없이 바로 멤버가 돼요." : "이 QR로 가입하면 그룹장·파트장의 승인이 필요해요."}`}
+      >
+        <View style={{ padding: 20, gap: 14, alignItems: "center" }}>
+          <T variant="subhead" color={scanned ? c.primary : c.text2} style={{ textAlign: "center" }}>
+            {scanned ? "방금 QR 코드가 사용됐어요. 새 코드로 바꿨어요." : "가입할 사람이 앱의 「QR 스캔으로 그룹 가입」이나 휴대폰 카메라로 스캔하면 돼요."}
+          </T>
+          <View style={{ padding: 14, backgroundColor: "#FFFFFF", borderRadius: radius.control, width: 228, height: 228, alignItems: "center", justifyContent: "center" }}>
+            {url ? <QRCode value={url} size={200} /> : <T variant="footnote" color="#64748B">QR 코드 만드는 중…</T>}
           </View>
-        </Section>
-      ) : null}
-
-      {p.canQrInvite ? (
-        <Section title="QR 초대" footer="QR 링크는 7일 동안 쓸 수 있어요. 찍으면 웹 가입 화면이 열려요.">
-          {qr ? (
-            <View style={{ padding: 16, gap: 12, alignItems: "center" }}>
-              <View style={{ padding: 12, backgroundColor: "#FFFFFF", borderRadius: radius.control }}>
-                <QRCode value={qr.url} size={200} />
-              </View>
-              <T variant="footnote" color={c.text2}>
-                {`만료: ${new Date(qr.expiresAt).toLocaleDateString("ko-KR")}`}
-              </T>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <MiniButton tone="neutral" label="링크 공유" onPress={() => share(`${group.name} 그룹 초대 링크\n${qr.url}`)} />
-                <MiniButton tone="neutral" label="열기" onPress={() => Linking.openURL(qr.url)} />
-              </View>
-            </View>
-          ) : (
-            <View style={{ padding: 16 }}>
-              <PrimaryButton label="QR 초대 만들기" busy={busy} onPress={makeQr} />
-            </View>
-          )}
-        </Section>
-      ) : null}
-
-      {!code && !p.canQrInvite ? (
-        <Section>
-          <Row label="초대 권한이 없어요" value="그룹장·파트장에게 초대 코드를 요청해 주세요." />
-        </Section>
-      ) : null}
+          <T variant="footnote" color={c.text2} style={{ fontVariant: ["tabular-nums"] }}>
+            {`${left}초 후 새 코드로 바뀌어요`}
+          </T>
+          <SecondaryButton label="지금 새 코드 받기" icon="sync" onPress={() => setRound((r) => r + 1)} />
+        </View>
+      </Section>
     </ScrollView>
   );
 }

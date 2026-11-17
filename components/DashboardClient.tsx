@@ -13,8 +13,6 @@ import {
   PanelLeftClose,
   Menu,
   Share2,
-  Copy,
-  Check,
   RefreshCw,
   X,
   Star,
@@ -37,7 +35,7 @@ import NotificationBell, { type NotificationPanelItem } from "./NotificationBell
 import HolidayModal, { type CustomHoliday } from "./HolidayModal";
 import { canViewNotificationBell } from "@/lib/notifications";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
-import { buildInviteJoinUrl, PENDING_INVITE_STORAGE_KEY } from "@/lib/inviteOnboarding";
+import { buildQrJoinUrl } from "@/lib/inviteOnboarding";
 
 type UserInfo = {
   id: string;
@@ -98,9 +96,12 @@ export function DashboardClient({ user, initialGroups }: Props) {
   const [pendingEvent, setPendingEvent] = useState<CalEvent | null>(null);
   const [pendingDayDate, setPendingDayDate] = useState<Date | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
+  // The group QR on the invite sheet: single-use, replaced every minute and right after a scan.
+  const [inviteQr, setInviteQr] = useState<{ token: string; autoApprove: boolean } | null>(null);
+  const [inviteQrError, setInviteQrError] = useState("");
+  const [inviteScanned, setInviteScanned] = useState(false);
+  const [inviteTimeLeft, setInviteTimeLeft] = useState(60);
   const [refreshingCode, setRefreshingCode] = useState(false);
-  const [inviteTimeLeft, setInviteTimeLeft] = useState(180);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<{ id: string; name: string | null; email: string | null; employeeId: string | null; createdAt: string }[]>([]);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
@@ -272,41 +273,27 @@ export function DashboardClient({ user, initialGroups }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    const autoJoinFromInvite = async () => {
-      const pendingInviteCode = window.localStorage.getItem(PENDING_INVITE_STORAGE_KEY)?.trim();
-      if (!pendingInviteCode) return;
-
+    // A group QR scanned before logging in (held in a cookie): an approved account joins now.
+    const autoJoinFromQr = async () => {
       try {
-        const res = await fetch("/api/groups/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inviteCode: pendingInviteCode }),
-        });
+        const res = await fetch("/api/onboarding/link", { method: "POST" });
         const data = await res.json().catch(() => null);
-
-        if (cancelled) return;
-
-        if (res.ok) {
-          window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
-          if (data?.pending && data?.groupName) {
-            setAutoJoinMessage(`${data.groupName} 그룹 참가 요청이 자동으로 전송되었습니다.`);
-          }
-          await refreshGroups();
+        if (cancelled || !res.ok || !data?.linked) {
+          if (!cancelled && data?.invalid) setAutoJoinMessage("QR 코드가 만료돼서 그룹에 가입하지 못했어요. 새 QR 코드를 받아 주세요.");
           return;
         }
-
-        if (res.status === 409) {
-          window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
-          if (data?.error) {
-            setAutoJoinMessage(data.error);
-          }
+        if (data.joined) {
+          setAutoJoinMessage(data.pending ? `${data.groupName} 그룹 가입 요청을 보냈어요.` : `${data.groupName} 그룹에 가입했어요.`);
+          await refreshGroups();
+        } else if (data.alreadyMember) {
+          setAutoJoinMessage(`이미 ${data.groupName} 그룹 멤버예요.`);
         }
       } catch {
-        // Keep the invite code for a later retry.
+        // Nothing to retry: the claim stays in its cookie until the next load.
       }
     };
 
-    void autoJoinFromInvite();
+    void autoJoinFromQr();
 
     return () => {
       cancelled = true;
@@ -523,12 +510,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
   const isGlobalAdmin = user.isOperator;
 
-  const copyInviteCode = (value: string) => {
-    navigator.clipboard.writeText(value);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   const toggleDefaultGroup = (groupId: string) => {
     if (typeof window === "undefined") return;
 
@@ -544,48 +525,60 @@ export function DashboardClient({ user, initialGroups }: Props) {
     setDefaultGroupId(null);
   };
 
-  const inviteLink =
-    selectedGroup && origin
-      ? buildInviteJoinUrl(origin, selectedGroup.inviteCode)
-      : selectedGroup?.inviteCode ?? "";
+  const inviteLink = inviteQr && origin ? buildQrJoinUrl(origin, inviteQr.token) : "";
+  // Any active member may invite (codes from operators, the group admin, 그룹장 and 파트장 skip approval).
+  const canInvite = (g: Group) => isElevated(g) || g.members.some((m) => m.userId === user.id && m.status === "ACTIVE");
 
-  const refreshInviteCode = async () => {
-    if (!selectedGroup) return;
-    if (!confirm("초대 코드를 재생성하면 기존 코드는 사용할 수 없습니다.")) return;
+  const issueInviteQr = useCallback(async (groupId: string) => {
     setRefreshingCode(true);
     try {
-      const res = await fetch(`/api/groups/${selectedGroup.id}/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) { await refreshGroups(); setInviteTimeLeft(180); }
+      const res = await fetch(`/api/groups/${groupId}/qr-invite`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.token) {
+        setInviteQrError(data?.error || "QR 코드를 만들지 못했어요.");
+        return;
+      }
+      setInviteQr({ token: data.token, autoApprove: !!data.autoApprove });
+      setInviteQrError("");
+      setInviteTimeLeft(data.refreshSeconds ?? 60);
+    } catch {
+      setInviteQrError("네트워크 오류가 발생했습니다.");
     } finally {
       setRefreshingCode(false);
     }
-  };
+  }, []);
 
+  // While the sheet is open: a new code every minute, and right after the current one is scanned.
+  const inviteGroupId = showInviteSheet ? (selectedGroup?.id ?? null) : null;
   useEffect(() => {
-    if (!selectedGroup || !showInviteSheet) return;
-    setInviteTimeLeft(180);
-    let t = 180;
-    const interval = setInterval(async () => {
-      t -= 1;
-      setInviteTimeLeft(t);
-      if (t <= 0) {
-        try {
-          const res = await fetch(`/api/groups/${selectedGroup.id}/invite`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
-          if (res.ok) await refreshGroups();
-        } catch { /* 네트워크 오류 무시 */ }
-        t = 180;
-        setInviteTimeLeft(180);
+    if (!inviteGroupId) {
+      setInviteQr(null);
+      return;
+    }
+    setInviteScanned(false);
+    void issueInviteQr(inviteGroupId);
+    const tick = setInterval(() => setInviteTimeLeft((t) => Math.max(0, t - 1)), 1000);
+    return () => clearInterval(tick);
+  }, [inviteGroupId, issueInviteQr]);
+  useEffect(() => {
+    if (inviteGroupId && inviteQr && inviteTimeLeft === 0 && !refreshingCode) void issueInviteQr(inviteGroupId);
+  }, [inviteGroupId, inviteQr, inviteTimeLeft, refreshingCode, issueInviteQr]);
+  useEffect(() => {
+    if (!inviteGroupId || !inviteQr) return;
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/groups/${inviteGroupId}/qr-invite?token=${encodeURIComponent(inviteQr.token)}`);
+        const data = await res.json().catch(() => null);
+        if (data?.scanned) {
+          setInviteScanned(true);
+          void issueInviteQr(inviteGroupId);
+        }
+      } catch {
+        // Next poll.
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroup?.id, showInviteSheet]);
+    }, 4000);
+    return () => clearInterval(poll);
+  }, [inviteGroupId, inviteQr, issueInviteQr]);
 
   const sidebarStyle: React.CSSProperties = isMobile
     ? {
@@ -855,10 +848,10 @@ export function DashboardClient({ user, initialGroups }: Props) {
               accent
             />
           )}
-          {selectedGroup && isElevated(selectedGroup) && (
+          {selectedGroup && canInvite(selectedGroup) && (
             <SideAction
               icon={<Share2 style={{ width: 13, height: 13 }} />}
-              label="초대 코드 생성"
+              label="QR로 초대"
               onClick={() => setShowInviteSheet(true)}
             />
           )}
@@ -871,7 +864,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           )}
           <SideAction
             icon={<Users style={{ width: 13, height: 13 }} />}
-            label="초대 코드로 참가"
+            label="QR로 그룹 참가"
             onClick={() => setShowJoinModal(true)}
           />
         </div>
@@ -1299,7 +1292,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-                초대 코드
+                QR 초대
               </span>
               <button
                 onClick={() => setShowInviteSheet(false)}
@@ -1308,51 +1301,29 @@ export function DashboardClient({ user, initialGroups }: Props) {
                 <X style={{ width: 16, height: 16 }} />
               </button>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: 0 }}>
-                코드를 공유하여 멤버를 초대하세요.
+                {inviteScanned ? "방금 QR 코드가 사용됐어요. 새 코드로 바꿨어요." : "가입할 사람이 이 QR 코드를 스캔하면 돼요."}
               </p>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
-                {`${Math.floor(inviteTimeLeft / 60)}:${String(inviteTimeLeft % 60).padStart(2, "0")} 후 갱신`}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "12px 16px",
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                background: "var(--surface-raised)",
-              }}
-            >
-              <code style={{ flex: 1, fontSize: "1rem", fontFamily: "monospace", color: "var(--text-primary)", letterSpacing: "0.1em", fontWeight: 600 }}>
-                {selectedGroup.inviteCode}
-              </code>
               <button
-                onClick={() => copyInviteCode(selectedGroup.inviteCode)}
-                title="복사"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 6, color: copiedCode ? "#16A34A" : "var(--text-tertiary)", display: "flex" }}
+                onClick={() => selectedGroup && void issueInviteQr(selectedGroup.id)}
+                disabled={refreshingCode}
+                title="새 QR 코드"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 4, fontSize: "0.72rem", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}
               >
-                {copiedCode ? <Check style={{ width: 15, height: 15 }} /> : <Copy style={{ width: 15, height: 15 }} />}
-              </button>
-              <button
-                onClick={refreshInviteCode}
-                disabled={!!refreshingCode}
-                title="재생성"
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 6, color: "var(--text-tertiary)", display: "flex" }}
-              >
-                <RefreshCw style={{ width: 15, height: 15, ...(refreshingCode ? { animation: "spin 1s linear infinite" } : {}) }} />
+                <RefreshCw style={{ width: 13, height: 13, ...(refreshingCode ? { animation: "spin 1s linear infinite" } : {}) }} />
+                {`${inviteTimeLeft}초 후 갱신`}
               </button>
             </div>
             <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
-              <div style={{ padding: 12, background: "#fff", borderRadius: 12, border: "1px solid var(--border)" }}>
-                <QRCodeSVG value={inviteLink} size={160} />
+              <div style={{ padding: 12, background: "#fff", borderRadius: 12, border: "1px solid var(--border)", width: 184, height: 184, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {inviteLink ? <QRCodeSVG value={inviteLink} size={160} /> : <span style={{ fontSize: "0.75rem", color: "#64748B" }}>{inviteQrError || "QR 코드 만드는 중…"}</span>}
               </div>
             </div>
-            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
-              QR 코드를 스캔해도 참가할 수 있습니다
+            <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0, lineHeight: 1.6 }}>
+              {inviteQr?.autoApprove ? "이 QR로 가입하면 승인 없이 바로 멤버가 돼요." : "이 QR로 가입하면 그룹장·파트장의 승인이 필요해요."}
+              <br />
+              QR 코드는 한 번만 쓸 수 있고 1분마다 바뀌어요.
             </p>
           </div>
         </div>

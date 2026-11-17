@@ -1,9 +1,7 @@
-import {
-  PENDING_INVITE_COOKIE_NAME,
-  PENDING_QR_TOKEN_COOKIE_NAME,
-} from "@/lib/inviteOnboarding";
+import { PENDING_QR_TOKEN_COOKIE_NAME } from "@/lib/inviteOnboarding";
 import { sendMobilePushToTokens } from "@/lib/mobilepush";
 import { prisma } from "@/lib/prisma";
+import { takeAnonymousClaim } from "@/lib/qrInvite";
 import { sendPushToUser } from "@/lib/webpush";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,44 +18,23 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "이미 등록된 사번입니다." }, { status: 409 });
   }
 
-  const token = req.cookies.get(PENDING_QR_TOKEN_COOKIE_NAME)?.value?.trim();
-  const inviteCodeCookie = req.cookies.get(PENDING_INVITE_COOKIE_NAME)?.value?.trim();
-  let pendingInviteCode: string | null = null;
-  let pendingInviteAutoApprove = false;
-
-  if (token) {
-    const qrToken = await prisma.qrInviteToken.findUnique({
-      where: { token },
-      select: {
-        expiresAt: true,
-        group: { select: { inviteCode: true } },
-      },
-    });
-    if (qrToken && qrToken.expiresAt >= new Date()) {
-      pendingInviteCode = qrToken.group.inviteCode;
-      pendingInviteAutoApprove = true;
-    }
-  } else if (inviteCodeCookie) {
-    const group = await prisma.group.findUnique({
-      where: { inviteCode: inviteCodeCookie },
-      select: { inviteCode: true },
-    });
-    if (group) {
-      pendingInviteCode = group.inviteCode;
-      pendingInviteAutoApprove = true;
-    }
-  }
-
   const user = await prisma.user.create({
     data: {
       name: name.trim(),
       email: `guest_${employeeId.trim()}@local.guest`,
       employeeId: employeeId.trim(),
       status: "PENDING",
-      pendingInviteCode,
-      pendingInviteAutoApprove,
     },
   });
+
+  // Scanned a group QR before signing up: the group is joined once the account is approved.
+  const claim = await takeAnonymousClaim(req.cookies.get(PENDING_QR_TOKEN_COOKIE_NAME)?.value?.trim(), user.id);
+  if (claim) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { pendingInviteCode: claim.pendingInviteCode, pendingInviteAutoApprove: claim.autoApprove },
+    });
+  }
 
   // The app signs up without a session, so it sends its phone's push token here; the
   // "가입 승인" push then reaches that phone once an operator approves the account.
@@ -94,7 +71,6 @@ export async function POST(req: NextRequest) {
   }
 
   const response = NextResponse.json({ pending: true });
-  if (token) response.cookies.delete(PENDING_QR_TOKEN_COOKIE_NAME);
-  if (inviteCodeCookie) response.cookies.delete(PENDING_INVITE_COOKIE_NAME);
+  response.cookies.delete(PENDING_QR_TOKEN_COOKIE_NAME);
   return response;
 }

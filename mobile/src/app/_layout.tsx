@@ -14,9 +14,9 @@ import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
 // Management screens are pushed onto the stack with a native header.
 const PUSHED = [
   { name: "profile", title: "내 정보" },
-  { name: "join", title: "그룹 가입" },
+  { name: "join", title: "QR로 그룹 가입" },
   { name: "manage/members", title: "멤버 관리" },
-  { name: "manage/invite", title: "초대" },
+  { name: "manage/invite", title: "QR 초대" },
   { name: "manage/group", title: "그룹 설정" },
   { name: "manage/notify", title: "알림 보내기" },
   { name: "admin/approvals", title: "가입 승인" },

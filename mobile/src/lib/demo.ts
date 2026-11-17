@@ -17,7 +17,6 @@ const group: Group = {
   laptopOptions: "N-01, N-02, N-03, N-04",
   targetCount: 2,
   eventDisplayLimit: 3,
-  inviteCode: "AB12CD",
   members: [
     ...names.map((n, i) => ({
       id: `m${i + 1}`,
@@ -32,7 +31,12 @@ const group: Group = {
   ],
 };
 
-let holidays: CustomHoliday[] = [{ id: "h1", date: addDays(todayKey(), 9), name: "창립기념일", type: "holiday" }];
+let holidays: CustomHoliday[] = [
+  { id: "h1", date: addDays(todayKey(), 9), name: "창립기념일", type: "holiday" },
+  { id: "h2", date: addDays(todayKey(), 40), name: "연말 휴무", type: "holiday" },
+  { id: "h3", date: addDays(todayKey(), 46), name: "대체 근무", type: "workday" },
+  { id: "h4", date: addDays(todayKey(), 80), name: "신정 연휴", type: "holiday" },
+];
 let schedules: NotificationSchedule[] = [{ id: "s1", groupId: "g1", message: "오늘 일정 확인해 주세요", dayOfWeek: "1,2,3,4,5", timeHour: 8, timeMin: 30, active: true }];
 let pendingUsers: PendingUser[] = [{ id: "u10", name: "강하은", email: "haeun@example.com", employeeId: null, createdAt: new Date().toISOString() }];
 const personalNotes: Record<string, { id: string; text: string }[]> = {};
@@ -228,14 +232,17 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
     else group.members = group.members.map((m) => (m.id === id ? { ...m, ...(b as object) } : m));
     return out({ success: true });
   }
-  if (/^\/api\/groups\/[^/]+\/invite$/.test(path)) {
-    group.inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return out({ inviteCode: group.inviteCode });
+  if (/^\/api\/groups\/[^/]+\/qr-invite$/.test(path)) {
+    if (method === "GET") return out({ scanned: false, expired: false });
+    const token = `demo${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+    return out({ token, expiresAt: new Date(Date.now() + 75_000).toISOString(), autoApprove: true, refreshSeconds: 60 });
   }
-  if (/^\/api\/groups\/[^/]+\/qr-invite$/.test(path)) return out({ token: "demo-qr-token", expiresAt: new Date(Date.now() + 7 * 86400000).toISOString() });
   if (/^\/api\/groups\/[^/]+\/calendar-sync$/.test(path)) return out({ success: true });
   if (/^\/api\/groups\/[^/]+\/leader$/.test(path)) return out({ success: true });
-  if (path === "/api/groups/join") return out({ success: true, groupId: "g2", groupName: "데모 그룹", pending: true });
+  if (path === "/api/groups/join") {
+    if ((b as { checkOnly?: boolean }).checkOnly) return out({ groupId: "g2", groupName: "데모 그룹", autoApprove: false });
+    return out({ success: true, groupId: "g2", groupName: "데모 그룹", pending: true });
+  }
   if (/^\/api\/groups\/[^/]+$/.test(path) && method === "PATCH") {
     Object.assign(group, b);
     return out(group);

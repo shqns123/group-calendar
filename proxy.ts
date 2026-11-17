@@ -7,6 +7,8 @@ const PUBLIC_PATHS = [
   "/login",
   "/pending",
   "/join",
+  // The page a scanned group QR opens calls this before login (it checks the session itself).
+  "/api/onboarding/qr-claim",
   "/api/auth",
   "/sw.js",
   "/manifest.json",
@@ -15,7 +17,8 @@ const PUBLIC_PATHS = [
   "/apple-touch-icon.png",
 ];
 // Accounts waiting for approval may still register their phone, so the "가입 승인" push reaches it.
-const PENDING_ALLOWED_PATHS = ["/pending", "/api/auth/status", "/api/auth/me", "/api/push/mobile-token"];
+// The pending page also hands over a group QR scanned before signing up (/api/onboarding/link).
+const PENDING_ALLOWED_PATHS = ["/pending", "/api/auth/status", "/api/auth/me", "/api/push/mobile-token", "/api/onboarding/link"];
 
 /**
  * Native app support: the mobile app sends the session JWT issued by

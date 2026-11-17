@@ -1,3 +1,5 @@
+import { eventBus } from "@/lib/eventBus";
+import { createJoinRequestNotification } from "@/lib/notificationStore";
 import { prisma } from "@/lib/prisma";
 
 type PendingInviteResult =
@@ -49,7 +51,7 @@ export async function consumePendingInviteForUser(userId: string): Promise<Pendi
 
   const autoApproved = !!user.pendingInviteAutoApprove;
 
-  await prisma.groupMember.create({
+  const member = await prisma.groupMember.create({
     data: {
       groupId: group.id,
       userId,
@@ -63,6 +65,12 @@ export async function consumePendingInviteForUser(userId: string): Promise<Pendi
     where: { id: userId },
     data: { pendingInviteCode: null, pendingInviteAutoApprove: false },
   });
+
+  // Same as a QR join in the app: the request shows up for the group's approvers.
+  if (!autoApproved) {
+    await createJoinRequestNotification({ id: member.id, groupId: group.id, userId });
+  }
+  eventBus.notify(group.id);
 
   return { status: "created", groupName: group.name, autoApproved };
 }

@@ -69,6 +69,8 @@ const config: ExpoConfig = {
     "@react-native-community/datetimepicker",
     // Push: status-bar glyph (white on transparent), brand tint, and the channel server pushes use.
     ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#2E63F6", defaultChannel: "default" }],
+    // Group join by QR: scan another member's group QR (camera only, no microphone).
+    ["expo-camera", { cameraPermission: "그룹 QR 코드를 스캔하려면 카메라가 필요해요.", microphonePermission: false, recordAudioAndroid: false }],
     // Local release builds: sign with the EAS keystore (no-op on EAS cloud builds).
     "./plugins/withLocalReleaseSigning",
     // Voice input in the quick-add bar: microphone (Android RECORD_AUDIO) + the phone's speech

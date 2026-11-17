@@ -97,7 +97,8 @@ export default function SettingsScreen() {
               chevron
             />
           ) : null}
-          <Row compact icon="join" label="초대 코드로 그룹 가입" onPress={() => router.push("/join")} chevron />
+          {p.canQrInvite ? <Row compact icon="link" label="QR로 그룹 초대" value={group?.name} onPress={() => router.push("/manage/invite")} chevron /> : null}
+          <Row compact icon="join" label="QR 스캔으로 그룹 가입" onPress={() => router.push("/join")} chevron />
           {group && mine && group.leaderId !== me?.id ? <Row compact icon="logout" label={`${group.name} 나가기`} destructive onPress={leaveGroup} /> : null}
         </Section>
 
@@ -113,7 +114,6 @@ export default function SettingsScreen() {
                 chevron
               />
             ) : null}
-            {p.canInviteCode || p.canQrInvite ? <Row compact icon="link" label="초대 코드 · QR 초대" onPress={() => router.push("/manage/invite")} chevron /> : null}
             {p.canNotify ? <Row compact icon="send" label="알림 보내기 · 알림 일정" onPress={() => router.push("/manage/notify")} chevron /> : null}
             {p.canEditGroup ? <Row compact icon="settings" label="그룹 설정" value="이름, 장비, 캘린더 표시 개수" onPress={() => router.push("/manage/group")} chevron /> : null}
             {p.canCalendarSync ? <Row compact icon="sync" label={syncing ? "업로드 중…" : "GitLab 캘린더 업로드"} onPress={syncing ? undefined : calendarSync} /> : null}

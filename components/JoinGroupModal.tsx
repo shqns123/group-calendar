@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Camera, Clock, Keyboard, Users, X } from "lucide-react";
+import { Clock, RefreshCw, X } from "lucide-react";
 import type { Html5Qrcode as Html5QrcodeType } from "html5-qrcode";
-import { extractInviteCode } from "@/lib/inviteOnboarding";
 
 type Props = {
   onClose: () => void;
@@ -12,22 +11,19 @@ type Props = {
 
 export default function JoinGroupModal({ onClose, onJoined }: Props) {
   const [step, setStep] = useState<"code" | "nickname" | "pending">("code");
-  const [inviteCode, setInviteCode] = useState("");
+  // The scanned QR (its URL); joining by invite code is gone.
+  const [qr, setQr] = useState("");
   const [nickname, setNickname] = useState("");
   const [groupName, setGroupName] = useState("");
-  const [joinRole, setJoinRole] = useState("MEMBER");
+  const [autoApprove, setAutoApprove] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(true);
   const scannerRef = useRef<Html5QrcodeType | null>(null);
   const startedRef = useRef(false);
 
-  const submitCode = useCallback(async (code: string) => {
-    const normalizedCode = extractInviteCode(code);
-    if (!normalizedCode) {
-      setError("초대 코드를 입력해 주세요.");
-      return;
-    }
+  const submitCode = useCallback(async (scanned: string) => {
+    if (!scanned) return;
 
     setLoading(true);
     setError("");
@@ -36,18 +32,18 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
       const res = await fetch("/api/groups/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode: normalizedCode, checkOnly: true }),
+        body: JSON.stringify({ token: scanned, checkOnly: true }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "유효하지 않은 초대 코드입니다.");
+        setError(data.error || "유효하지 않은 QR 코드입니다.");
         return;
       }
 
-      setInviteCode(normalizedCode);
+      setQr(scanned);
       setGroupName(data.groupName);
-      setJoinRole(data.role ?? "MEMBER");
+      setAutoApprove(!!data.autoApprove);
       setStep("nickname");
     } catch {
       setError("네트워크 오류가 발생했습니다.");
@@ -105,11 +101,6 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
     setScanning(false);
   };
 
-  const handleCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await submitCode(inviteCode);
-  };
-
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -120,7 +111,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          inviteCode: inviteCode.trim(),
+          token: qr,
           nickname: nickname.trim() || undefined,
         }),
       });
@@ -181,89 +172,32 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
           </div>
         ) : step === "code" ? (
           <div className="space-y-4 p-6">
-            <div className="flex overflow-hidden rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={stopScan}
-                className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-                  !scanning ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                <Keyboard className="h-4 w-4" />
-                직접 입력
-              </button>
+            <p className="text-center text-sm text-slate-500">그룹 멤버의 화면에 있는 그룹 QR 코드를 카메라로 비춰 주세요.</p>
+            {scanning ? (
+              <div id="qr-reader" className="w-full overflow-hidden rounded-xl" />
+            ) : (
               <button
                 type="button"
                 onClick={() => {
                   setError("");
                   setScanning(true);
                 }}
-                className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-                  scanning ? "bg-blue-600 text-white" : "bg-white text-slate-500 hover:bg-slate-50"
-                }`}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
-                <Camera className="h-4 w-4" />
-                QR 스캔
+                <RefreshCw className="h-4 w-4" />
+                {loading ? "확인 중..." : "다시 스캔"}
               </button>
-            </div>
-
-            {scanning ? (
-              <div className="space-y-3">
-                <div id="qr-reader" className="w-full overflow-hidden rounded-xl" />
-                <p className="text-center text-xs text-slate-400">카메라로 초대 QR 코드를 비춰 주세요.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleCodeSubmit} className="space-y-4">
-                <div className="flex justify-center py-2">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
-                    <Users className="h-7 w-7 text-blue-500" />
-                  </div>
-                </div>
-                <p className="text-center text-sm text-slate-500">리더에게 받은 초대 코드나 링크를 입력해 주세요.</p>
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="초대 코드 또는 링크 입력"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center font-mono text-lg tracking-wider text-slate-800 placeholder:text-sm placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-                {error && (
-                  <p className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-500">{error}</p>
-                )}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {loading ? "확인 중..." : <>다음 <ArrowRight className="h-4 w-4" /></>}
-                  </button>
-                </div>
-              </form>
             )}
-
-            {scanning && error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-500">{error}</p>
-            )}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-500">{error}</p>}
+            <p className="text-center text-xs text-slate-400">QR 코드는 1분마다 바뀌고 한 번만 쓸 수 있어요.</p>
           </div>
         ) : (
           <form onSubmit={handleJoin} className="space-y-4 p-6">
             <div className="rounded-xl bg-blue-50 p-4 text-center">
               <p className="mb-1 text-xs font-medium text-blue-500">참가할 그룹</p>
               <p className="text-lg font-bold text-blue-800">{groupName}</p>
-              {joinRole !== "MEMBER" && (
-                <p className="mt-1 text-xs text-blue-600">
-                  역할: <strong>{joinRole}</strong>
-                </p>
-              )}
+              <p className="mt-1 text-xs text-blue-600">{autoApprove ? "승인 없이 바로 가입돼요." : "그룹장·파트장이 승인하면 가입돼요."}</p>
             </div>
 
             <div>
@@ -292,6 +226,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
                 onClick={() => {
                   setStep("code");
                   setError("");
+                  setScanning(true);
                 }}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
               >

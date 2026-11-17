@@ -41,7 +41,6 @@ export type Group = {
   laptopOptions?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
-  inviteCode?: string;
   members: GroupMember[];
 };
 

@@ -135,10 +135,10 @@ export default function MembersScreen() {
     >
       {error ? <ErrorBanner message={error} /> : null}
 
-      {p.canAddMembers || p.canInviteCode || p.canQrInvite ? (
-        <Section footer={p.canAddMembers ? "가입된 사용자를 바로 추가해요. 아직 가입 안 한 사람은 초대 코드로 초대하세요." : "초대 코드나 QR로 들어온 사람은 가입 요청에서 승인하면 돼요."}>
+      {p.canAddMembers || p.canQrInvite ? (
+        <Section footer={p.canAddMembers ? "가입된 사용자를 바로 추가해요. 아직 가입 안 한 사람은 QR로 초대하세요." : "승인이 필요한 QR로 들어온 사람은 가입 요청에서 승인하면 돼요."}>
           {p.canAddMembers ? <Row icon="add" label="멤버 추가" onPress={addMember} chevron /> : null}
-          {p.canInviteCode || p.canQrInvite ? <Row icon="link" label="초대 코드 · QR로 초대" onPress={() => router.push("/manage/invite")} chevron /> : null}
+          {p.canQrInvite ? <Row icon="link" label="QR로 초대" onPress={() => router.push("/manage/invite")} chevron /> : null}
         </Section>
       ) : null}
 

@@ -147,6 +147,16 @@ model QrInviteToken {
   groupId      String
   createdById  String
   expiresAt    DateTime
+  // QR codes are single-use and live about a minute (the inviter's screen makes a new one every
+  // minute). Made by an operator / the group admin / 그룹장 / 파트장 → joins without approval.
+  autoApprove  Boolean  @default(false)
+  // The first scan claims the code: a signed-in user (claimedById), or someone who still has to log
+  // in or sign up (claimSecret, kept in a cookie until their account exists).
+  claimedById  String?
+  claimSecret  String?  @unique
+  claimedAt    DateTime?
+  // Spent: the membership (or the new account's pending invite) was created.
+  usedAt       DateTime?
   createdAt    DateTime @default(now())
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
