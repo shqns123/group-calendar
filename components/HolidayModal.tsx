@@ -24,6 +24,8 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<"holiday" | "workday">("holiday");
   const [adding, setAdding] = useState(false);
+  // The year shown in the list (null: this year).
+  const [year, setYear] = useState<number | null>(null);
 
   const fetchHolidays = useCallback(async () => {
     setLoading(true);
@@ -64,10 +66,17 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
     onChanged();
   };
 
-  const grouped = holidays.reduce<{ holiday: CustomHoliday[]; workday: CustomHoliday[] }>(
-    (acc, h) => { acc[h.type as "holiday" | "workday"].push(h); return acc; },
-    { holiday: [], workday: [] }
-  );
+  // Every year that has entries (and this year); the chosen one's entries grouped by month.
+  const thisYear = Number(toSeoulDateInput(new Date()).slice(0, 4));
+  const years = [...new Set([thisYear, ...holidays.map((h) => Number(h.date.slice(0, 4)))])].sort((x, y) => x - y);
+  const shownYear = year ?? thisYear;
+  const byMonth = new Map<number, CustomHoliday[]>();
+  for (const h of [...holidays].sort((x, y) => x.date.localeCompare(y.date))) {
+    if (Number(h.date.slice(0, 4)) !== shownYear) continue;
+    const month = Number(h.date.slice(5, 7));
+    byMonth.set(month, [...(byMonth.get(month) ?? []), h]);
+  }
+  const months = [...byMonth.entries()];
 
   const formatDate = (d: string) => {
     try { return formatSeoulMonthDayWeekdayLabel(d); }
@@ -209,30 +218,43 @@ export default function HolidayModal({ onClose, onChanged }: Props) {
               <p style={{ fontSize: "0.825rem" }}>등록된 항목이 없습니다</p>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {grouped.holiday.length > 0 && (
-                <div>
-                  <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#EF4444", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                    <CalendarX2 style={{ width: 12, height: 12 }} /> 회사 휴일
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {grouped.holiday.map((h) => (
-                      <HolidayRow key={h.id} holiday={h} label={formatDate(h.date)} onDelete={handleDelete} />
-                    ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    onClick={() => setYear(y)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 999,
+                      border: `1px solid ${y === shownYear ? "var(--accent)" : "var(--border)"}`,
+                      background: y === shownYear ? "var(--accent)" : "none",
+                      color: y === shownYear ? "#fff" : "var(--text-secondary)",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {y}년
+                  </button>
+                ))}
+              </div>
+              {months.length === 0 ? (
+                <p style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", textAlign: "center", padding: "12px 0" }}>{shownYear}년에 등록된 항목이 없습니다</p>
+              ) : (
+                months.map(([month, list]) => (
+                  <div key={month}>
+                    <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", marginBottom: 8 }}>
+                      {month}월 <span style={{ fontWeight: 500, color: "var(--text-tertiary)" }}>· {list.length}개</span>
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {list.map((h) => (
+                        <HolidayRow key={h.id} holiday={h} label={`${formatDate(h.date)} · ${h.type === "holiday" ? "회사 휴일" : "대체 근무일"}`} onDelete={handleDelete} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {grouped.workday.length > 0 && (
-                <div>
-                  <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                    <Briefcase style={{ width: 12, height: 12 }} /> 대체 근무일
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {grouped.workday.map((h) => (
-                      <HolidayRow key={h.id} holiday={h} label={formatDate(h.date)} onDelete={handleDelete} />
-                    ))}
-                  </div>
-                </div>
+                ))
               )}
             </div>
           )}

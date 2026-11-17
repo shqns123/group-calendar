@@ -2,10 +2,10 @@ import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { DateField } from "@/components/DateField";
 import { Field, MiniButton, Row, Section } from "@/components/list";
-import { Empty, ErrorBanner, PrimaryButton, Segmented } from "@/components/ui";
+import { Chip, Empty, ErrorBanner, PrimaryButton, Segmented } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { confirm } from "@/lib/confirm";
-import { shortLabel, todayKey, type DateKey } from "@/lib/date";
+import { parseKey, shortLabel, todayKey, type DateKey } from "@/lib/date";
 import { useSession } from "@/lib/session";
 import type { CustomHoliday } from "@/lib/types";
 import { invalidate, useData } from "@/lib/useData";
@@ -19,6 +19,8 @@ export default function HolidaysScreen() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // The year shown in the list (null: this year).
+  const [year, setYear] = useState<number | null>(null);
 
   if (!me?.isOperator) return <Empty title="운영자만 볼 수 있어요" />;
 
@@ -36,7 +38,17 @@ export default function HolidaysScreen() {
     }
   }
 
-  const upcoming = (data ?? []).filter((h) => h.date >= todayKey().slice(0, 4));
+  // Every year that has entries (and this year); the chosen one's entries grouped by month.
+  const thisYear = parseKey(todayKey()).year;
+  const years = [...new Set([thisYear, ...(data ?? []).map((h) => parseKey(h.date).year)])].sort((x, y) => x - y);
+  const shownYear = year ?? thisYear;
+  const byMonth = new Map<number, CustomHoliday[]>();
+  for (const h of [...(data ?? [])].sort((x, y) => x.date.localeCompare(y.date))) {
+    const { year: hy, month } = parseKey(h.date);
+    if (hy !== shownYear) continue;
+    byMonth.set(month, [...(byMonth.get(month) ?? []), h]);
+  }
+  const months = [...byMonth.entries()];
 
   return (
     <KeyboardAware style={{ flex: 1 }}>
@@ -63,27 +75,43 @@ export default function HolidaysScreen() {
           </View>
         </Section>
 
-        <Section title={`등록된 휴일 ${upcoming.length}개`}>
-          {upcoming.map((h) => (
-            <Row
-              key={h.id}
-              icon={h.type === "holiday" ? "holiday" : "calendar"}
-              label={h.name}
-              value={`${shortLabel(h.date)} · ${h.type === "holiday" ? "회사 휴일" : "대체 근무일"}`}
-              trailing={
-                <MiniButton
-                  tone="danger"
-                  label="삭제"
-                  disabled={busy}
-                  onPress={async () => {
-                    if (await confirm("휴일 삭제", `${shortLabel(h.date)} ${h.name}을(를) 삭제할까요?`, "삭제", true))
-                      void mutate(() => api("/api/admin/holidays", { method: "DELETE", body: { id: h.id } }));
-                  }}
-                />
-              }
-            />
-          ))}
-        </Section>
+        <View style={{ gap: 12 }}>
+          {/* Year, then the year's entries by month. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {years.map((y) => (
+              <Chip key={y} label={`${y}년`} selected={y === shownYear} onPress={() => setYear(y)} />
+            ))}
+          </ScrollView>
+          {months.length === 0 ? (
+            <Section footer={`${shownYear}년에 등록된 회사 휴일·대체 근무일이 없어요.`}>
+              <Row label="등록된 휴일 없음" />
+            </Section>
+          ) : (
+            months.map(([month, list]) => (
+              <Section key={month} title={`${month}월 · ${list.length}개`}>
+                {list.map((h) => (
+                  <Row
+                    key={h.id}
+                    icon={h.type === "holiday" ? "holiday" : "calendar"}
+                    label={h.name}
+                    value={`${shortLabel(h.date)} · ${h.type === "holiday" ? "회사 휴일" : "대체 근무일"}`}
+                    trailing={
+                      <MiniButton
+                        tone="danger"
+                        label="삭제"
+                        disabled={busy}
+                        onPress={async () => {
+                          if (await confirm("휴일 삭제", `${shortLabel(h.date)} ${h.name}을(를) 삭제할까요?`, "삭제", true))
+                            void mutate(() => api("/api/admin/holidays", { method: "DELETE", body: { id: h.id } }));
+                        }}
+                      />
+                    }
+                  />
+                ))}
+              </Section>
+            ))
+          )}
+        </View>
       </ScrollView>
     </KeyboardAware>
   );
