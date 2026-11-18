@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\build-android-local.ps1
 #   (versionCode is picked automatically; -VersionCode N overrides it)
 #   -Arch arm64 = fastest (64-bit phones only); -Arch all = emulators too (default: phone)
+#   -Format aab = an Android App Bundle for Google Play (default: apk)
 #
 # Needs: Android Studio (its bundled Java + Android SDK), and credentials.json +
 # credentials\android\keystore.jks downloaded with `npx.cmd eas-cli@latest credentials -p android`
@@ -26,7 +27,12 @@ param(
   #   arm64           = arm64-v8a only: fastest and smallest; very old 32-bit phones can't install it
   #   all             = also x86 / x86_64 (emulators)
   [ValidateSet("phone", "arm64", "all")]
-  [string]$Arch = "phone"
+  [string]$Arch = "phone",
+  # What to build:
+  #   apk (default) = an installable APK, for phones directly
+  #   aab           = an Android App Bundle (.aab), for uploading to Google Play
+  [ValidateSet("apk", "aab")]
+  [string]$Format = "apk"
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,7 +43,8 @@ Set-Location $mobile
 
 if ($VersionCode -le 0) {
   $last = 22
-  Get-ChildItem "dist" -Filter "group-calendar-v*.apk" -ErrorAction SilentlyContinue | ForEach-Object {
+  # APKs and AABs share one counter (both install over each other's versions).
+  Get-ChildItem "dist" -Include "group-calendar-v*.apk", "group-calendar-v*.aab" -File -Recurse -Depth 0 -ErrorAction SilentlyContinue | ForEach-Object {
     if ($_.BaseName -match "v(\d+)$" -and [int]$Matches[1] -gt $last) { $last = [int]$Matches[1] }
   }
   $VersionCode = $last + 1
@@ -118,10 +125,11 @@ if (-not (Test-Path $rootMark) -or (Get-Content $rootMark -Raw).Trim() -ne $mobi
   Set-Content $rootMark $mobile
 }
 
-Write-Host "Building release APK (first run downloads Gradle and dependencies)..."
+$task = if ($Format -eq "aab") { "bundleRelease" } else { "assembleRelease" }
+Write-Host "Building release $($Format.ToUpper()) (first run downloads Gradle and dependencies)..."
 Push-Location android
 # Network timeouts: without them a stalled dependency download can hang the build indefinitely.
-$gradleArgs = @("assembleRelease", "--console=plain", "-Dorg.gradle.internal.http.socketTimeout=120000", "-Dorg.gradle.internal.http.connectionTimeout=60000")
+$gradleArgs = @($task, "--console=plain", "-Dorg.gradle.internal.http.socketTimeout=120000", "-Dorg.gradle.internal.http.connectionTimeout=60000")
 if ($Info) { $gradleArgs += "--info" }
 $archs = @{ phone = "arm64-v8a,armeabi-v7a"; arm64 = "arm64-v8a"; all = "armeabi-v7a,arm64-v8a,x86,x86_64" }[$Arch]
 $gradleArgs += "-PreactNativeArchitectures=$archs"
@@ -131,8 +139,8 @@ $code = $LASTEXITCODE
 Pop-Location
 if ($code -ne 0) { throw "Gradle build failed" }
 
-$apk = "android\app\build\outputs\apk\release\app-release.apk"
+$built = if ($Format -eq "aab") { "android\app\build\outputs\bundle\release\app-release.aab" } else { "android\app\build\outputs\apk\release\app-release.apk" }
 New-Item -ItemType Directory -Force "dist" | Out-Null
-$out = "dist\group-calendar-v$VersionCode.apk"
-Copy-Item $apk $out -Force
-Write-Host "APK: $(Join-Path $realMobile $out)"
+$out = "dist\group-calendar-v$VersionCode.$Format"
+Copy-Item $built $out -Force
+Write-Host "$($Format.ToUpper()): $(Join-Path $realMobile $out)"
