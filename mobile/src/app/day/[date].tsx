@@ -298,15 +298,9 @@ export function DayDetail({
   // 잔여 장비: one section per kind with the names still free that day (타겟 has a count only).
   type Section = { label?: string; items: string[]; fg: string; count?: string; text?: string };
   const eqSections: Section[] = [
-    ...(eq.trackers.length
-      ? [{ label: "트래커", count: `${eq.trackerRemaining}/${eq.trackers.length}`, items: eq.trackers.filter((t) => !eq.used.has(t)), fg: c.onInfo }]
-      : []),
-    ...(eq.laptops.length
-      ? [{ label: "노트북", count: `${eq.laptopRemaining}/${eq.laptops.length}`, items: eq.laptops.filter((t) => !eq.used.has(t)), fg: c.onInfo }]
-      : []),
-    ...(eq.targetTotal
-      ? [{ label: "타겟", count: `${eq.targetRemaining}/${eq.targetTotal}`, items: [], text: eq.targetRemaining ? `${eq.targetRemaining}개 남음` : undefined, fg: c.onInfo }]
-      : []),
+    ...eq.categories
+      .filter((cat) => (cat.quantity ?? cat.items.length) > 0)
+      .map((cat) => ({ label: cat.name, count: `${cat.quantityRemaining ?? cat.remaining.length}/${cat.quantity ?? cat.items.length}`, items: cat.remaining, text: cat.quantityRemaining !== undefined ? `${cat.quantityRemaining}개 남음` : undefined, fg: c.onInfo })),
   ];
   const groups = {
     // 특근: the count is who can actually work — marked 가능 and not on 출장 / 근태 that day.
@@ -793,7 +787,7 @@ function PreviewChips({ group, events }: { group: Group | null; events: CalEvent
   const chips = [
     { key: "ot", label: "특근 가능", count: people.overtimeHere.length as number | null, fg: c.onWarn },
     { key: "left", label: "남은 인원", count: people.remaining.length as number | null, fg: c.onOk },
-    ...(eq.trackers.length || eq.laptops.length || eq.targetTotal ? [{ key: "eq", label: "잔여 장비", count: null as number | null, fg: c.onInfo }] : []),
+    ...(eq.hasAny ? [{ key: "eq", label: "잔여 장비", count: null as number | null, fg: c.onInfo }] : []),
   ];
   return (
     <>

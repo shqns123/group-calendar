@@ -11,4 +11,12 @@ data/
 Dockerfile
 docker-compose.yml
 README.md
-mobile
+mobile/*
+!mobile/package*.json
+!mobile/app.config.ts
+!mobile/index.ts
+!mobile/tsconfig.json
+!mobile/assets
+!mobile/plugins
+!mobile/src
+public/login-ui

@@ -10,6 +10,7 @@ export type GroupFromApi = {
   inviteCode: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
   leaderId: string;

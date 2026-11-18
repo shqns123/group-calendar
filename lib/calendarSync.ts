@@ -10,7 +10,8 @@ export async function syncGroupCalendarToGitLab(groupId: string) {
 }
 
 export async function syncAllGroupCalendarsToGitLab() {
-  const groups = await prisma.group.findMany({ select: { id: true } });
+  // Groups with GitLab upload switched off are skipped.
+  const groups = await prisma.group.findMany({ where: { calendarSyncEnabled: true }, select: { id: true } });
   const results = [];
   for (const group of groups) {
     results.push(await syncGroupCalendarToGitLab(group.id));

@@ -1,6 +1,7 @@
 // Personnel & equipment math — ported from the web
 // (components/personnelAvailability.ts, components/equipmentStock.ts).
 
+import { readEquipmentCategories } from "./equipment";
 import { rosterOf } from "./session";
 import type { CalEvent, Group } from "./types";
 
@@ -60,24 +61,22 @@ export function personnelFor(group: Group | null, dayEvents: CalEvent[]) {
 }
 
 export function equipmentFor(group: Group | null, dayEvents: CalEvent[], excludeEventId?: string) {
-  const trackers = splitList(group?.trackerOptions);
-  const laptops = splitList(group?.laptopOptions);
-  const targetTotal = Math.max(0, group?.targetCount ?? 2);
+  const categories = readEquipmentCategories(group);
   const used = new Set<string>();
-  let targetUsed = 0;
+  const quantities = new Map<string, number>();
   for (const e of workEvents(dayEvents)) {
     if (e.id === excludeEventId) continue;
-    const a = parseAllocation(e.equipment);
-    targetUsed += a.targetCount;
-    a.items.forEach((i) => used.add(i));
+    for (const token of splitList(e.equipment)) {
+      const match = /^(.*) x(\d+)$/i.exec(token);
+      if (match && categories.some((category) => category.quantity !== undefined && [category.id === "target" ? "Target" : category.name, ...(category.aliases ?? [])].includes(match[1]))) quantities.set(match[1], (quantities.get(match[1]) ?? 0) + Number(match[2]));
+      else used.add(token);
+    }
   }
   return {
-    trackers,
-    laptops,
+    categories: categories.map((cat) => ({ ...cat, remaining: cat.items.filter((i) => !used.has(i)), quantityRemaining: cat.quantity === undefined ? undefined : Math.max(0, cat.quantity - [cat.id === "target" ? "Target" : cat.name, ...(cat.aliases ?? [])].reduce((sum, name) => sum + (quantities.get(name) ?? 0), 0)) })),
     used,
-    targetTotal,
-    targetRemaining: Math.max(0, targetTotal - targetUsed),
-    trackerRemaining: trackers.filter((t) => !used.has(t)).length,
-    laptopRemaining: laptops.filter((t) => !used.has(t)).length,
+    targetTotal: 0,
+    targetRemaining: 0,
+    hasAny: categories.some((cat) => (cat.quantity ?? cat.items.length) > 0),
   };
 }

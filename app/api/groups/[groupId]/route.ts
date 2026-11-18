@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { legacyEquipmentMirror, sanitizeEquipmentCategories } from "@/lib/equipmentCategories";
 
 // 그룹 상세 조회
 export async function GET(
@@ -66,9 +67,20 @@ export async function PATCH(
     description,
     trackerOptions,
     laptopOptions,
+    equipmentCategories,
     targetCount,
     eventDisplayLimit,
+    calendarSyncEnabled,
   } = body;
+  let categoryData: { equipmentCategories: string; trackerOptions: string | null; laptopOptions: string | null } | undefined;
+  if (equipmentCategories !== undefined) {
+    try {
+      const categories = sanitizeEquipmentCategories(equipmentCategories);
+      categoryData = { equipmentCategories: JSON.stringify(categories), ...legacyEquipmentMirror(categories) };
+    } catch (error) {
+      return Response.json({ error: (error as Error).message }, { status: 400 });
+    }
+  }
   const normalizedTargetCount =
     targetCount === undefined ? undefined : Math.max(0, Math.min(100, Number(targetCount) || 0));
   const normalizedEventDisplayLimit =
@@ -82,8 +94,11 @@ export async function PATCH(
       ...(description !== undefined && { description: description?.trim() }),
       ...(trackerOptions !== undefined && { trackerOptions: String(trackerOptions).trim() || null }),
       ...(laptopOptions !== undefined && { laptopOptions: String(laptopOptions).trim() || null }),
+      // Categories win over the old lists when both are sent; the old lists become their mirror.
+      ...categoryData,
       ...(normalizedTargetCount !== undefined && { targetCount: normalizedTargetCount }),
       ...(normalizedEventDisplayLimit !== undefined && { eventDisplayLimit: normalizedEventDisplayLimit }),
+      ...(typeof calendarSyncEnabled === "boolean" && { calendarSyncEnabled }),
     },
   });
 

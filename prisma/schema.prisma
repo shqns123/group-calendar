@@ -106,8 +106,12 @@ model Group {
   inviteCode      String        @unique @default(cuid())
   trackerOptions  String?
   laptopOptions   String?
+  // JSON: [{ id, name, items: string[] }]. Null = not set yet; read trackerOptions/laptopOptions as two categories.
+  equipmentCategories String?
   targetCount     Int           @default(2)
   eventDisplayLimit Int         @default(3)
+  // GitLab calendar upload (30-minute auto upload and the manual button). Off = this group is skipped.
+  calendarSyncEnabled Boolean   @default(true)
   leaderId        String
   leader      User          @relation("GroupLeader", fields: [leaderId], references: [id])
   members     GroupMember[]
@@ -236,4 +240,32 @@ model PersonalDayNote {
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+// One row per AI quick-add request that reached OpenRouter (POST /api/events/parse).
+// No relation to User on purpose: cost history stays after a user is deleted.
+model AiUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  feature      String   @default("quick_add")
+  model        String
+  // "ok", or the failure reason (timeout, upstream, bad_output, rate_limited)
+  status       String   @default("ok")
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  // USD. OpenRouter's reported cost when it gives one; otherwise tokens × lib/aiUsage.ts prices.
+  cost         Float    @default(0)
+  costSource   String   @default("openrouter")
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+// Per-user override of the monthly AI call cap (Seoul calendar month). No row → the default cap.
+model AiUsageLimit {
+  userId       String   @id
+  monthlyLimit Int
+  updatedById  String?
+  updatedAt    DateTime @updatedAt
 }

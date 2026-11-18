@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { Section } from "@/components/list";
+import { QrPopup } from "@/components/QrPopup";
 import { Empty, ErrorBanner, SecondaryButton, T } from "@/components/ui";
 import { api, API_URL, errorMessage } from "@/lib/api";
 import { permissionsFor } from "@/lib/permissions";
@@ -24,11 +24,12 @@ export default function InviteScreen() {
   const [left, setLeft] = useState(60);
   const [scanned, setScanned] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [qrWidth, setQrWidth] = useState(228);
   // Bumped to ask for a new code (button, timer, after a scan).
   const [round, setRound] = useState(0);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !p.canQrInvite) return;
     let live = true;
     void (async () => {
       try {
@@ -44,7 +45,7 @@ export default function InviteScreen() {
     return () => {
       live = false;
     };
-  }, [groupId, round]);
+  }, [groupId, round, p.canQrInvite]);
 
   // The countdown for the code on screen; at zero, a new code.
   useEffect(() => {
@@ -75,34 +76,28 @@ export default function InviteScreen() {
     return () => clearInterval(poll);
   }, [groupId, token]);
 
-  if (!group) return <Empty title="선택된 그룹이 없어요" />;
-  if (!p.canQrInvite) return <Empty title="초대 권한이 없어요" body="이 그룹의 승인된 멤버만 QR로 초대할 수 있어요." />;
+  if (!group) return <QrPopup title="QR로 그룹 초대"><Empty title="선택된 그룹이 없어요" /></QrPopup>;
+  if (!p.canQrInvite) return <QrPopup title="QR로 그룹 초대"><Empty title="초대 권한이 없어요" body="이 그룹의 승인된 멤버만 QR로 초대할 수 있어요." /></QrPopup>;
 
   const base = API_URL || "https://<서버 주소>";
   const url = qr ? `${base}/join/qr/${qr.token}` : null;
   const autoApprove = qr?.autoApprove ?? p.qrAutoApprove;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 24, paddingBottom: 40 }}>
+    <QrPopup title="QR로 그룹 초대">
       {error ? <ErrorBanner message={error} onRetry={() => setRound((r) => r + 1)} /> : null}
-
-      <Section
-        title={`${group.name} QR 초대`}
-        footer={`QR 코드는 한 번만 쓸 수 있고 1분마다 바뀌어요. ${autoApprove ? "이 QR로 가입하면 승인 없이 바로 멤버가 돼요." : "이 QR로 가입하면 그룹장·파트장의 승인이 필요해요."}`}
-      >
-        <View style={{ padding: 20, gap: 14, alignItems: "center" }}>
-          <T variant="subhead" color={scanned ? c.primary : c.text2} style={{ textAlign: "center" }}>
-            {scanned ? "방금 QR 코드가 사용됐어요. 새 코드로 바꿨어요." : "가입할 사람이 앱의 「QR 스캔으로 그룹 가입」이나 휴대폰 카메라로 스캔하면 돼요."}
-          </T>
-          <View style={{ padding: 14, backgroundColor: "#FFFFFF", borderRadius: radius.control, width: 228, height: 228, alignItems: "center", justifyContent: "center" }}>
-            {url ? <QRCode value={url} size={200} /> : <T variant="footnote" color="#64748B">QR 코드 만드는 중…</T>}
-          </View>
-          <T variant="footnote" color={c.text2} style={{ fontVariant: ["tabular-nums"] }}>
-            {`${left}초 후 새 코드로 바뀌어요`}
-          </T>
-          <SecondaryButton label="지금 새 코드 받기" icon="sync" onPress={() => setRound((r) => r + 1)} />
+      <T variant="headline" style={{ textAlign: "center" }}>{group.name}</T>
+      <View onLayout={(e) => setQrWidth(Math.min(228, e.nativeEvent.layout.width))} style={{ alignItems: "center" }}>
+        <View style={{ width: qrWidth, height: qrWidth, backgroundColor: "#FFFFFF", borderRadius: radius.control, alignItems: "center", justifyContent: "center" }}>
+          {url ? <QRCode value={url} size={Math.max(1, qrWidth - 28)} /> : <T variant="footnote" color="#64748B">QR 코드 만드는 중…</T>}
         </View>
-      </Section>
-    </ScrollView>
+      </View>
+      <T variant="footnote" color={c.text2} style={{ textAlign: "center", fontVariant: ["tabular-nums"] }}>{left}초 후 새 코드로 바뀌어요</T>
+      <T variant="subhead" color={c.text2}>
+        {scanned ? "방금 사용한 QR 코드를 새 코드로 바꿨어요. " : "가입할 사람이 휴대폰 카메라로 스캔하면 돼요. "}
+        QR 코드는 한 번만 쓸 수 있어요. {autoApprove ? "이 코드로 가입하면 별도 승인이 필요 없어요." : "가입하려면 그룹장·파트장의 승인이 필요해요."}
+      </T>
+      <SecondaryButton label="지금 새 코드 받기" icon="sync" onPress={() => setRound((r) => r + 1)} />
+    </QrPopup>
   );
 }

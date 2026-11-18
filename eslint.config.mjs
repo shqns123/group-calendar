@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Native app has its own toolchain.
     "mobile/**",
+    "public/login-ui/**",
   ]),
 ]);
 

@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Linking, Modal, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { HOSTED_WEB } from "@/lib/api";
 import { todayKey } from "@/lib/date";
 import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
 import { APP_VERSION, compareVersions, RELEASE_NOTES, type ReleaseSection } from "@/lib/releaseNotes";
@@ -18,12 +19,14 @@ import { PrimaryButton, T } from "./ui";
 // --- Tiny persistent store (SecureStore; memory on the web preview).
 const mem = new Map<string, string>();
 async function getPref(key: string) {
+  if (HOSTED_WEB) return localStorage.getItem(key);
   if (Platform.OS === "web") return mem.get(key) ?? null;
   return SecureStore.getItemAsync(key).catch(() => null);
 }
 async function setPref(key: string, value: string) {
   if (Platform.OS === "web") {
-    mem.set(key, value);
+    if (HOSTED_WEB) localStorage.setItem(key, value);
+    else mem.set(key, value);
     return;
   }
   await SecureStore.setItemAsync(key, value).catch(() => undefined);

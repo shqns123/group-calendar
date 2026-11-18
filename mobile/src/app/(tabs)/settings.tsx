@@ -1,3 +1,4 @@
+import { registerPushSubscription } from "@/lib/browserPush";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -6,8 +7,8 @@ import { useActionSheet } from "@/components/ActionSheet";
 import { Icon } from "@/components/Icon";
 import { Row, Section } from "@/components/list";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { T } from "@/components/ui";
-import { api, errorMessage } from "@/lib/api";
+import { T, Toggle } from "@/components/ui";
+import { api, errorMessage, HOSTED_WEB } from "@/lib/api";
 import { confirm, notice } from "@/lib/confirm";
 import { googleSignOut } from "@/lib/google";
 import { permissionsFor, roleLabel } from "@/lib/permissions";
@@ -27,6 +28,8 @@ export default function SettingsScreen() {
   const mine = group?.members.find((m) => m.userId === me?.id);
   const pendingJoin = group?.members.filter((m) => m.status === "PENDING").length ?? 0;
   const [syncing, setSyncing] = useState(false);
+  const [syncToggling, setSyncToggling] = useState(false);
+  const syncOn = group?.calendarSyncEnabled !== false;
 
   const myRole = p.isGroupAdmin ? "그룹 관리자" : roleLabel(mine?.role);
 
@@ -41,6 +44,20 @@ export default function SettingsScreen() {
       notice("업로드 실패", errorMessage(e));
     } finally {
       setSyncing(false);
+    }
+  }
+
+  // GitLab upload on/off for this group (30-minute auto upload and the upload row).
+  async function toggleCalendarSync(on: boolean) {
+    if (!group) return;
+    setSyncToggling(true);
+    try {
+      await api(`/api/groups/${group.id}`, { method: "PATCH", body: { calendarSyncEnabled: on } });
+      await reloadGroups();
+    } catch (e) {
+      notice("저장 실패", errorMessage(e));
+    } finally {
+      setSyncToggling(false);
     }
   }
 
@@ -116,7 +133,16 @@ export default function SettingsScreen() {
             ) : null}
             {p.canNotify ? <Row compact icon="send" label="알림 보내기 · 알림 일정" onPress={() => router.push("/manage/notify")} chevron /> : null}
             {p.canEditGroup ? <Row compact icon="settings" label="그룹 설정" value="이름, 장비, 캘린더 표시 개수" onPress={() => router.push("/manage/group")} chevron /> : null}
-            {p.canCalendarSync ? <Row compact icon="sync" label={syncing ? "업로드 중…" : "GitLab 캘린더 업로드"} onPress={syncing ? undefined : calendarSync} /> : null}
+            {p.canEditGroup ? (
+              <Row
+                compact
+                icon="sync"
+                label="GitLab 업로드"
+                value={syncOn ? "켜짐 · 30분마다 자동 업로드" : "꺼짐"}
+                trailing={<Toggle label="GitLab 업로드" value={syncOn} onChange={syncToggling ? () => {} : (v) => void toggleCalendarSync(v)} />}
+              />
+            ) : null}
+            {p.canCalendarSync && syncOn ? <Row compact icon="sync" label={syncing ? "업로드 중…" : "GitLab 캘린더 지금 업로드"} onPress={syncing ? undefined : calendarSync} /> : null}
           </Section>
         ) : null}
 
@@ -129,6 +155,17 @@ export default function SettingsScreen() {
           </Section>
         ) : null}
 
+        {HOSTED_WEB && <Section title="웹 기능">
+          {"Notification" in window && "PushManager" in window && (
+            <Row compact icon="bell" label="웹 푸시 알림 설정" onPress={async () => {
+              const permission = await Notification.requestPermission();
+              if (permission === "granted") await registerPushSubscription();
+              else notice("알림 권한", "브라우저의 사이트 설정에서 알림을 허용해 주세요.");
+            }} chevron />
+          )}
+          <Row compact icon="info" label="이용 안내" onPress={() => location.assign("/guide.html")} chevron />
+          <Row compact icon="link" label="기존 웹 메뉴 열기" onPress={() => location.assign("/?view=web" + (group ? "&groupId=" + encodeURIComponent(group.id) : ""))} chevron />
+        </Section>}
         <Section title="앱 정보" footer="화면 모드는 휴대폰의 라이트/다크 설정을 따라가요.">
           <Row compact icon="note" label="버전" value={`${Constants.expoConfig?.version ?? "1.0.0"} · ${String(Constants.expoConfig?.extra?.appVariant ?? "")}`} />
         </Section>

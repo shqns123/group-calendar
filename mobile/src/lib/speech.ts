@@ -12,7 +12,9 @@ import { Platform } from "react-native";
 type SpeechModule = typeof import("expo-speech-recognition");
 
 const S: SpeechModule | null =
-  Platform.OS !== "web" && requireOptionalNativeModule("ExpoSpeechRecognition")
+  (Platform.OS === "web"
+    ? typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+    : requireOptionalNativeModule("ExpoSpeechRecognition"))
     ? // eslint-disable-next-line @typescript-eslint/no-require-imports
       (require("expo-speech-recognition") as SpeechModule)
     : null;

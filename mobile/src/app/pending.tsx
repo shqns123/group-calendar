@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { api, HOSTED_WEB } from "@/lib/api";
 import { View } from "react-native";
 import { PrimaryButton, T } from "@/components/ui";
 import { useSession } from "@/lib/session";
@@ -8,6 +10,14 @@ import { useTheme } from "@/theme/ThemeProvider";
 export default function PendingScreen() {
   const { c } = useTheme();
   const { signOut } = useSession();
+  useEffect(() => {
+    if (!HOSTED_WEB) return;
+    const poll = setInterval(async () => {
+      const result = await api<{ status: string }>("/api/auth/status").catch(() => null);
+      if (result?.status === "ACTIVE") location.replace("/");
+    }, 10000);
+    return () => clearInterval(poll);
+  }, []);
   return (
     <View style={{ flex: 1, backgroundColor: c.surface, justifyContent: "center", padding: 24, gap: 16 }}>
       <T variant="title1" accessibilityRole="header">

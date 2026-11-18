@@ -8,13 +8,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Feather from "@expo/vector-icons/Feather";
 import { DismissLayer } from "@/components/DismissLayer";
 import { QuickAddBar } from "@/components/QuickAddBar";
-import { api } from "@/lib/api";
+import { api, HOSTED_WEB } from "@/lib/api";
 import { todayKey } from "@/lib/date";
 import { permissionsFor } from "@/lib/permissions";
 import { QuickAddDockProvider, TAB_BAR_H, TAB_BAR_TOP, useQuickAddDock, useTabBarBand } from "@/lib/quickAddDock";
 import { useSession } from "@/lib/session";
 import type { AppNotification } from "@/lib/types";
-import { useData } from "@/lib/useData";
+import { invalidate, useData } from "@/lib/useData";
+import { webFont } from "@/theme/tokens";
 import { useTheme } from "@/theme/ThemeProvider";
 import { clampSplit, usePaneLeft, useWide, useWideMode, WideDayProvider } from "@/lib/wide";
 import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
@@ -30,6 +31,17 @@ export default function TabsLayout() {
     api<{ items: AppNotification[]; unreadCount: number }>("/api/notifications", { query: { groupId: group?.id } }),
   );
   const unread = data?.unreadCount ?? 0;
+  const groupId = group?.id;
+  useEffect(() => {
+    if (!HOSTED_WEB || !groupId) return;
+    const stream = new EventSource("/api/events/stream?groupId=" + encodeURIComponent(groupId));
+    stream.onmessage = invalidate;
+    return () => stream.close();
+  }, [groupId]);
+  useEffect(() => {
+    if (!HOSTED_WEB || !data || !("setAppBadge" in navigator)) return;
+    void (unread ? navigator.setAppBadge(unread) : navigator.clearAppBadge()).catch(() => {});
+  }, [data, unread]);
 
   const label = ({ color, focused, children }: { color: ColorValue; focused: boolean; children: string }) => (
     <Text style={{ color, fontSize: 10, lineHeight: 14, fontWeight: focused ? "700" : "500", marginTop: android ? 4 : 2 }}>{children}</Text>
@@ -327,7 +339,7 @@ function AppTabBar({ unread }: { unread: number }) {
             </View>
           ) : null}
         </View>
-        <Text style={{ color, fontSize: 11, lineHeight: 14, fontWeight: focused ? "700" : "500" }}>{t.label}</Text>
+        <Text style={{ ...webFont, color, fontSize: 11, lineHeight: 14, fontWeight: focused ? "700" : "500" }}>{t.label}</Text>
       </Pressable>
     );
   };
@@ -410,6 +422,9 @@ function QuickAddDock() {
   const { width } = useWindowDimensions();
   const path = usePathname();
   const onCalendar = paneLeft > 0 || WIDE_TABS[0].match(path);
+  // Keep room for the text field between AI, microphone and submit on small phones/panes.
+  const dockWidth = paneLeft || width;
+  const dockInset = Math.max(8, Math.min(48, (dockWidth - 280) / 2));
   // Typing: a tap anywhere else only ends typing.
   const [typing, setTyping] = useState(false);
   // Stays mounted through the closing animation.
@@ -435,14 +450,14 @@ function QuickAddDock() {
           left: 0,
           right: paneLeft > 0 ? width - paneLeft : 0,
           bottom: band,
-          paddingHorizontal: 48,
+          paddingHorizontal: dockInset,
           paddingBottom: 10,
           opacity: p,
           transformOrigin: "bottom",
           transform: [{ translateY: p.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }, { scale: p.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
         }}
       >
-        <QuickAddBar fill date={onCalendar ? dock.date : todayKey()} widen={40} onActiveChange={setTyping} surface={isDark && onCalendar ? "#1E1E1E" : undefined} aiToggle />
+        <QuickAddBar fill date={onCalendar ? dock.date : todayKey()} widen={dockInset - 8} onActiveChange={setTyping} surface={isDark && onCalendar ? "#1E1E1E" : undefined} aiToggle />
       </Animated.View>
     </>
   );

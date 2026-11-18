@@ -23,12 +23,6 @@ import { KeyboardAware } from "@/components/KeyboardAware";
 import { closeScreen } from "@/lib/nav";
 
 const LEAVE_TYPES = ["월휴", "무휴", "유휴", "기타"] as const;
-const EQUIP_TABS = [
-  { id: "tracker", label: "트래커" },
-  { id: "laptop", label: "노트북" },
-  { id: "target", label: "타겟" },
-] as const;
-
 type LeaveType = (typeof LEAVE_TYPES)[number];
 
 /** A new event's starting values handed over by the quick-add bar ("수정" on its AI reading). */
@@ -111,11 +105,10 @@ function EventForm({ existing, baseDate, prefill }: { existing: CalEvent | null;
   const [end, setEnd] = useState<DateKey>(seed?.end ?? baseDate);
   const [description, setDescription] = useState(seed?.description ?? "");
   const [people, setPeople] = useState<Set<string>>(() => new Set(seed?.people ?? []));
-  const [items, setItems] = useState<Set<string>>(() => new Set(alloc.items));
-  const [targets, setTargets] = useState(alloc.targetCount);
+  const [items, setItems] = useState<Set<string>>(() => new Set([...alloc.items, ...(alloc.targetCount ? [`Target x${alloc.targetCount}`] : [])]));
   const [equipmentOnly, setEquipmentOnly] = useState(Boolean(existing?.equipmentOnly));
   const [color, setColor] = useState(existing?.color ?? EVENT_COLORS[0].hex);
-  const [eqTab, setEqTab] = useState<(typeof EQUIP_TABS)[number]["id"]>("tracker");
+  const [eqTab, setEqTab] = useState("");
   const [equipOpen, setEquipOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -162,7 +155,7 @@ function EventForm({ existing, baseDate, prefill }: { existing: CalEvent | null;
       color,
       groupId: group.id,
       personnel,
-      equipment: isTrip ? formatAllocation(Array.from(items), targets) || null : null,
+      equipment: isTrip ? formatAllocation(Array.from(items), 0) || null : null,
       equipmentOnly: isTrip ? equipmentOnly : false,
     };
     setSaving(true);
@@ -203,13 +196,16 @@ function EventForm({ existing, baseDate, prefill }: { existing: CalEvent | null;
   }
 
   const heading = editingId ? "일정 수정" : "일정 추가";
-  const equipList = eqTab === "tracker" ? eq.trackers : eqTab === "laptop" ? eq.laptops : [];
-  // Shown on the collapsed equipment row: "T-03, N-01, 타겟 1, 반출만".
-  const equipSummary = [
-    ...Array.from(items),
-    ...(targets ? [`타겟 ${targets}`] : []),
-    ...(equipmentOnly ? ["반출만"] : []),
-  ].join(", ");
+  // One tab per 장비 분류 from group settings, then 타겟 (a count).
+  // Items this event already had that no category lists any more (분류·장비 deleted later): a 기타 tab so they can be unticked.
+  const orphans = Array.from(items).filter((i) => !eq.categories.some((cat) => cat.items.includes(i) || (cat.quantity !== undefined && [cat.id === "target" ? "Target" : cat.name, ...(cat.aliases ?? [])].some((name) => i.startsWith(`${name} x`)))));
+  const equipTabs = [
+    ...eq.categories.map((cat) => ({ id: cat.id, label: cat.name, items: cat.items, quantity: cat.quantity, quantityRemaining: cat.quantityRemaining, aliases: cat.aliases })),
+    ...(orphans.length ? [{ id: "orphan", label: "기타", items: orphans, quantity: undefined, quantityRemaining: undefined, aliases: undefined }] : []),
+  ];
+  const activeTab = equipTabs.find((tab) => tab.id === eqTab) ?? equipTabs[0] ?? { id: "empty", label: "장비", items: [], quantity: undefined, quantityRemaining: undefined, aliases: undefined };
+  const equipList = activeTab.items;
+  const equipSummary = [...Array.from(items), ...(equipmentOnly ? ["반출만"] : [])].join(", ");
   const peopleSummary = people.size ? Array.from(people).join(", ") : `${myName} (기본)`;
   const showPeople = !(isTrip && equipmentOnly);
 
@@ -341,28 +337,41 @@ function EventForm({ existing, baseDate, prefill }: { existing: CalEvent | null;
               />
               <Collapse open={equipOpen}>
                 <View style={{ paddingBottom: 12, gap: 10 }}>
-                  <View accessibilityRole="tablist" style={{ flexDirection: "row", gap: 6 }}>
-                    {EQUIP_TABS.map((tab) => {
-                      const count =
-                        tab.id === "target" ? targets : (tab.id === "tracker" ? eq.trackers : eq.laptops).filter((i) => items.has(i)).length;
+                  {/* Up to four tabs share the row; more scroll sideways. */}
+                  <ScrollView
+                    horizontal
+                    scrollEnabled={equipTabs.length > 4}
+                    showsHorizontalScrollIndicator={false}
+                    accessibilityRole="tablist"
+                    contentContainerStyle={{ flexGrow: 1, gap: 6 }}
+                  >
+                    {equipTabs.map((tab) => {
+                      const prefix = tab.id === "target" ? "Target" : tab.label;
+                      const count = tab.quantity !== undefined ? Array.from(items).filter((item) => [prefix, ...(tab.aliases ?? [])].some((name) => item.startsWith(`${name} x`) && /^\d+$/.test(item.slice(name.length + 2)))).reduce((sum, item) => sum + Number(item.slice(item.lastIndexOf(" x") + 2)), 0) : tab.items.filter((i) => items.has(i)).length;
                       return (
-                        <View key={tab.id} style={{ flex: 1 }}>
-                          <Chip size="sm" tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={eqTab === tab.id} onPress={() => setEqTab(tab.id)} />
+                        <View key={tab.id} style={equipTabs.length > 4 ? { minWidth: 80 } : { flex: 1 }}>
+                          <Chip size="sm" tone="ink" accessibilityRole="tab" label={count ? `${tab.label} ${count}` : tab.label} selected={activeTab.id === tab.id} onPress={() => setEqTab(tab.id)} />
                         </View>
                       );
                     })}
-                  </View>
-                  {eqTab === "target" ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: HIT }}>
-                      <T variant="body">{`타겟 ${targets}개 (남은 ${eq.targetRemaining}개)`}</T>
+                  </ScrollView>
+                  {activeTab.quantity !== undefined ? (() => {
+                    const prefix = activeTab.id === "target" ? "Target" : activeTab.label;
+                    const prefixes = [prefix, ...(activeTab.aliases ?? [])];
+                    const tokens = Array.from(items).filter((item) => prefixes.some((name) => item.startsWith(`${name} x`) && /^\d+$/.test(item.slice(name.length + 2))));
+                    const count = tokens.reduce((sum, item) => sum + Number(item.slice(item.lastIndexOf(" x") + 2)), 0);
+                    const limit = activeTab.quantityRemaining ?? 0;
+                    const change = (next: number) => setItems((current) => { const copy = new Set(current); tokens.forEach((token) => copy.delete(token)); if (next > 0) copy.add(`${prefix} x${next}`); return copy; });
+                    return <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: HIT }}>
+                      <T variant="body">{`${activeTab.label} ${count}개 (남은 ${limit}개)`}</T>
                       <View style={{ flexDirection: "row", gap: 8 }}>
-                        <Stepper label="타겟 하나 빼기" sign="−" disabled={targets <= 0} onPress={() => setTargets(targets - 1)} />
-                        <Stepper label="타겟 하나 더하기" sign="+" disabled={targets >= eq.targetRemaining} onPress={() => setTargets(targets + 1)} />
+                        <Stepper label={`${activeTab.label} 하나 빼기`} sign="−" disabled={count <= 0} onPress={() => change(count - 1)} />
+                        <Stepper label={`${activeTab.label} 하나 더하기`} sign="+" disabled={count >= limit} onPress={() => change(count + 1)} />
                       </View>
-                    </View>
-                  ) : equipList.length === 0 ? (
+                    </View>;
+                  })() : equipList.length === 0 ? (
                     <T variant="subhead" color={c.muted}>
-                      그룹에 등록된 장비가 없어요. 웹 그룹 설정에서 추가할 수 있어요.
+                      {`${activeTab.label}에 등록된 장비가 없어요. 그룹 설정에서 추가할 수 있어요.`}
                     </T>
                   ) : (
                     <CheckList>

@@ -1,10 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseQuickAddWithAi, QuickAddAiError, seoulToday } from "@/lib/quickAddAi";
+import { checkMonthlyLimit, recordAiUsage } from "@/lib/aiUsage";
 
 // POST /api/events/parse — AI reading of one quick-add line. Returns a draft only; the app shows
 // it for confirmation and saves through POST /api/events as before.
 // On any AI failure it answers 503 { fallback: true } and the app uses its own rule parser.
+// Each call is recorded (lib/aiUsage.ts) and capped per user per Seoul calendar month; at the cap
+// it answers 429 { reason: "limit", fallback: true }, so the app also falls back to its parser.
 
 const MAX_TEXT = 200;
 const PER_MINUTE = 20;
@@ -46,6 +49,14 @@ export async function POST(req: Request) {
 
   if (rateLimited(userId)) return Response.json({ error: "잠시 후 다시 시도해 주세요", fallback: true }, { status: 429 });
 
+  const quota = await checkMonthlyLimit(userId);
+  if (!quota.allowed) {
+    const error = quota.limit === 0
+      ? "AI 빠른 추가를 쓸 수 없는 계정이에요. 운영자에게 문의해 주세요"
+      : `이번 달 AI 빠른 추가 ${quota.limit}회를 모두 썼어요. 다음 달 1일에 다시 쓸 수 있어요`;
+    return Response.json({ error, reason: "limit", used: quota.used, limit: quota.limit, fallback: true }, { status: 429 });
+  }
+
   const members = await prisma.groupMember.findMany({
     where: { groupId },
     select: { userId: true, nickname: true, status: true, role: true, user: { select: { name: true, email: true } } },
@@ -72,10 +83,12 @@ export async function POST(req: Request) {
   const recentTitles = [...counts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 60).map(([t]) => t);
 
   try {
-    const draft = await parseQuickAddWithAi({ text, today, selected, me, roster, recentTitles });
+    const { draft, usage } = await parseQuickAddWithAi({ text, today, selected, me, roster, recentTitles });
+    await recordAiUsage(userId, usage);
     return Response.json({ draft });
   } catch (e) {
     const reason = e instanceof QuickAddAiError ? e.reason : "upstream";
+    if (e instanceof QuickAddAiError && e.usage) await recordAiUsage(userId, e.usage, reason);
     console.error("[quick-add ai]", reason, e instanceof Error ? e.message : e);
     return Response.json({ error: "AI 해석을 쓸 수 없어요", reason, fallback: true }, { status: 503 });
   }

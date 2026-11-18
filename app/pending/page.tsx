@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneWebEntry } from "@/components/PhoneWebEntry";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, LogOut } from "lucide-react";
@@ -31,7 +32,7 @@ export default function PendingPage() {
   }, [router]);
 
   return (
-    <div
+    <PhoneWebEntry><div
       style={{
         minHeight: "100vh",
         display: "flex",
@@ -146,6 +147,6 @@ export default function PendingPage() {
           50% { opacity: 0.3; }
         }
       `}</style>
-    </div>
+    </div></PhoneWebEntry>
   );
 }

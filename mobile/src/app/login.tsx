@@ -1,3 +1,4 @@
+import { browserAuth } from "@/lib/browserAuth";
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { Animated, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,7 +7,7 @@ import { Collapse } from "@/components/Collapse";
 import { Icon } from "@/components/Icon";
 import { KeyboardAware } from "@/components/KeyboardAware";
 import { ErrorBanner, PrimaryButton, T } from "@/components/ui";
-import { api, errorMessage } from "@/lib/api";
+import { api, errorMessage, HOSTED_WEB } from "@/lib/api";
 import { getGoogleIdToken, googleAvailable } from "@/lib/google";
 import { EASE_OUT, prefersReducedMotion } from "@/lib/motion";
 import { devicePushToken } from "@/lib/push";
@@ -96,6 +97,7 @@ export default function LoginScreen() {
     try {
       // Same call for both pages: a new Google account becomes a pending signup on the server,
       // and the app then shows the approval-waiting screen.
+      if (HOSTED_WEB) { await browserAuth("signin/google"); return; }
       const token = await getGoogleIdToken();
       if (token) await signInGoogle(token);
     } catch (e) {
@@ -159,7 +161,7 @@ export default function LoginScreen() {
 
         {error ? <ErrorBanner message={error} /> : null}
 
-        {googleAvailable ? (
+        {(HOSTED_WEB || googleAvailable) ? (
           <>
             <Pressable
               accessibilityRole="button"
@@ -233,6 +235,7 @@ export default function LoginScreen() {
           </Collapse>
         </View>
 
+        {HOSTED_WEB && <Pressable accessibilityRole="link" onPress={() => location.assign("/login?view=web")}><T variant="footnote" color={c.text2}>웹 로그인 및 이용 안내</T></Pressable>}
         {/* Small switch link at the bottom right, like a website's "계정이 없으신가요? 회원가입". */}
         <View style={{ marginTop: -8, marginHorizontal: 4, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
           <T variant="footnote" color={c.muted}>

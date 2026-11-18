@@ -102,6 +102,7 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
+    ...(process.env.EXPO_PUBLIC_HOSTED_WEB === "1" ? { baseUrl: "/login-ui" } : {}),
   },
   extra: {
     appVariant: variant,

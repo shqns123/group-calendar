@@ -1,25 +1,25 @@
 "use client";
 
-export type EquipmentGroup = {
-  trackerOptions?: string | null;
-  laptopOptions?: string | null;
+import { readEquipmentCategories, type EquipmentCategorySource } from "@/lib/equipmentCategories";
+
+export type EquipmentGroup = EquipmentCategorySource & {
   targetCount?: number;
 };
 
-export type EquipmentStock = {
-  trackerRemaining: string[];
-  laptopRemaining: string[];
-  targetRemaining: number;
-  hasConfiguredEquipment: boolean;
+export type EquipmentCategoryStock = {
+  id: string;
+  name: string;
+  total: number;
+  remaining: string[];
+  quantityRemaining?: number;
 };
 
-export function parseEquipmentOptions(raw?: string | null) {
-  if (!raw) return [] as string[];
-  return raw
-    .split(/[\n,]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
+export type EquipmentStock = {
+  categories: EquipmentCategoryStock[];
+  targetRemaining: number;
+  targetTotal: number;
+  hasConfiguredEquipment: boolean;
+};
 
 export function parseEquipmentAllocation(raw?: string | null) {
   if (!raw) {
@@ -50,31 +50,24 @@ export function getEquipmentStock(
 ) {
   if (!group) return null;
 
-  const trackerOptions = parseEquipmentOptions(group.trackerOptions);
-  const laptopOptions = parseEquipmentOptions(group.laptopOptions);
-  const targetTotal = Math.max(0, group.targetCount ?? 2);
-  const trackerUsed = new Set<string>();
-  const laptopUsed = new Set<string>();
-  let targetUsed = 0;
-
+  const categories = readEquipmentCategories(group);
+  const used = new Set<string>();
+  const quantities = new Map<string, number>();
   for (const event of events) {
-    const allocation = parseEquipmentAllocation(event.equipment);
-    targetUsed += allocation.targetCount;
-
-    for (const item of allocation.items) {
-      if (trackerOptions.includes(item)) {
-        trackerUsed.add(item);
-      } else if (laptopOptions.includes(item)) {
-        laptopUsed.add(item);
-      }
+    for (const token of (event.equipment ?? "").split(",").map((part) => part.trim()).filter(Boolean)) {
+      const match = /^(.*) x(\d+)$/i.exec(token);
+      if (match && categories.some((category) => category.quantity !== undefined && [category.id === "target" ? "Target" : category.name, ...(category.aliases ?? [])].includes(match[1]))) quantities.set(match[1], (quantities.get(match[1]) ?? 0) + Number(match[2]));
+      else used.add(token);
     }
   }
-
   return {
-    trackerRemaining: trackerOptions.filter((item) => !trackerUsed.has(item)),
-    laptopRemaining: laptopOptions.filter((item) => !laptopUsed.has(item)),
-    targetRemaining: Math.max(0, targetTotal - targetUsed),
-    hasConfiguredEquipment:
-      trackerOptions.length > 0 || laptopOptions.length > 0 || targetTotal > 0,
+    categories: categories.map((category) => ({
+      id: category.id, name: category.name,
+      total: category.quantity ?? category.items.length,
+      remaining: category.items.filter((item) => !used.has(item)),
+      quantityRemaining: category.quantity === undefined ? undefined : Math.max(0, category.quantity - [category.id === "target" ? "Target" : category.name, ...(category.aliases ?? [])].reduce((sum, name) => sum + (quantities.get(name) ?? 0), 0)),
+    })),
+    targetRemaining: 0, targetTotal: 0,
+    hasConfiguredEquipment: categories.some((category) => (category.quantity ?? category.items.length) > 0),
   } satisfies EquipmentStock;
 }

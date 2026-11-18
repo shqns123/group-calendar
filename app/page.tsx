@@ -1,3 +1,4 @@
+import { PhoneWebEntry } from "@/components/PhoneWebEntry";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -32,7 +33,7 @@ export default async function Home() {
   });
 
   return (
-    <DashboardClient
+    <PhoneWebEntry><DashboardClient
       user={{
         id: session.user.id,
         name: session.user.name ?? null,
@@ -42,6 +43,6 @@ export default async function Home() {
         isOperator: (session.user as any).isOperator ?? false,
       }}
       initialGroups={JSON.parse(JSON.stringify(groups))}
-    />
+    /></PhoneWebEntry>
   );
 }

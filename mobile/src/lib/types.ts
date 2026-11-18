@@ -39,8 +39,10 @@ export type Group = {
   leaderId: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null; // JSON [{ id, name, items }]; null = old tracker/laptop lists
   targetCount?: number;
   eventDisplayLimit?: number;
+  calendarSyncEnabled?: boolean; // GitLab upload on/off (missing = on)
   members: GroupMember[];
 };
 

@@ -11,6 +11,7 @@ import {
   type DateRangeSelectionPhase,
 } from "@/lib/dateRange";
 import { shouldCountTowardTotals } from "@/lib/groupPermissions";
+import { readEquipmentCategories } from "@/lib/equipmentCategories";
 import {
   formatSeoulMonthDayWeekdayLabel,
   formatSeoulSlashMonthDayTimeLabel,
@@ -25,6 +26,7 @@ type Group = {
   leaderId: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null;
   targetCount?: number;
   members: Array<{
     id: string;
@@ -85,7 +87,7 @@ const UI = {
   start: "\uC2DC\uC791",
   end: "\uC885\uB8CC",
   equipment: "\uC7A5\uBE44 \uC120\uD0DD",
-  equipmentPlaceholder: "\uD2B8\uB798\uCEE4, \uB178\uD2B8\uBD81, \uD0C0\uAC9F \uC911 \uD544\uC694\uD55C \uC7A5\uBE44\uB97C \uACE0\uB974\uC138\uC694.",
+  equipmentPlaceholder: "필요한 장비를 골라 주세요.",
   equipmentHint: "\uC88C\uC6B0\uB85C \uBC00\uC5B4 \uC7A5\uBE44 \uADF8\uB8F9\uC744 \uBC14\uAFC0 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
   equipmentSelectedSuffix: "\uAC1C \uC120\uD0DD",
   equipmentOnly: "\uC7A5\uBE44 \uBC18\uCD9C",
@@ -122,23 +124,7 @@ const COLORS = [
 
 const ATTENDANCE_TITLE_OPTIONS = ["월휴", "무휴", "유휴", "기타"] as const;
 
-const EQUIPMENT_GROUPS = [
-  {
-    id: "tracker",
-    label: "\uD2B8\uB798\uCEE4",
-    items: [] as string[],
-  },
-  {
-    id: "laptop",
-    label: "\uB178\uD2B8\uBD81",
-    items: [] as string[],
-  },
-  {
-    id: "target",
-    label: "\uD0C0\uAC9F",
-    items: [] as string[],
-  },
-] as const;
+
 
 const DATE_RANGE_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -148,25 +134,6 @@ function parseEquipment(raw?: string | null) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-}
-
-function parseTargetQuantity(values: string[]) {
-  const targetToken = values.find((value) => /^Target x\d+$/i.test(value));
-  if (!targetToken) return 0;
-  const quantity = Number(targetToken.replace(/[^0-9]/g, ""));
-  return Number.isFinite(quantity) ? quantity : 0;
-}
-
-function parseEquipmentOptions(raw?: string | null) {
-  if (!raw) return [] as string[];
-  return raw
-    .split(/[\n,]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-function normalizeTargetCount(count?: number) {
-  return Math.max(0, Math.min(100, count ?? 2));
 }
 
 function getDisplayName(
@@ -256,18 +223,14 @@ export default function EventModal({
   );
   const equipmentGroups = useMemo(
     () => [
-      {
-        ...EQUIPMENT_GROUPS[0],
-        items: parseEquipmentOptions(group?.trackerOptions),
-      },
-      {
-        ...EQUIPMENT_GROUPS[1],
-        items: parseEquipmentOptions(group?.laptopOptions),
-      },
-      {
-        ...EQUIPMENT_GROUPS[2],
-        items: [],
-      },
+      ...readEquipmentCategories(group).map((category) => ({
+        id: category.id,
+        label: category.name,
+        items: category.items,
+        quantity: category.quantity,
+        aliases: category.aliases,
+      })),
+
     ],
     [group]
   );
@@ -286,17 +249,7 @@ export default function EventModal({
       .map((value) => value.trim())
       .filter((value) => value && allowedLabels.has(value));
   });
-  const [selectedEquipment, setSelectedEquipment] = useState<string[]>(() => {
-    const parsed = parseEquipment(event?.equipment);
-    return parsed.filter((value) => !/^Target x\d+$/i.test(value));
-  });
-  const [targetQuantity, setTargetQuantity] = useState<string>(() => {
-    const quantity = parseTargetQuantity(parseEquipment(event?.equipment));
-    return quantity > 0 ? String(quantity) : "";
-  });
-  const [targetEnabled, setTargetEnabled] = useState(() =>
-    parseTargetQuantity(parseEquipment(event?.equipment)) > 0
-  );
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>(() => parseEquipment(event?.equipment));
 
   useEffect(() => {
     const handleClickOutside = (mouseEvent: MouseEvent) => {
@@ -331,12 +284,8 @@ export default function EventModal({
   }, [isAttendance]);
 
   const personnelValue = selectedPersonnel.length > 0 ? selectedPersonnel.join(", ") : "";
-  const maxTargetCount = normalizeTargetCount(group?.targetCount);
-  const equipmentSummary = [
-    ...selectedEquipment,
-    ...(targetEnabled && Number(targetQuantity) > 0 ? [`Target x${targetQuantity}`] : []),
-  ];
-  const activeEquipmentGroup = equipmentGroups[equipmentGroupIndex];
+  const equipmentSummary = selectedEquipment;
+  const activeEquipmentGroup = equipmentGroups[equipmentGroupIndex] ?? equipmentGroups[0] ?? { id: "empty", label: "장비", items: [], quantity: undefined, aliases: undefined };
   const calendarDays = useMemo(
     () =>
       buildDateRangeCalendar({
@@ -414,11 +363,6 @@ export default function EventModal({
   };
 
   const clearEquipmentChip = (label: string) => {
-    if (/^Target x\d+$/i.test(label)) {
-      setTargetEnabled(false);
-      setTargetQuantity("");
-      return;
-    }
     toggleEquipment(label);
   };
 
@@ -435,10 +379,6 @@ export default function EventModal({
     }
     if (endDate < startDate) {
       setError(UI.endBeforeStart);
-      return;
-    }
-    if (targetEnabled && targetQuantity && !Number.isFinite(Number(targetQuantity))) {
-      setError("타겟 수량을 올바르게 입력해주세요.");
       return;
     }
     setLoading(true);
@@ -833,75 +773,21 @@ export default function EventModal({
 
                     <div className="overflow-y-auto pr-1">
                       <div className="flex flex-wrap gap-2">
-                      {activeEquipmentGroup.id === "target" ? (
-                        <div
-                          className={`w-full rounded-xl border p-4 transition-colors ${
-                            targetEnabled
-                              ? "border-indigo-200 bg-indigo-50/90"
-                              : "border-[var(--accent-muted)] bg-white/80"
-                          }`}
-                        >
-                          <div className="flex flex-col gap-3">
-                            <button
-  type="button"
-  aria-pressed={targetEnabled}
-  onClick={() => {
-        setTargetEnabled((current) => {
-          const next = !current;
-          if (!next) setTargetQuantity("");
-          return next;
-        });
-      }}
-  className="flex w-full items-center gap-3 rounded-xl text-left transition-colors"
->
-  <span
-    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold transition-colors ${
-      targetEnabled
-        ? "border-indigo-500 bg-indigo-500 text-white"
-        : "border-stone-300 bg-white text-transparent"
-    }`}
-  >
-    ✓
-  </span>
-  <span className="text-sm font-semibold text-[var(--accent-hover)]">
-    타겟 사용
-  </span>
-</button>
-                            <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--accent-hover)]">타겟 수량</p>
-                          <p className="mt-1 text-[11px] text-stone-500">
-                            최대 {maxTargetCount}개까지 입력할 수 있습니다.
-                          </p>
-                            </div>
-                            <input
-                              type="number"
-                              min={1}
-                              max={maxTargetCount}
-                              disabled={!targetEnabled || maxTargetCount === 0}
-                              value={targetEnabled ? targetQuantity : ""}
-                              onChange={(e) => {
-                                const nextValue = e.target.value;
-                                if (nextValue === "") {
-                                  setTargetQuantity("");
-                                  return;
-                                }
-                                const parsedValue = Number(nextValue);
-                                if (!Number.isFinite(parsedValue)) return;
-                                const normalizedValue = Math.max(
-                                  1,
-                                  Math.min(maxTargetCount, parsedValue)
-                                );
-                                setTargetQuantity(String(normalizedValue));
-                              }}
-                                className="w-24 rounded-xl border border-[var(--accent-muted)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent-hover)] outline-none focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ) : activeEquipmentGroup.items.length === 0 ? (
+                      {activeEquipmentGroup.quantity !== undefined ? (() => {
+                        const prefix = activeEquipmentGroup.id === "target" ? "Target" : activeEquipmentGroup.label;
+                        const prefixes = [prefix, ...(activeEquipmentGroup.aliases ?? [])];
+                        const tokens = selectedEquipment.filter((item) => prefixes.some((name) => item.startsWith(`${name} x`) && /^\d+$/.test(item.slice(name.length + 2))));
+                        const count = tokens.reduce((sum, item) => sum + Number(item.slice(item.lastIndexOf(" x") + 2)), 0);
+                        return <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--accent-muted)] bg-white/80 p-4">
+                          <div><p className="text-sm font-semibold text-[var(--accent-hover)]">{activeEquipmentGroup.label} 수량</p><p className="mt-1 text-xs text-stone-500">최대 {activeEquipmentGroup.quantity}개</p></div>
+                          <input aria-label={`${activeEquipmentGroup.label} 수량`} type="number" min={0} max={activeEquipmentGroup.quantity} value={count} onChange={(e) => {
+                            const next = Math.max(0, Math.min(activeEquipmentGroup.quantity ?? 0, Math.floor(Number(e.target.value) || 0)));
+                            setSelectedEquipment((current) => [...current.filter((item) => !tokens.includes(item)), ...(next ? [`${prefix} x${next}`] : [])]);
+                          }} className="w-24 rounded-xl border border-[var(--accent-muted)] px-3 py-2 text-right text-sm font-semibold text-[var(--accent-hover)] outline-none focus:border-[var(--accent)]" />
+                        </div>;
+                      })() : activeEquipmentGroup.items.length === 0 ? (
                         <p className="w-full rounded-xl border border-dashed border-[var(--accent-muted)] bg-white/70 px-3 py-4 text-center text-sm text-stone-500">
-                          {activeEquipmentGroup.label} 목록이 없습니다. 그룹 관리에서 추가해 주세요.
+                          {activeEquipmentGroup.label}에 등록된 장비가 없어요. 그룹 설정에서 추가해 주세요.
                         </p>
                       ) : activeEquipmentGroup.items.map((item) => {
                         const checked = selectedEquipment.includes(item);

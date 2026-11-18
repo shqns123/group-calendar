@@ -15,11 +15,21 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  async rewrites() {
+    return [
+      { source: "/login-ui", destination: "/login-ui/index.html" },
+      { source: "/login-ui/:screen([^.]*)", destination: "/login-ui/index.html" },
+    ];
+  },
   async headers() {
     return [
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/login-ui/:path*",
+        headers: [{ key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" }],
       },
     ];
   },

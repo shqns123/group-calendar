@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Calendar,
@@ -22,7 +22,9 @@ import {
   UserX,
   CalendarClock,
   CalendarX2,
+  Sparkles,
 } from "lucide-react";
+import { registerPushSubscription } from "../mobile/src/lib/browserPush";
 import { QRCodeSVG } from "qrcode.react";
 import CalendarView from "./CalendarView";
 import GroupPanel from "./GroupPanel";
@@ -71,15 +73,9 @@ type Props = {
 
 const DEFAULT_GROUP_STORAGE_KEY = "group-calendar:default-group-id";
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
-}
-
 export function DashboardClient({ user, initialGroups }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     initialGroups[0]?.id ?? null
@@ -215,32 +211,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
     fetchPendingUsers();
   };
 
-  const registerPushSubscription = useCallback(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    try {
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-      const keyRes = await fetch("/api/push/vapid-key");
-      const { publicKey: vapidKey } = await keyRes.json();
-      if (!vapidKey) return;
-      const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
-        }));
-      const json = sub.toJSON();
-      await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint: sub.endpoint, keys: json.keys }),
-      });
-    } catch (error) {
-      console.error("Push subscription failed", error);
-    }
-  }, []);
-
   const handleAllowNotification = async () => {
     setShowNotifBanner(false);
     const permission = await Notification.requestPermission();
@@ -259,7 +229,6 @@ export function DashboardClient({ user, initialGroups }: Props) {
     } else if (Notification.permission === "default") {
       setShowNotifBanner(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldReceiveNotifications]);
 
   const refreshGroups = useCallback(async () => {
@@ -608,7 +577,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
       };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="dashboard-shell flex h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
 
       {/* Mobile overlay backdrop */}
       {isMobile && sidebarOpen && (
@@ -867,6 +836,13 @@ export function DashboardClient({ user, initialGroups }: Props) {
             label="QR로 그룹 참가"
             onClick={() => setShowJoinModal(true)}
           />
+          {user.isOperator && (
+            <SideAction
+              icon={<Sparkles style={{ width: 13, height: 13 }} />}
+              label="AI 사용량"
+              onClick={() => router.push("/admin/ai-usage")}
+            />
+          )}
         </div>
 
         {/* 사용자 */}
@@ -967,6 +943,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
       {/* ── 메인 콘텐츠 ── */}
       <main
+        className="dashboard-main"
         style={{
           flex: 1,
           display: "flex",
@@ -977,6 +954,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
       >
         {/* 헤더 */}
         <header
+          className="dashboard-header"
           style={{
             background: "var(--surface)",
             borderBottom: "1px solid var(--border)",
@@ -1175,7 +1153,7 @@ export function DashboardClient({ user, initialGroups }: Props) {
 
 
         {/* 캘린더 */}
-        <div style={{ flex: 1, overflow: "hidden", padding: isMobile ? 8 : 16 }}>
+        <div className="dashboard-calendar" style={{ flex: 1, overflow: "hidden", padding: isMobile ? 8 : 16 }}>
           {isOperatorManagedOnly(selectedGroup) ? (
             <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
               <Settings style={{ width: 36, height: 36, color: "var(--text-tertiary)", opacity: 0.3 }} />

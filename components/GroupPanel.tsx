@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { X, Pencil, Trash2, UserMinus, Save, ShieldCheck, UserCheck, UserX, Bell, BellOff, LogOut, Upload } from "lucide-react";
 import { isLeaderRole, isObserverRole, shouldCountTowardTotals } from "@/lib/groupPermissions";
+import { readEquipmentCategories, type EquipmentCategory } from "@/lib/equipmentCategories";
+import EquipmentCategoriesEditor from "./EquipmentCategoriesEditor";
 
 type Member = {
   id: string;
@@ -22,8 +24,10 @@ type Group = {
   inviteCode: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
+  calendarSyncEnabled?: boolean;
   leaderId: string;
   leader: { id: string; name: string | null; email: string | null; image: string | null };
   members: Member[];
@@ -77,14 +81,17 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
   const [editingGroupName, setEditingGroupName] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState(group.name);
   const [groupDescInput, setGroupDescInput] = useState(group.description ?? "");
-  const [trackerOptionsInput, setTrackerOptionsInput] = useState(group.trackerOptions ?? "");
-  const [laptopOptionsInput, setLaptopOptionsInput] = useState(group.laptopOptions ?? "");
-  const [targetCountInput, setTargetCountInput] = useState(String(group.targetCount ?? 2));
+  const equipmentCategories = readEquipmentCategories(group);
+  const [editingEquipment, setEditingEquipment] = useState(false);
+  const [equipmentInput, setEquipmentInput] = useState<EquipmentCategory[]>(equipmentCategories);
+  const [equipmentError, setEquipmentError] = useState("");
   const [eventDisplayLimitInput, setEventDisplayLimitInput] = useState(
     String(group.eventDisplayLimit ?? 3)
   );
   const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
   const [calendarSyncMessage, setCalendarSyncMessage] = useState("");
+  const calendarSyncOn = group.calendarSyncEnabled !== false;
+  const [calendarSyncSaving, setCalendarSyncSaving] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [nicknameInput, setNicknameInput] = useState("");
   const [roleMenuId, setRoleMenuId] = useState<string | null>(null);
@@ -114,6 +121,29 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
     }
   };
 
+  // GitLab upload on/off for this group (the 30-minute auto upload and the button below).
+  const toggleCalendarSync = async () => {
+    setCalendarSyncSaving(true);
+    setCalendarSyncMessage("");
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ calendarSyncEnabled: !calendarSyncOn }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCalendarSyncMessage(data.error || "설정을 저장하지 못했습니다.");
+        return;
+      }
+      await onUpdated();
+    } catch {
+      setCalendarSyncMessage("네트워크 오류로 설정을 저장하지 못했습니다.");
+    } finally {
+      setCalendarSyncSaving(false);
+    }
+  };
+
   const saveGroupInfo = async () => {
     if (!groupNameInput.trim()) return;
     setLoading(true);
@@ -124,15 +154,58 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
         body: JSON.stringify({
           name: groupNameInput.trim(),
           description: groupDescInput.trim(),
-          trackerOptions: trackerOptionsInput,
-          laptopOptions: laptopOptionsInput,
-          targetCount: Number(targetCountInput) || 0,
         }),
       });
       if (res.ok) {
         await onUpdated();
         setEditingGroupName(false);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditingEquipment = () => {
+    setEquipmentInput(readEquipmentCategories(group));
+    setEquipmentError("");
+    setEditingEquipment(true);
+  };
+
+  const saveEquipment = async () => {
+    const names = equipmentInput.map((category) => category.name.trim());
+    if (names.some((name) => !name)) {
+      setEquipmentError("분류 이름을 입력해 주세요.");
+      return;
+    }
+    const duplicate = names.find((name, index) => names.indexOf(name) !== index);
+    if (duplicate) {
+      setEquipmentError(`'${duplicate}' 분류가 두 개예요. 이름을 바꿔 주세요.`);
+      return;
+    }
+    setLoading(true);
+    setEquipmentError("");
+    try {
+      const res = await fetch(`/api/groups/${group.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          equipmentCategories: equipmentInput.map((category) => {
+            const previous = readEquipmentCategories(group).find((entry) => entry.id === category.id);
+            const name = category.name.trim();
+            return { ...category, name, aliases: category.quantity !== undefined && previous && previous.name !== name ? [...(category.aliases ?? []), previous.name] : category.aliases };
+          }),
+          targetCount: 0,
+        }),
+      });
+      if (res.ok) {
+        await onUpdated();
+        setEditingEquipment(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEquipmentError(data.error || "장비 설정을 저장하지 못했어요.");
+      }
+    } catch {
+      setEquipmentError("네트워크 오류로 저장하지 못했어요.");
     } finally {
       setLoading(false);
     }
@@ -359,6 +432,28 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                 <span style={labelStyle}>GitLab 캘린더 동기화</span>
               </div>
               <div style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>GitLab 업로드</p>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                      {calendarSyncOn ? "30분마다 자동 업로드하고, 지금 업로드도 할 수 있어요." : "꺼져 있어요. 자동 업로드와 지금 업로드를 하지 않아요."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={calendarSyncOn}
+                    aria-label="GitLab 업로드"
+                    onClick={() => void toggleCalendarSync()}
+                    disabled={!isAdmin || calendarSyncSaving}
+                    title={isAdmin ? undefined : "그룹 관리자만 바꿀 수 있어요"}
+                    style={{ position: "relative", flexShrink: 0, width: 40, height: 24, padding: 0, border: "none", borderRadius: 999, background: calendarSyncOn ? "var(--accent)" : "var(--border)", cursor: isAdmin ? "pointer" : "not-allowed", opacity: !isAdmin || calendarSyncSaving ? 0.6 : 1, transition: "background 0.15s" }}
+                  >
+                    <span style={{ position: "absolute", top: 3, left: calendarSyncOn ? 19 : 3, width: 18, height: 18, borderRadius: "50%", background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.2)", transition: "left 0.15s" }} />
+                  </button>
+                </div>
+                {calendarSyncOn && (
+                <>
                 <p style={{ margin: "0 0 10px", fontSize: "0.75rem", color: "var(--text-tertiary)", lineHeight: 1.5 }}>
                   이 그룹의 근태·출장 일정을 “{group.name} calendar.json”으로 즉시 업로드합니다.
                 </p>
@@ -371,6 +466,8 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                   <Upload style={{ width: 14, height: 14 }} />
                   {calendarSyncLoading ? "업로드 중..." : "지금 업로드"}
                 </button>
+                </>
+                )}
                 {calendarSyncMessage && (
                   <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: calendarSyncMessage.includes("완료") ? "#15803D" : "#DC2626" }}>
                     {calendarSyncMessage}
@@ -389,9 +486,6 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                   onClick={() => {
                     setGroupNameInput(group.name);
                     setGroupDescInput(group.description ?? "");
-                    setTrackerOptionsInput(group.trackerOptions ?? "");
-                    setLaptopOptionsInput(group.laptopOptions ?? "");
-                    setTargetCountInput(String(group.targetCount ?? 2));
                     setEditingGroupName(true);
                   }}
                   style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--accent)", fontWeight: 500, fontFamily: "inherit" }}
@@ -424,35 +518,6 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                     onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
                     onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                   />
-                  <textarea
-                    value={trackerOptionsInput}
-                    onChange={(e) => setTrackerOptionsInput(e.target.value)}
-                    placeholder="트래커 목록을 줄바꿈이나 쉼표로 입력"
-                    rows={3}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)", resize: "vertical" }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                  />
-                  <textarea
-                    value={laptopOptionsInput}
-                    onChange={(e) => setLaptopOptionsInput(e.target.value)}
-                    placeholder="노트북 목록을 줄바꿈이나 쉼표로 입력"
-                    rows={3}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)", resize: "vertical" }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={targetCountInput}
-                    onChange={(e) => setTargetCountInput(e.target.value)}
-                    placeholder="타겟 개수"
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 7, fontSize: "0.85rem", outline: "none", fontFamily: "inherit", color: "var(--text-primary)", background: "var(--surface)" }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-                  />
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setEditingGroupName(false)} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "1px solid var(--border)", borderRadius: 6, background: "none", cursor: "pointer", fontFamily: "inherit", color: "var(--text-secondary)" }}>취소</button>
                     <button onClick={saveGroupInfo} disabled={loading || !groupNameInput.trim()} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "none", borderRadius: 6, background: "var(--text-primary)", color: "white", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
@@ -464,26 +529,49 @@ export default function GroupPanel({ group, userId, isOperator, onClose, onUpdat
                 <div>
                   <p style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{group.name}</p>
                   {group.description && <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 2 }}>{group.description}</p>}
-                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                    <div>
-                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>트래커</p>
-                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "pre-wrap" }}>
-                        {group.trackerOptions?.trim() || "설정된 항목 없음"}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>노트북</p>
-                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "pre-wrap" }}>
-                        {group.laptopOptions?.trim() || "설정된 항목 없음"}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>타겟 개수</p>
-                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2 }}>
-                        {group.targetCount ?? 2}개
-                      </p>
-                    </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── 장비 ── */}
+          <div style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <span style={labelStyle}>장비</span>
+              {isAdmin && !editingEquipment && (
+                <button
+                  onClick={startEditingEquipment}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--accent)", fontWeight: 500, fontFamily: "inherit" }}
+                >
+                  수정
+                </button>
+              )}
+            </div>
+            <div style={{ padding: "12px 14px" }}>
+              {editingEquipment ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <EquipmentCategoriesEditor value={equipmentInput} onChange={setEquipmentInput} />
+                  {equipmentError && <p style={{ margin: 0, fontSize: "0.74rem", color: "#DC2626" }}>{equipmentError}</p>}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setEditingEquipment(false)} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "1px solid var(--border)", borderRadius: 6, background: "none", cursor: "pointer", fontFamily: "inherit", color: "var(--text-secondary)" }}>취소</button>
+                    <button onClick={saveEquipment} disabled={loading} style={{ flex: 1, padding: "7px", fontSize: "0.8rem", border: "none", borderRadius: 6, background: "var(--text-primary)", color: "white", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+                      <Save style={{ width: 12, height: 12, display: "inline", marginRight: 4 }} />저장
+                    </button>
                   </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {equipmentCategories.length === 0 && (
+                    <p style={{ fontSize: "0.76rem", color: "var(--text-tertiary)" }}>장비 분류가 없어요.</p>
+                  )}
+                  {equipmentCategories.map((category) => (
+                    <div key={category.id}>
+                      <p style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{category.name} · {category.quantity ?? category.items.length}개</p>
+                      <p style={{ fontSize: "0.76rem", color: "var(--text-secondary)", marginTop: 2, whiteSpace: "pre-wrap" }}>
+                        {category.quantity !== undefined ? "수량으로 관리" : category.items.length > 0 ? category.items.join(", ") : "등록된 장비 없음"}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

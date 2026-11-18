@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
   const group = await prisma.group.create({
     data: {
       name: name.trim(),
+      targetCount: 0,
       description: description?.trim(),
       inviteCode: generateInviteCode(),
       leaderId: session.user.id,

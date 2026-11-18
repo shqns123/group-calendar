@@ -182,6 +182,11 @@ export const type = {
   caption: { fontSize: 12, fontWeight: "600", lineHeight: 16 },
 } satisfies Record<string, TextStyle>;
 
+// Keep the same Korean glyphs when browser language changes between the preview and the site.
+export const webFont = Platform.OS === "web" ? {
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans KR", sans-serif',
+} : undefined;
+
 export const radius = { chip: 6, control: 14, card: 20, sheet: 28, pill: 999 } as const;
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 

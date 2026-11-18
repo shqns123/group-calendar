@@ -1,7 +1,9 @@
+import { registerPushSubscription } from "./browserPush";
+import { browserAuth } from "./browserAuth";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, DEMO, getToken, setToken, setUnauthorizedHandler } from "./api";
+import { api, DEMO, HOSTED_WEB, getToken, setToken, setUnauthorizedHandler } from "./api";
 import type { Group, Me } from "./types";
 import { registerPush, unregisterPush, watchPushToken } from "./push";
 import { setWidgetGroup } from "./widgetSync";
@@ -29,10 +31,16 @@ type Session = {
 const DEFAULT_GROUP_KEY = "default-group-id";
 let memoryDefault: string | null = null;
 async function readDefaultGroup() {
+  if (HOSTED_WEB) return localStorage.getItem("group-calendar:default-group-id");
   if (Platform.OS === "web") return memoryDefault;
   return SecureStore.getItemAsync(DEFAULT_GROUP_KEY).catch(() => null);
 }
 async function writeDefaultGroup(id: string | null) {
+  if (HOSTED_WEB) {
+    if (id) localStorage.setItem("group-calendar:default-group-id", id);
+    else localStorage.removeItem("group-calendar:default-group-id");
+    return;
+  }
   if (Platform.OS === "web") {
     memoryDefault = id;
     return;
@@ -67,15 +75,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     const { user } = await api<{ user: Me }>("/api/auth/me");
     setMe(user);
+    if (HOSTED_WEB) await api("/api/onboarding/link", { method: "POST" }).catch(() => null);
     if (user.status === "ACTIVE") {
       const all = await api<Group[]>("/api/groups");
       const list = all.filter((g) => isMine(g, user.id));
+      const requested = HOSTED_WEB ? new URLSearchParams(location.search).get("groupId") : null;
       const saved = await readDefaultGroup();
       const def = saved && list.some((g) => g.id === saved) ? saved : null;
       setAllGroups(all);
       setGroups(list);
       setDefaultGroupId(def);
-      setGroupId((prev) => (prev && list.some((g) => g.id === prev) ? prev : def ?? list[0]?.id ?? null));
+      const initial = list.find((g) => g.id === requested)?.id ?? def ?? list[0]?.id ?? null;
+      setGroupId((prev) => prev && list.some((g) => g.id === prev) ? prev : initial);
     }
   }, []);
 
@@ -85,7 +96,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
     (async () => {
       try {
-        if (DEMO || (await getToken())) await load();
+        if (HOSTED_WEB || DEMO || (await getToken())) await load();
       } catch {
         await clear();
       } finally {
@@ -109,6 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const meId = me?.id ?? null;
   useEffect(() => {
     if (!ready || !meId) return;
+    if (HOSTED_WEB && "Notification" in window && Notification.permission === "granted") void registerPushSubscription();
     void registerPush();
     return watchPushToken();
   }, [ready, meId]);
@@ -137,6 +149,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       reloadGroups: load,
       signInGuest: async (name, employeeId) => {
+        if (HOSTED_WEB) {
+          await browserAuth("callback/guest", { name, employeeId });
+          return;
+        }
         const res = await api<SignInResult>("/api/auth/app-native-signin", {
           method: "POST",
           body: { provider: "guest", name, employeeId },
@@ -151,6 +167,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return finish(res);
       },
       signOut: async () => {
+        if (HOSTED_WEB) { await browserAuth("signout"); return; }
         await unregisterPush();
         await clear();
       },

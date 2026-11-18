@@ -4,6 +4,14 @@ import { X } from "lucide-react";
 import EquipmentStatusIcon from "./EquipmentStatusIcon";
 import type { EquipmentStock } from "./equipmentStock";
 
+const CATEGORY_TONES = [
+  { label: "#4F46E5", bg: "#EEF2FF", fg: "#4338CA", border: "#C7D2FE" },
+  { label: "#0F766E", bg: "#ECFEFF", fg: "#0F766E", border: "#99F6E4" },
+  { label: "#BE185D", bg: "#FDF2F8", fg: "#BE185D", border: "#FBCFE8" },
+  { label: "#15803D", bg: "#F0FDF4", fg: "#15803D", border: "#BBF7D0" },
+  { label: "#7C3AED", bg: "#F5F3FF", fg: "#6D28D9", border: "#DDD6FE" },
+] as const;
+
 type Props = {
   stock: EquipmentStock;
   title?: string;
@@ -115,110 +123,58 @@ export default function EquipmentStockModal({
           </button>
         </div>
 
-        <div style={{ padding: "18px 20px", display: "grid", gap: 14 }}>
-          <div>
-            <p
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                color: "#4F46E5",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              트래커
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-              {stock.trackerRemaining.length > 0 ? (
-                stock.trackerRemaining.map((item) => (
-                  <span
-                    key={item}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      borderRadius: 999,
-                      padding: "5px 10px",
-                      fontSize: "0.72rem",
-                      fontWeight: 600,
-                      background: "#EEF2FF",
-                      color: "#4338CA",
-                      border: "1px solid #C7D2FE",
-                    }}
-                  >
-                    {item}
+        <div style={{ padding: "18px 20px", display: "grid", gap: 14, maxHeight: "min(70vh, 560px)", overflowY: "auto" }}>
+          {stock.categories.map((category, index) => {
+            const tone = CATEGORY_TONES[index % CATEGORY_TONES.length];
+            return (
+              <div key={category.id}>
+                <p
+                  style={{
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    color: tone.label,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {category.name}
+                  <span style={{ marginLeft: 6, fontWeight: 600, color: "var(--text-tertiary)" }}>
+                    {category.quantityRemaining ?? category.remaining.length}/{category.total}
                   </span>
-                ))
-              ) : (
-                <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>
-                  남은 장비 없음
-                </span>
-              )}
-            </div>
-          </div>
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {category.quantityRemaining !== undefined ? (
+                    <span style={{ fontSize: "0.74rem", color: tone.fg, fontWeight: 600 }}>{category.quantityRemaining}개 남음</span>
+                  ) : category.remaining.length > 0 ? (
+                    category.remaining.map((item) => (
+                      <span
+                        key={item}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          borderRadius: 999,
+                          padding: "5px 10px",
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          background: tone.bg,
+                          color: tone.fg,
+                          border: `1px solid ${tone.border}`,
+                        }}
+                      >
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>
+                      {category.total > 0 ? "남은 장비 없음" : "등록된 장비 없음"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
 
-          <div>
-            <p
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                color: "#0F766E",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              노트북
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-              {stock.laptopRemaining.length > 0 ? (
-                stock.laptopRemaining.map((item) => (
-                  <span
-                    key={item}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      borderRadius: 999,
-                      padding: "5px 10px",
-                      fontSize: "0.72rem",
-                      fontWeight: 600,
-                      background: "#ECFEFF",
-                      color: "#0F766E",
-                      border: "1px solid #99F6E4",
-                    }}
-                  >
-                    {item}
-                  </span>
-                ))
-              ) : (
-                <span style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>
-                  남은 장비 없음
-                </span>
-              )}
-            </div>
-          </div>
 
-          <div>
-            <p
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                color: "#B45309",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              타겟
-            </p>
-            <p
-              style={{
-                fontSize: "0.9rem",
-                fontWeight: 700,
-                color: "#92400E",
-                marginTop: 8,
-              }}
-            >
-              {stock.targetRemaining}개 남음
-            </p>
-          </div>
         </div>
       </div>
     </div>

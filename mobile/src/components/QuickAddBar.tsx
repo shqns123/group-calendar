@@ -548,7 +548,7 @@ export function QuickAddBar({
               placeholderTextColor={c.muted}
               accessibilityLabel={`${md(date)}에 일정 빠르게 추가`}
               accessibilityHint="날짜, 시간, 인원, 제목을 한 줄로 적으면 알아서 나눠요"
-              style={{ flex: 1, fontSize: 16, color: c.text, paddingVertical: 12 }}
+              style={{ flex: 1, minWidth: 0, fontSize: 16, color: c.text, paddingVertical: 12 }}
             />
             {speechSupported ? <MicButton listening={listening} disabled={busy} onPress={toggleMic} /> : null}
             <Pressable

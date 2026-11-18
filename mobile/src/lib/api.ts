@@ -2,8 +2,9 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { demoFetch } from "./demo";
 
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
-export const DEMO = process.env.EXPO_PUBLIC_DEMO === "1" || !API_URL;
+export const HOSTED_WEB = Platform.OS === "web" && process.env.EXPO_PUBLIC_HOSTED_WEB === "1";
+export const API_URL = HOSTED_WEB ? window.location.origin : (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+export const DEMO = !HOSTED_WEB && (process.env.EXPO_PUBLIC_DEMO === "1" || !API_URL);
 
 const TOKEN_KEY = "session-token";
 
@@ -64,6 +65,10 @@ export async function api<T>(path: string, { method = "GET", body, query }: Opti
     throw new ApiError(0, "서버에 연결하지 못했어요. 네트워크를 확인해 주세요.");
   }
 
+  if (HOSTED_WEB && res.redirected && new URL(res.url).pathname === "/login") {
+    onUnauthorized?.();
+    throw new ApiError(401, "다시 로그인해 주세요.");
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     if (res.status === 401) onUnauthorized?.();

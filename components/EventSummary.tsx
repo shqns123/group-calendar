@@ -39,6 +39,7 @@ type Group = {
   leaderId: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null;
   targetCount?: number;
   members: Array<{
     id: string;

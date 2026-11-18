@@ -102,7 +102,9 @@ export default function NotificationBell({
   return (
     <div ref={rootRef} style={{ position: "relative", flexShrink: 0 }}>
       <button
+        id="dashboard-notification-button"
         type="button"
+        aria-label="알림"
         onClick={() => setOpen((prev) => !prev)}
         style={{
           position: "relative",

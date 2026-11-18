@@ -1,9 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { EquipmentEditor } from "@/components/EquipmentEditor";
 import { Field, Section } from "@/components/list";
 import { Empty, ErrorBanner, PrimaryButton, T } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
+import { readEquipmentCategories, type EquipmentCategory } from "@/lib/equipment";
 import { confirm, notice } from "@/lib/confirm";
 import { permissionsFor } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
@@ -27,9 +29,7 @@ function GroupForm() {
   const g = group!;
   const [name, setName] = useState(g.name);
   const [description, setDescription] = useState(g.description ?? "");
-  const [trackers, setTrackers] = useState(g.trackerOptions ?? "");
-  const [laptops, setLaptops] = useState(g.laptopOptions ?? "");
-  const [targetCount, setTargetCount] = useState(String(g.targetCount ?? 2));
+  const [categories, setCategories] = useState<EquipmentCategory[]>(() => readEquipmentCategories(g));
   const [limit, setLimit] = useState(g.eventDisplayLimit ?? 3);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,12 +39,32 @@ function GroupForm() {
       setError("그룹 이름을 입력해 주세요.");
       return;
     }
+    const names = categories.map((cat) => cat.name.trim());
+    if (names.some((n) => !n)) {
+      setError("장비 분류 이름을 입력해 주세요.");
+      return;
+    }
+    const dup = names.find((n, i) => names.indexOf(n) !== i);
+    if (dup) {
+      setError(`'${dup}' 분류가 두 개예요. 이름을 바꿔 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await api(`/api/groups/${g.id}`, {
         method: "PATCH",
-        body: { name, description, trackerOptions: trackers, laptopOptions: laptops, targetCount: Number(targetCount) || 0, eventDisplayLimit: limit },
+        body: {
+          name,
+          description,
+          equipmentCategories: categories.map((category) => {
+            const previous = readEquipmentCategories(g).find((entry) => entry.id === category.id);
+            const name = category.name.trim();
+            return { ...category, name, aliases: category.quantity !== undefined && previous && previous.name !== name ? [...(category.aliases ?? []), previous.name] : category.aliases };
+          }),
+          targetCount: 0,
+          eventDisplayLimit: limit,
+        },
       });
       await reloadGroups();
       invalidate();
@@ -75,9 +95,7 @@ function GroupForm() {
         {error ? <ErrorBanner message={error} /> : null}
         <Field label="그룹 이름" value={name} onChangeText={setName} maxLength={50} />
         <Field label="설명" value={description} onChangeText={setDescription} maxLength={200} multiline />
-        <Field label="트래커 목록" value={trackers} onChangeText={setTrackers} placeholder="T-01, T-02, T-03" hint="쉼표나 줄바꿈으로 구분해요." multiline />
-        <Field label="노트북 목록" value={laptops} onChangeText={setLaptops} placeholder="N-01, N-02" multiline />
-        <Field label="타겟 수량" value={targetCount} onChangeText={(v) => setTargetCount(v.replace(/[^0-9]/g, ""))} keyboardType="number-pad" maxLength={3} />
+        <EquipmentEditor value={categories} onChange={setCategories} />
 
         <View style={{ gap: 6 }}>
           <T variant="footnote" color={c.text2}>

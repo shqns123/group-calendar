@@ -1,3 +1,11 @@
+FROM node:22-alpine AS phone
+WORKDIR /app
+COPY mobile/package*.json ./mobile/
+RUN npm ci --prefix mobile
+COPY mobile/ ./mobile/
+COPY scripts/build-phone-web.mjs ./scripts/
+RUN node scripts/build-phone-web.mjs
+
 FROM node:20-alpine AS base
 
 # 1. 의존성 설치
@@ -20,7 +28,8 @@ RUN DATABASE_URL=file:/tmp/temp.db npx prisma db push && rm -f /tmp/temp.db
 
 # Next.js 빌드
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+COPY --from=phone /app/public/login-ui ./public/login-ui
+RUN npm --ignore-scripts run build
 
 # 3. 실행 이미지
 FROM base AS runner

@@ -196,19 +196,47 @@ export function buildUserMessage(ctx: AiContext) {
 
 export type QuickAddAiFailure = "not_configured" | "timeout" | "rate_limited" | "upstream" | "bad_output";
 
-// Plain field (no constructor parameter property) so `node` can run this file directly for the
+/** What one OpenRouter call used. `cost` is OpenRouter's USD figure, or null when it gave none. */
+export type AiCallUsage = { model: string; inputTokens: number; outputTokens: number; cost: number | null };
+
+// Plain fields (no constructor parameter property) so `node` can run this file directly for the
 // test script (scripts/quick-add-eval.mjs).
 export class QuickAddAiError extends Error {
   reason: QuickAddAiFailure;
-  constructor(reason: QuickAddAiFailure, message: string) {
+  /** Set when the request reached OpenRouter (it may be billed), so the call can be recorded. */
+  usage: AiCallUsage | null = null;
+  constructor(reason: QuickAddAiFailure, message: string, usage: AiCallUsage | null = null) {
     super(message);
     this.reason = reason;
+    this.usage = usage;
   }
 }
 
-export async function askModel(ctx: AiContext): Promise<unknown> {
+type OpenRouterReply = {
+  model?: unknown;
+  choices?: { message?: { content?: unknown } }[];
+  usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; cost?: unknown };
+};
+
+const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0);
+
+function usageOf(json: OpenRouterReply | null, model: string): AiCallUsage {
+  const u = json?.usage;
+  return {
+    model: typeof json?.model === "string" && json.model ? json.model : model,
+    inputTokens: count(u?.prompt_tokens),
+    outputTokens: count(u?.completion_tokens),
+    cost: typeof u?.cost === "number" && Number.isFinite(u.cost) ? u.cost : null,
+  };
+}
+
+/** The model's raw answer plus what the call used (tokens, OpenRouter's cost). */
+export async function askModelWithUsage(ctx: AiContext): Promise<{ raw: unknown; usage: AiCallUsage }> {
   const key = process.env.OPENROUTER_API_KEY?.trim();
   if (!key) throw new QuickAddAiError("not_configured", "OPENROUTER_API_KEY is not set");
+  const model = process.env.QUICK_ADD_MODEL?.trim() || QUICK_ADD_MODEL;
+  // Sent but unanswered (timeout, network): counted as a call with unknown tokens.
+  const noAnswer: AiCallUsage = { model, inputTokens: 0, outputTokens: 0, cost: null };
 
   let res: Response;
   try {
@@ -216,7 +244,7 @@ export async function askModel(ctx: AiContext): Promise<unknown> {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: process.env.QUICK_ADD_MODEL?.trim() || QUICK_ADD_MODEL,
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: buildUserMessage(ctx) },
@@ -226,24 +254,31 @@ export async function askModel(ctx: AiContext): Promise<unknown> {
         reasoning: { effort: "low" },
         // Includes the thinking tokens, so leave room.
         max_tokens: 1000,
+        // Ask OpenRouter to report the call's cost in `usage.cost`.
+        usage: { include: true },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (e) {
     const name = (e as Error)?.name;
-    throw new QuickAddAiError(name === "TimeoutError" || name === "AbortError" ? "timeout" : "upstream", String(e));
+    throw new QuickAddAiError(name === "TimeoutError" || name === "AbortError" ? "timeout" : "upstream", String(e), noAnswer);
   }
   if (res.status === 429) throw new QuickAddAiError("rate_limited", "OpenRouter rate limit");
-  if (!res.ok) throw new QuickAddAiError("upstream", `OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  if (!res.ok) throw new QuickAddAiError("upstream", `OpenRouter ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`, noAnswer);
 
-  const json = (await res.json().catch(() => null)) as { choices?: { message?: { content?: unknown } }[] } | null;
+  const json = (await res.json().catch(() => null)) as OpenRouterReply | null;
+  const usage = usageOf(json, model);
   const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") throw new QuickAddAiError("bad_output", "no content in response");
+  if (typeof content !== "string") throw new QuickAddAiError("bad_output", "no content in response", usage);
   try {
-    return JSON.parse(content);
+    return { raw: JSON.parse(content), usage };
   } catch {
-    throw new QuickAddAiError("bad_output", `not JSON: ${content.slice(0, 200)}`);
+    throw new QuickAddAiError("bad_output", `not JSON: ${content.slice(0, 200)}`, usage);
   }
+}
+
+export async function askModel(ctx: AiContext): Promise<unknown> {
+  return (await askModelWithUsage(ctx)).raw;
 }
 
 // ---------- Checks (the model's answer is a suggestion, not trusted) ----------
@@ -310,6 +345,7 @@ export function checkDraft(raw: unknown, ctx: AiContext): AiDraft {
   };
 }
 
-export async function parseQuickAddWithAi(ctx: AiContext): Promise<AiDraft> {
-  return checkDraft(await askModel(ctx), ctx);
+export async function parseQuickAddWithAi(ctx: AiContext): Promise<{ draft: AiDraft; usage: AiCallUsage }> {
+  const { raw, usage } = await askModelWithUsage(ctx);
+  return { draft: checkDraft(raw, ctx), usage };
 }

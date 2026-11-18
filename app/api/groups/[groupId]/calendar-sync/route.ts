@@ -12,7 +12,7 @@ export async function POST(
 
   const { groupId } = await ctx.params;
   const [group, user] = await Promise.all([
-    prisma.group.findUnique({ where: { id: groupId }, select: { leaderId: true } }),
+    prisma.group.findUnique({ where: { id: groupId }, select: { leaderId: true, calendarSyncEnabled: true } }),
     prisma.user.findUnique({ where: { id: session.user.id }, select: { isOperator: true } }),
   ]);
   if (!group) return Response.json({ error: "그룹을 찾을 수 없습니다." }, { status: 404 });
@@ -24,6 +24,10 @@ export async function POST(
   const allowed = user?.isOperator || group.leaderId === session.user.id ||
     (member?.status === "ACTIVE" && isLeaderRole(member.role));
   if (!allowed) return Response.json({ error: "그룹 관리자만 업로드할 수 있습니다." }, { status: 403 });
+
+  if (!group.calendarSyncEnabled) {
+    return Response.json({ error: "이 그룹은 GitLab 업로드가 꺼져 있어요. 그룹 설정에서 켜 주세요." }, { status: 409 });
+  }
 
   try {
     const result = await syncGroupCalendarToGitLab(groupId);

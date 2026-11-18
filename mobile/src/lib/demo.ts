@@ -2,6 +2,7 @@
 // for the server so screens can be previewed without signing in.
 
 import { addDays, keyToIso, todayKey, toKey, covers } from "./date";
+import { sanitizeEquipmentCategories } from "./equipment";
 import { parseQuickAdd } from "./quickAdd";
 import type { AdminUser, AppNotification, CalEvent, CustomHoliday, Group, Me, NotificationSchedule, PendingUser } from "./types";
 
@@ -17,6 +18,7 @@ const group: Group = {
   laptopOptions: "N-01, N-02, N-03, N-04",
   targetCount: 2,
   eventDisplayLimit: 3,
+  calendarSyncEnabled: true,
   members: [
     ...names.map((n, i) => ({
       id: `m${i + 1}`,
@@ -244,7 +246,9 @@ export async function demoFetch<T>(method: string, url: string, body: unknown): 
     return out({ success: true, groupId: "g2", groupName: "데모 그룹", pending: true });
   }
   if (/^\/api\/groups\/[^/]+$/.test(path) && method === "PATCH") {
-    Object.assign(group, b);
+    const { equipmentCategories, ...rest } = b as { equipmentCategories?: unknown };
+    Object.assign(group, rest);
+    if (equipmentCategories !== undefined) group.equipmentCategories = JSON.stringify(sanitizeEquipmentCategories(equipmentCategories));
     return out(group);
   }
   if (path === "/api/notifications") {

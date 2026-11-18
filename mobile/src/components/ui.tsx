@@ -12,14 +12,14 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useTheme } from "@/theme/ThemeProvider";
-import { HIT, radius, type } from "@/theme/tokens";
+import { HIT, radius, type, webFont } from "@/theme/tokens";
 import { Icon, type IconName } from "./Icon";
 
 type Role = keyof typeof type;
 
 export function T({ variant = "body", color, style, ...rest }: TextProps & { variant?: Role; color?: string }) {
   const { c } = useTheme();
-  return <Text {...rest} style={[type[variant], { color: color ?? c.text }, style]} />;
+  return <Text {...rest} style={[webFont, type[variant], { color: color ?? c.text }, style]} />;
 }
 
 /** White surface on the canvas — no border, no shadow (The Quiet Surface Rule). */

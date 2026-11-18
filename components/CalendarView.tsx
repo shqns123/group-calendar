@@ -35,6 +35,7 @@ type Group = {
   leaderId: string;
   trackerOptions?: string | null;
   laptopOptions?: string | null;
+  equipmentCategories?: string | null;
   targetCount?: number;
   eventDisplayLimit?: number;
   members: Array<{
@@ -804,6 +805,7 @@ export default function CalendarView({
 
   return (
     <div
+      className="calendar-surface"
       style={{
         height: "100%",
         background: "var(--surface)",
@@ -817,6 +819,7 @@ export default function CalendarView({
     >
       {/* 뷰 탭 */}
       <div
+        className="calendar-controls"
         style={{
           display: "flex",
           alignItems: "center",
@@ -894,7 +897,7 @@ export default function CalendarView({
       </div>
 
       {/* 뷰 영역 */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: viewMode === "today" ? 0 : 12 }}>
+      <div className="calendar-content" style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: viewMode === "today" ? 0 : 12 }}>
         {viewMode === "today" ? (
           <TodayView
             events={events}

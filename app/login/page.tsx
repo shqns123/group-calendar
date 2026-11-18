@@ -1,3 +1,4 @@
+import { PhoneWebEntry } from "@/components/PhoneWebEntry";
 import { Suspense } from "react";
 import { Calendar, Check } from "lucide-react";
 import LoginForm from "./LoginForm";
@@ -6,7 +7,7 @@ const FEATURES = ["실시간 일정 동기화", "그룹별 권한 관리", "특�
 
 export default async function LoginPage() {
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
+    <PhoneWebEntry><div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
       {/* 왼쪽 브랜드 패널 */}
       <div
         className="hidden lg:flex flex-col justify-between flex-shrink-0 p-10"
@@ -84,6 +85,6 @@ export default async function LoginPage() {
           </p>
         </div>
       </div>
-    </div>
+    </div></PhoneWebEntry>
   );
 }

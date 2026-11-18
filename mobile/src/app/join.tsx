@@ -1,8 +1,9 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { KeyboardAware } from "@/components/KeyboardAware";
+import { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
+import { QrPopup } from "@/components/QrPopup";
+import { closeScreen } from "@/lib/nav";
 import { Field, Section } from "@/components/list";
 import { ErrorBanner, PrimaryButton, SecondaryButton, T } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -32,6 +33,11 @@ export default function JoinScreen() {
   const [error, setError] = useState<string | null>(null);
   // The camera reports the same code many times a second; handle one at a time.
   const handling = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   async function onScanned({ data }: BarcodeScanningResult) {
     if (handling.current || found) return;
@@ -76,7 +82,7 @@ export default function JoinScreen() {
         selectGroup(res.groupId);
         notice("그룹에 가입했어요", `이제 ${res.groupName} 그룹 일정을 볼 수 있어요.`);
       }
-      router.back();
+      if (mounted.current) closeScreen(router, "/settings");
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -92,24 +98,22 @@ export default function JoinScreen() {
 
   if (found) {
     return (
-      <KeyboardAware style={{ flex: 1 }}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 18 }}>
-          {error ? <ErrorBanner message={error} /> : null}
-          <Section title="가입할 그룹" footer={found.autoApprove ? "승인 없이 바로 가입돼요." : "그룹장·파트장이 승인하면 가입돼요."}>
-            <View style={{ padding: 16 }}>
-              <T variant="title2">{found.groupName}</T>
-            </View>
-          </Section>
-          <Field label="닉네임 (선택)" value={nickname} onChangeText={setNickname} maxLength={30} hint="그룹 안에서 표시될 이름이에요. 비우면 계정 이름을 써요." />
-          <PrimaryButton label={found.autoApprove ? "가입하기" : "가입 요청"} busy={busy} onPress={join} />
-          <SecondaryButton label="다시 스캔" onPress={rescan} disabled={busy} />
-        </ScrollView>
-      </KeyboardAware>
+      <QrPopup title="QR로 그룹 가입">
+        {error ? <ErrorBanner message={error} /> : null}
+        <Section title="가입할 그룹" footer={found.autoApprove ? "승인 없이 바로 가입돼요." : "그룹장·파트장이 승인하면 가입돼요."}>
+          <View style={{ padding: 16 }}>
+            <T variant="title2">{found.groupName}</T>
+          </View>
+        </Section>
+        <Field label="닉네임 (선택)" value={nickname} onChangeText={setNickname} maxLength={30} hint="그룹 안에서 표시될 이름이에요. 비우면 계정 이름을 써요." />
+        <PrimaryButton label={found.autoApprove ? "가입하기" : "가입 요청"} busy={busy} onPress={join} />
+        <SecondaryButton label="다시 스캔" onPress={rescan} disabled={busy} />
+      </QrPopup>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+    <QrPopup title="QR로 그룹 가입">
       <T variant="subhead" color={c.text2}>
         그룹 멤버의 설정 › 「QR로 그룹 초대」 화면에 있는 QR 코드를 비춰 주세요. QR 코드는 1분마다 바뀌고 한 번만 쓸 수 있어요.
       </T>
@@ -124,6 +128,6 @@ export default function JoinScreen() {
           <PrimaryButton label="카메라 허용" icon="check" onPress={() => void requestPermission()} />
         </View>
       )}
-    </ScrollView>
+    </QrPopup>
   );
 }
