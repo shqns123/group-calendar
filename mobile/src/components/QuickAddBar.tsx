@@ -29,6 +29,13 @@ const BAR_H = QUICK_ADD_H;
 const ROW_H = 44;
 /** Default: how far the open card widens past the pill on each side. */
 const WIDEN = 8;
+type WebKeyboard = EventTarget & { overlaysContent: boolean; boundingRect: DOMRectReadOnly };
+/** Browser VirtualKeyboard API (phone web on Android Chrome / Samsung Internet), if any. */
+function webKeyboard(): WebKeyboard | null {
+  if (Platform.OS !== "web" || typeof navigator === "undefined") return null;
+  return (navigator as Navigator & { virtualKeyboard?: WebKeyboard }).virtualKeyboard ?? null;
+}
+
 /** Space kept between the card and the top of the keyboard. */
 const KEYBOARD_GAP = 8;
 /** Card corner radius for a card height: a full pill when closed, 24 when open. */
@@ -140,7 +147,34 @@ export function QuickAddBar({
     return () => subs.forEach((s) => s.remove());
   }, [lift]);
 
+  // --- Phone web: the page normally shrinks for the keyboard (the calendar squeezes up). While
+  // typing here, ask the browser to lay the keyboard over the page instead (VirtualKeyboard API,
+  // Chrome / Samsung Internet on Android), and lift the card like the app does. Browsers without
+  // it keep shrinking the page.
+  useEffect(() => {
+    const vk = webKeyboard();
+    if (!vk) return;
+    const place = () => {
+      const kb = vk.boundingRect.height;
+      if (!input.current?.isFocused() || kb <= 0) {
+        timeTo(lift, 0, DUR.keyboard, EASE_OUT, false);
+        return;
+      }
+      anchor.current?.measureInWindow((_x, y, _w, h) => {
+        const over = y + h + KEYBOARD_GAP - (window.innerHeight - kb);
+        timeTo(lift, over > 0 ? -over : 0, DUR.keyboard, EASE_OUT, false);
+      });
+    };
+    vk.addEventListener("geometrychange", place);
+    return () => {
+      vk.removeEventListener("geometrychange", place);
+      vk.overlaysContent = false;
+    };
+  }, [lift]);
+
   function onBlur() {
+    const vk = webKeyboard();
+    if (vk) vk.overlaysContent = false;
     setFocused(false);
     onActiveChange?.(false);
     // Start down with the keyboard rather than after it (Android reports the hide late).
@@ -348,9 +382,9 @@ export function QuickAddBar({
       if (heard) {
         setText(heard);
         // AI mode: straight to the confirm popup (수정 opens the full form to fix anything).
-        // Otherwise keyboard up on the transcript to fix a misheard word, then check to save.
+        // Otherwise the transcript waits in the field: check to save, or tap the field to fix a
+        // misheard word (the keyboard opens only on a tap in the field).
         if (aiMode) void readAndConfirm(heard);
-        else input.current?.focus();
         return;
       }
       const why: Record<SpeechFailure, [string, string]> = {
@@ -381,7 +415,7 @@ export function QuickAddBar({
     lastAiMode = next;
     setAiPicked(next);
     setAi(null);
-    input.current?.focus();
+    // The keyboard opens only when the field itself is tapped.
   }
 
   // AI mode border: fades in/out; its bulge runs only while AI mode is on.
@@ -536,6 +570,8 @@ export function QuickAddBar({
               value={text}
               onChangeText={setText}
               onFocus={() => {
+                const vk = webKeyboard();
+                if (vk) vk.overlaysContent = true;
                 setFocused(true);
                 onActiveChange?.(true);
               }}
@@ -548,7 +584,8 @@ export function QuickAddBar({
               placeholderTextColor={c.muted}
               accessibilityLabel={`${md(date)}에 일정 빠르게 추가`}
               accessibilityHint="날짜, 시간, 인원, 제목을 한 줄로 적으면 알아서 나눠요"
-              style={{ flex: 1, minWidth: 0, fontSize: 16, color: c.text, paddingVertical: 12 }}
+              // Web: no browser focus ring (a black box around the field); the card shows focus.
+              style={{ flex: 1, minWidth: 0, fontSize: 16, color: c.text, paddingVertical: 12, ...(Platform.OS === "web" ? { outlineWidth: 0 } : null) }}
             />
             {speechSupported ? <MicButton listening={listening} disabled={busy} onPress={toggleMic} /> : null}
             <Pressable

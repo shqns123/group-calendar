@@ -14,11 +14,23 @@ export type ReleaseSection = {
   note?: string;
   bullets?: string[];
 };
-export type ReleaseNote = { date: string; title: string; lead: string; sections: ReleaseSection[] };
+export type ReleaseNote = {
+  date: string;
+  title: string;
+  lead: string;
+  sections: ReleaseSection[];
+  /**
+   * Phone web app only: last day (YYYY-MM-DD) it shows this note. The web keeps "다시 보지 않기" in
+   * browser storage, so a cache clear would bring an old note back; past this day it stays away,
+   * however often the web app is rebuilt. Missing = never on the web.
+   */
+  webUntil?: string;
+};
 
 export const RELEASE_NOTES: Record<string, ReleaseNote> = {
   "1.1.0": {
     date: "2026년 11월 업데이트",
+    webUntil: "2026-11-21",
     title: "대충 적어도, 말로 해도\n일정이 들어가요",
     lead: "하단바 가운데 + 버튼으로 어느 화면에서든 빠른 추가 입력창을 열 수 있고, AI 읽기와 음성 입력이 생겼어요. 날짜를 계산하거나 형식을 맞추지 않아도 돼요.",
     sections: [
