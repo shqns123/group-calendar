@@ -120,8 +120,8 @@ function RootStack() {
           <Stack.Screen name="login" />
         </Stack.Protected>
       </Stack>
-      {/* Update notice (AI quick add): once per phone, after sign-in. */}
-      <WhatsNew enabled={active} />
+      {/* Update notice (AI quick add): once per phone, after sign-in. Not on the phone web app. */}
+      <WhatsNew enabled={active && !HOSTED_WEB} />
     </>
   );
 }
