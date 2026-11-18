@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Animated, LayoutAnimation, Pressable, RefreshControl, SectionList, View } from "react-native";
+import { Animated, LayoutAnimation, Pressable, SectionList, View } from "react-native";
+import { PullRefresh } from "@/components/PullRefresh";
 import { Icon } from "@/components/Icon";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Empty, ErrorBanner, Loading, T, Tag } from "@/components/ui";
@@ -63,7 +64,7 @@ export default function SummaryScreen() {
           keyExtractor={(e) => e.id}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={{ padding: 16, paddingBottom: barSpace }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
+          refreshControl={<PullRefresh refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
           ListEmptyComponent={<Empty title="다가오는 일정이 없어요" body="아래로 당기면 새로고침돼요." />}
           renderSectionHeader={({ section }) => {
             const open = !closed.has(section.key as Bucket);

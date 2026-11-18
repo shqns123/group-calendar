@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, PixelRatio, Platform, Pressable, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureDetector, usePanGesture, type PanGesture } from "react-native-gesture-handler";
-import Reanimated, { cancelAnimation, Extrapolation, interpolate, ReduceMotion, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from "react-native-reanimated";
+import Reanimated, { cancelAnimation, Extrapolation, interpolate, ReduceMotion, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { MiniButton } from "@/components/list";
 import { DUR, EASE_OUT, prefersReducedMotion, timeTo } from "@/lib/motion";
@@ -14,7 +14,8 @@ import { addDays, dotted, keyToIso, longLabel, monthGrid, monthLabel, parseKey, 
 import { splitList } from "@/lib/roster";
 import { useSession } from "@/lib/session";
 import type { CalEvent, CustomHoliday, Me } from "@/lib/types";
-import { useData } from "@/lib/useData";
+import { refreshAll, useData } from "@/lib/useData";
+import { PULL_TRIGGER, RefreshBadge } from "@/components/PullRefresh";
 import { STRIP_SPAN, useMonthPager } from "@/lib/useMonthPager";
 import { holidayInfo } from "@/lib/holidays";
 import { permissionsFor } from "@/lib/permissions";
@@ -166,6 +167,32 @@ export function CalendarView({ pane }: { pane?: boolean }) {
   const dragFrom = useSharedValue(0);
   const dragStartY = useSharedValue(0);
   const listAtTop = useSharedValue(true);
+  // Pull to refresh: dragging down on the full month (nothing to open that way) pulls a badge down;
+  // let go past the trigger and every event, note and holiday on screen is fetched again.
+  const pullSV = useSharedValue(0);
+  const [pullReady, setPullReady] = useState(false);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const pullBusy = useRef(false);
+  const startPullRefresh = () => {
+    if (pullBusy.current) return;
+    pullBusy.current = true;
+    setPullRefreshing(true);
+    // At least a short spin, so a fast reload still reads as "refreshed".
+    void Promise.all([refreshAll(), new Promise((r) => setTimeout(r, 500))]).finally(() => {
+      pullBusy.current = false;
+      setPullRefreshing(false);
+    });
+  };
+  useAnimatedReaction(
+    () => pullSV.value >= PULL_TRIGGER,
+    (ready, was) => {
+      if (ready !== was) scheduleOnRN(setPullReady, ready);
+    },
+  );
+  const pullStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pullSV.value / PULL_TRIGGER),
+    transform: [{ translateY: pullSV.value - 36 }],
+  }));
   const swipeActivate = (e: { translationY: number }) => {
     "worklet";
     cancelAnimation(progress);
@@ -177,6 +204,11 @@ export function CalendarView({ pane }: { pane?: boolean }) {
     const travel = Math.max(80, areaSV.value - compactSV.value);
     const p = dragFrom.value - (e.translationY - dragStartY.value) / travel;
     progress.value = Math.min(1, Math.max(0, p));
+    // From the full month, a pull down is pull-to-refresh (damped, stops a little past the trigger).
+    if (dragFrom.value < 0.001) {
+      const dy = e.translationY - dragStartY.value;
+      pullSV.value = dy > 0 ? Math.min(PULL_TRIGGER * 1.6, dy * 0.5) : 0;
+    }
   };
   const swipeEnd = (e: { velocityY: number; canceled: boolean }) => {
     "worklet";
@@ -184,6 +216,9 @@ export function CalendarView({ pane }: { pane?: boolean }) {
     const p = progress.value;
     const from = dragFrom.value;
     const moved = p - from;
+    const pulled = pullSV.value;
+    pullSV.value = withTiming(0, { duration: 150 });
+    if (!e.canceled && from < 0.001 && pulled >= PULL_TRIGGER) scheduleOnRN(startPullRefresh);
     // A flick decides by direction; a slow release by how far the month moved (a short nudge
     // snaps back).
     const on = e.canceled ? from > 0.5 : e.velocityY < -300 ? true : e.velocityY > 300 ? false : Math.abs(moved) > 0.2 ? moved > 0 : from > 0.5;
@@ -428,6 +463,17 @@ export function CalendarView({ pane }: { pane?: boolean }) {
             )}
           </Reanimated.View>
         </GestureDetector>
+
+        {/* Pull-to-refresh badge over the top of the month: follows the pull, then spins. */}
+        {pullRefreshing ? (
+          <View pointerEvents="none" style={{ position: "absolute", top: 14, left: 0, right: 0, alignItems: "center" }}>
+            <RefreshBadge pull={0} spinning />
+          </View>
+        ) : (
+          <Reanimated.View pointerEvents="none" style={[{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" }, pullStyle]}>
+            <RefreshBadge pull={pullReady ? PULL_TRIGGER : 0} spinning={false} />
+          </Reanimated.View>
+        )}
 
         {/* Always mounted, under the month: zero height while closed. Its top is the month's bottom
           edge, so it slides up from below with the swipe, fully drawn (One UI). */}

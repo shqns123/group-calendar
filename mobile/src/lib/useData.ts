@@ -17,6 +17,17 @@ export function invalidate() {
   refreshWidgets();
 }
 
+// Fetches in flight (any key), so a pull-to-refresh can wait for what it started.
+const inflight = new Set<Promise<unknown>>();
+
+/** Refetch every mounted useData and resolve once they're all back (pull to refresh). */
+export async function refreshAll() {
+  invalidate();
+  // The refetches start in effects after the re-render; give them a moment to begin.
+  await new Promise((r) => setTimeout(r, 50));
+  await Promise.allSettled([...inflight]);
+}
+
 function subscribe(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);
@@ -43,7 +54,10 @@ export function useData<T>(key: string | null, fetcher: () => Promise<T>) {
     if (!key) return;
     const id = ++reqId.current;
     try {
-      const value = await fetcherRef.current();
+      const pending = fetcherRef.current();
+      inflight.add(pending);
+      void pending.finally(() => inflight.delete(pending)).catch(() => undefined);
+      const value = await pending;
       cache.set(key, value);
       if (id === reqId.current) {
         setData({ key, value });

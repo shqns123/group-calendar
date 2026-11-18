@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
-import { Animated, FlatList, Modal, Pressable, RefreshControl, useWindowDimensions, View } from "react-native";
+import { Animated, FlatList, Modal, Pressable, useWindowDimensions, View } from "react-native";
+import { PullRefresh } from "@/components/PullRefresh";
 import Feather from "@expo/vector-icons/Feather";
 import { MarqueeText } from "@/components/MarqueeText";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -157,7 +158,7 @@ export default function NotificationsScreen() {
           data={items}
           keyExtractor={(n) => n.id}
           contentContainerStyle={{ padding: 16, paddingBottom: barSpace, gap: 8 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
+          refreshControl={<PullRefresh refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
           ListEmptyComponent={<Empty title={EMPTY[filter]} body={filter === "pending" ? "가입 요청이 오면 여기에 표시돼요." : "일정이 등록되거나 바뀌면 여기에 표시돼요."} />}
           renderItem={({ item: n, index }) => {
             const day = toKey(n.createdAt);

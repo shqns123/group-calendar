@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { PullRefresh } from "@/components/PullRefresh";
 import { MiniButton, Row, Section } from "@/components/list";
 import { Empty, ErrorBanner, Loading } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
@@ -36,7 +37,7 @@ export default function ApprovalsScreen() {
   return (
     <ScrollView
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
+      refreshControl={<PullRefresh refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
     >
       {error || actionError ? <ErrorBanner message={(actionError ?? error)!} /> : null}
       {!data ? <Loading /> : null}

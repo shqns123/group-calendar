@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { ScrollView, TextInput, View } from "react-native";
+import { PullRefresh } from "@/components/PullRefresh";
 import { useActionSheet, type SheetOption } from "@/components/ActionSheet";
 import { Row, Section } from "@/components/list";
 import { Empty, ErrorBanner, Loading, Tag } from "@/components/ui";
@@ -108,7 +109,7 @@ export default function UsersScreen() {
     <ScrollView
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
+      refreshControl={<PullRefresh refreshing={refreshing} onRefresh={refresh} tintColor={c.primary} colors={[c.primary]} />}
     >
       <TextInput
         accessibilityLabel="사용자 검색"
