@@ -38,9 +38,13 @@ const MAP = {
 
 export type IconName = keyof typeof MAP;
 
-export function Icon({ name, size = 24, color, filled }: { name: IconName; size?: number; color: string; filled?: boolean }) {
+/**
+ * `outline` = the thin rounded outline set on every platform (Android's Material icons are filled),
+ * for lists where the icon stands on its own without a tile behind it.
+ */
+export function Icon({ name, size = 24, color, filled, outline }: { name: IconName; size?: number; color: string; filled?: boolean; outline?: boolean }) {
   const m = MAP[name];
-  if (Platform.OS === "android") {
+  if (Platform.OS === "android" && !outline) {
     return <MaterialIcons name={m.md as never} size={size} color={color} />;
   }
   return <Ionicons name={(filled ? m.iosOn : m.ios) as never} size={size} color={color} />;

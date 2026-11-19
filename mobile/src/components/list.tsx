@@ -69,8 +69,8 @@ export function Row({
       }}
     >
       {icon ? (
-        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: destructive ? c.dangerContainer : c.subtle, alignItems: "center", justifyContent: "center" }}>
-          <Icon name={icon} size={20} color={destructive ? c.danger : c.text2} />
+        <View style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}>
+          <Icon name={icon} size={23} color={destructive ? c.danger : c.text} outline />
         </View>
       ) : null}
       <View style={{ flex: 1, gap: 2 }}>

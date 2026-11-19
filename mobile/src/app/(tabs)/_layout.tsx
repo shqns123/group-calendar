@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { Animated, Keyboard, PanResponder, Platform, Pressable, Text, useWindowDimensions, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Feather from "@expo/vector-icons/Feather";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { DismissLayer } from "@/components/DismissLayer";
 import { QuickAddBar } from "@/components/QuickAddBar";
 import { api, HOSTED_WEB } from "@/lib/api";
@@ -87,7 +88,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <TabIcon name="bell" color={String(color)} />,
         }}
       />
-      <Tabs.Screen name="settings" options={{ title: "설정", tabBarIcon: ({ color }) => <TabIcon name="sliders" color={String(color)} /> }} />
+      <Tabs.Screen name="settings" options={{ title: "설정", tabBarIcon: ({ color }) => <TabIcon name="settings" color={String(color)} /> }} />
     </Tabs>
   );
 
@@ -287,7 +288,7 @@ const WIDE_TABS = [
   { href: "/", match: (p: string) => p === "/" || p === "", label: "캘린더", icon: "calendar" },
   { href: "/summary", match: (p: string) => p.startsWith("/summary"), label: "일정 요약", icon: "list" },
   { href: "/notifications", match: (p: string) => p.startsWith("/notifications"), label: "알림", icon: "bell" },
-  { href: "/settings", match: (p: string) => p.startsWith("/settings"), label: "설정", icon: "sliders" },
+  { href: "/settings", match: (p: string) => p.startsWith("/settings"), label: "설정", icon: "settings" },
 ] as const;
 
 /**
@@ -331,10 +332,11 @@ function AppTabBar({ unread }: { unread: number }) {
         onPress={() => router.navigate(t.href)}
         style={({ pressed }) => ({ flex: 1, height: "100%", alignItems: "center", justifyContent: "center", gap: 3, opacity: pressed ? 0.6 : 1 })}
       >
-        <View>
+        <View style={{ width: 56, height: 30, alignItems: "center", justifyContent: "center" }}>
+          <ActivePill on={focused} color={c.primaryContainer} />
           <TabIcon name={t.icon} color={color} />
           {badge ? (
-            <View style={{ position: "absolute", top: -5, right: -9, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, borderWidth: 2, borderColor: c.card, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ position: "absolute", top: -3, right: 4, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, borderWidth: 2, borderColor: c.card, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: c.onDanger, fontSize: 10, fontWeight: "700" }}>{badge}</Text>
             </View>
           ) : null}
@@ -463,11 +465,38 @@ function QuickAddDock() {
   );
 }
 
-/** Feather line icons — the same set the design canvas draws (calendar, list, bell, sliders). */
-function TabIcon({ name, color }: { name: "calendar" | "list" | "bell" | "sliders"; color: string }) {
+/**
+ * The selected tab's soft accent pill behind its icon (label stays below). It grows out from the
+ * middle when the tab is picked and shrinks away when another one is.
+ */
+function ActivePill({ on, color }: { on: boolean; color: string }) {
+  const [p] = useState(() => new Animated.Value(on ? 1 : 0));
+  useEffect(() => {
+    timeTo(p, on ? 1 : 0, on ? DUR.open : DUR.close, on ? EASE_OUT : EASE_IN);
+  }, [on, p]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 15,
+        backgroundColor: color,
+        opacity: p,
+        transform: [{ scaleX: p.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+      }}
+    />
+  );
+}
+
+/** Feather line icons (calendar, list, bell); 설정 is Ionicons' rounded outline gear. */
+function TabIcon({ name, color }: { name: "calendar" | "list" | "bell" | "settings"; color: string }) {
   return (
     <View style={{ width: 30, height: 26, alignItems: "center", justifyContent: "center" }}>
-      <Feather name={name} size={22} color={color} />
+      {name === "settings" ? <Ionicons name="settings-outline" size={23} color={color} /> : <Feather name={name} size={22} color={color} />}
     </View>
   );
 }
