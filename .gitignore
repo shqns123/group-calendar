@@ -46,4 +46,7 @@ next-env.d.ts
 # database
 prisma/*.db
 prisma/*.db-journal
+# any SQLite DB below prisma/ (e.g. prisma/prisma/dev.db holds real user data)
+prisma/**/*.db
+prisma/**/*.db-journal
 /data/
