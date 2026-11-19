@@ -7,6 +7,10 @@ npm-debug.log
 .env.development
 prisma/dev.db
 prisma/dev.db-journal
+# any local SQLite DB below prisma/ (prisma/prisma/dev.db holds real user data)
+prisma/**/*.db
+prisma/**/*.db-journal
+dev.db
 data/
 Dockerfile
 docker-compose.yml
