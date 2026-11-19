@@ -7,11 +7,16 @@ import { DashboardClient } from "@/components/DashboardClient";
 export default async function Home() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const status = (session.user as Record<string, unknown>).status;
-  if (status === "PENDING") redirect("/pending");
+  // Read status and operator rights from the DB: the session JWT keeps the values from sign-in,
+  // so a demoted operator would otherwise still see every group.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { status: true, isOperator: true },
+  });
+  if (!dbUser) redirect("/login");
+  if (dbUser.status === "PENDING") redirect("/pending");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isOperator = (session.user as any).isOperator ?? false;
+  const isOperator = dbUser.isOperator;
 
   const groups = await prisma.group.findMany({
     where: isOperator ? undefined : {
@@ -39,8 +44,7 @@ export default async function Home() {
         name: session.user.name ?? null,
         email: session.user.email ?? null,
         image: session.user.image ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        isOperator: (session.user as any).isOperator ?? false,
+        isOperator,
       }}
       initialGroups={JSON.parse(JSON.stringify(groups))}
     /></PhoneWebEntry>

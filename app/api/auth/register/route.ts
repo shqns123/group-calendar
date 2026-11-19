@@ -1,3 +1,4 @@
+import { newGuestEmail } from "@/lib/guestEmail";
 import { PENDING_QR_TOKEN_COOKIE_NAME } from "@/lib/inviteOnboarding";
 import { sendMobilePushToTokens } from "@/lib/mobilepush";
 import { prisma } from "@/lib/prisma";
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.create({
     data: {
       name: name.trim(),
-      email: `guest_${employeeId.trim()}@local.guest`,
+      email: newGuestEmail(),
       employeeId: employeeId.trim(),
       status: "PENDING",
     },

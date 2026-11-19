@@ -35,6 +35,36 @@ async function resolveDefaultPersonnel(userId: string, groupId?: string | null) 
   return user?.name?.trim() || user?.email?.split("@")[0] || "작성자";
 }
 
+/**
+ * Who may change or delete an event. Returns an error response, or null when allowed.
+ * A group event needs an ACTIVE membership even for its creator, so someone removed from
+ * the group can no longer edit or delete what they wrote there; the group's owner always can.
+ */
+async function denyEventWrite(
+  event: { creatorId: string; groupId: string | null },
+  userId: string,
+  action: "수정" | "삭제",
+) {
+  const denied = Response.json({ error: `${action} 권한이 없습니다` }, { status: 403 });
+  if (!event.groupId) return event.creatorId === userId ? null : denied;
+
+  const [group, member] = await Promise.all([
+    prisma.group.findUnique({ where: { id: event.groupId }, select: { leaderId: true } }),
+    prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: event.groupId, userId } },
+      select: { role: true, status: true },
+    }),
+  ]);
+  const activeRole = member?.status === "ACTIVE" ? member.role : null;
+  if (activeRole && isObserverRole(activeRole)) {
+    return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
+  }
+  const allowed =
+    group?.leaderId === userId ||
+    (activeRole !== null && (event.creatorId === userId || isLeaderRole(activeRole)));
+  return allowed ? null : denied;
+}
+
 export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/events/[eventId]">
@@ -50,25 +80,8 @@ export async function PATCH(
     return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  let canEdit = event.creatorId === session.user.id;
-  if (event.groupId) {
-    const group = await prisma.group.findUnique({ where: { id: event.groupId } });
-    const member = await prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
-      select: { role: true, status: true },
-    });
-    if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
-      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
-    }
-    if (!canEdit) {
-      canEdit =
-        group?.leaderId === session.user.id ||
-        (member?.status === "ACTIVE" && isLeaderRole(member.role));
-    }
-  }
-  if (!canEdit) {
-    return Response.json({ error: "수정 권한이 없습니다" }, { status: 403 });
-  }
+  const editDenied = await denyEventWrite(event, session.user.id, "수정");
+  if (editDenied) return editDenied;
 
   const body = await request.json();
   const {
@@ -161,25 +174,8 @@ export async function DELETE(
     return Response.json({ error: "일정을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  let canDelete = event.creatorId === session.user.id;
-  if (event.groupId) {
-    const group = await prisma.group.findUnique({ where: { id: event.groupId } });
-    const member = await prisma.groupMember.findUnique({
-      where: { groupId_userId: { groupId: event.groupId, userId: session.user.id } },
-      select: { role: true, status: true },
-    });
-    if (member?.status === "ACTIVE" && isObserverRole(member.role)) {
-      return Response.json({ error: "옵저버는 그룹 일정을 열람만 할 수 있습니다" }, { status: 403 });
-    }
-    if (!canDelete) {
-      canDelete =
-        group?.leaderId === session.user.id ||
-        (member?.status === "ACTIVE" && isLeaderRole(member.role));
-    }
-  }
-  if (!canDelete) {
-    return Response.json({ error: "삭제 권한이 없습니다" }, { status: 403 });
-  }
+  const deleteDenied = await denyEventWrite(event, session.user.id, "삭제");
+  if (deleteDenied) return deleteDenied;
 
   await prisma.event.delete({ where: { id: eventId } });
   await deleteEventNotifications(eventId);
