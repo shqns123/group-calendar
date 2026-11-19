@@ -195,6 +195,11 @@ export function QuickAddBar({
       // … then the result lands on the calendar.
       setText("");
       setAi(null);
+      // Saved in AI mode → back to the plain (rule) mode; the sparkle turns it on again.
+      if (aiPicked) {
+        lastAiMode = false;
+        setAiPicked(false);
+      }
       invalidate();
     } catch (e) {
       notice("추가하지 못했어요", errorMessage(e));
