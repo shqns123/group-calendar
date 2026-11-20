@@ -9,6 +9,7 @@ import { registerPush, unregisterPush, watchPushToken } from "./push";
 import { setWidgetGroup } from "./widgetSync";
 
 type SignInResult = { sessionToken: string; cookieName: string; pending: boolean };
+export type GoogleSignupRequired = { registrationRequired: true; signupToken: string; profile: { name?: string; email: string } };
 
 type Session = {
   ready: boolean;
@@ -23,7 +24,7 @@ type Session = {
   setDefaultGroup: (id: string) => Promise<void>;
   reloadGroups: () => Promise<void>;
   signInGuest: (name: string, employeeId: string) => Promise<void>;
-  signInGoogle: (idToken: string) => Promise<{ pending: boolean }>;
+  signInGoogle: (idToken: string) => Promise<{ pending: boolean } | GoogleSignupRequired>;
   signOut: () => Promise<void>;
 };
 
@@ -160,10 +161,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await finish(res);
       },
       signInGoogle: async (idToken) => {
-        const res = await api<SignInResult>("/api/auth/app-native-signin", {
+        const res = await api<SignInResult | GoogleSignupRequired>("/api/auth/app-native-signin", {
           method: "POST",
           body: { provider: "google", idToken },
         });
+        if ("registrationRequired" in res) return res;
         return finish(res);
       },
       signOut: async () => {

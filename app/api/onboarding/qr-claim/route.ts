@@ -1,15 +1,9 @@
 import { auth } from "@/lib/auth";
-import { PENDING_QR_TOKEN_COOKIE_NAME } from "@/lib/inviteOnboarding";
 import { prisma } from "@/lib/prisma";
-import { ANON_CLAIM_TTL_MS, claimQrAnonymously, extractQrToken, joinWithQr, QR_INVALID_MESSAGE, takeAnonymousClaim } from "@/lib/qrInvite";
+import { extractQrToken, joinWithQr, peekQr, QR_INVALID_MESSAGE } from "@/lib/qrInvite";
 import { rateLimit } from "@/lib/rateLimit";
-import { cookies } from "next/headers";
 
-/**
- * The web page a scanned group QR opens (`/join/qr/<token>`) calls this once. Signed in and
- * approved: join now. Otherwise the code is claimed (no one else can use it) and held in a cookie
- * until the person logs in or signs up.
- */
+/** Active users join immediately; everyone else provides account details and scans a live QR again. */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const token = extractQrToken(body?.token);
@@ -32,29 +26,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const claim = await claimQrAnonymously(token);
-  if (!claim) {
-    return Response.json({ error: QR_INVALID_MESSAGE }, { status: 410 });
-  }
-
-  // Signed in but the account isn't approved yet: the group waits on the account.
-  if (userId) {
-    const taken = await takeAnonymousClaim(claim.claimSecret, userId);
-    if (taken) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { pendingInviteCode: taken.pendingInviteCode, pendingInviteAutoApprove: taken.autoApprove },
-      });
-    }
-    return Response.json({ accountPending: true, groupName: claim.groupName });
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set(PENDING_QR_TOKEN_COOKIE_NAME, claim.claimSecret, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: Math.floor(ANON_CLAIM_TTL_MS / 1000),
-  });
-  return Response.json({ loginRequired: true, groupName: claim.groupName });
+  // Signup must scan a live code AFTER providing account details. Never reserve
+  // an anonymous QR for hours or attach an unverified signup to the approval list.
+  const qr = await peekQr(token);
+  if (!qr) return Response.json({ error: QR_INVALID_MESSAGE }, { status: 410 });
+  return Response.json({ loginRequired: true, groupName: qr.group.name });
 }

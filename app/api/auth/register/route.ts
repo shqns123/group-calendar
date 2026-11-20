@@ -1,77 +1,42 @@
-import { newGuestEmail } from "@/lib/guestEmail";
-import { PENDING_QR_TOKEN_COOKIE_NAME } from "@/lib/inviteOnboarding";
-import { sendMobilePushToTokens } from "@/lib/mobilepush";
-import { prisma } from "@/lib/prisma";
-import { takeAnonymousClaim } from "@/lib/qrInvite";
-import { sendPushToUser } from "@/lib/webpush";
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { extractQrToken } from "@/lib/qrInvite";
+import { readGoogleSignupIntent, requestSignupIdentity } from "@/lib/signupIdentity";
+import { SIGNUP_INTENT_COOKIE, SignupError } from "@/lib/signupPolicy";
+import { recordSignupAttempt, registerInvitedUser } from "@/lib/signupService";
+import { notifySignupOperators } from "@/lib/signupNotification";
 
 export async function POST(req: NextRequest) {
-  const { name, employeeId, pushToken } = await req.json();
-  if (!name?.trim() || !employeeId?.trim()) {
-    return Response.json({ error: "이름과 사번을 입력해 주세요." }, { status: 400 });
+  try {
+    const identity = await requestSignupIdentity(req.headers);
+    await recordSignupAttempt(prisma, identity);
+    const body = await req.json().catch(() => null);
+    const token = extractQrToken(body?.qrToken);
+    if (!token) throw new SignupError("초대 QR 코드를 스캔해 주세요.");
+    const isGoogle = body?.provider === "google" || typeof body?.signupToken === "string";
+    const rawIntent = isGoogle ? (typeof body?.signupToken === "string" ? body.signupToken : req.cookies.get(SIGNUP_INTENT_COOKIE)?.value) : undefined;
+    const google = await readGoogleSignupIntent(rawIntent);
+    if (isGoogle && !google) throw new SignupError("Google 가입 정보가 만료됐어요. 다시 Google로 계속해 주세요.", 401);
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const employeeId = typeof body?.employeeId === "string" ? body.employeeId.trim() : "";
+    if (!google && (!name || !employeeId || name.length > 20 || employeeId.length > 20)) {
+      throw new SignupError("이름과 사번을 각각 20자 이내로 입력해 주세요.");
+    }
+    const pushToken = typeof body?.pushToken === "string" ? body.pushToken.trim() : undefined;
+    if (pushToken && pushToken.length > 4096) throw new SignupError("알림 정보가 올바르지 않습니다.");
+    const result = await registerInvitedUser(prisma, { identity, token, name, employeeId, google, pushToken });
+    await notifySignupOperators(result.user.name ?? result.user.email ?? "사용자", result.groupName)
+      .catch((error) => console.error("Signup notification failed", error));
+    const response = NextResponse.json({ pending: true, groupName: result.groupName });
+    response.cookies.delete(SIGNUP_INTENT_COOKIE);
+    return response;
+  } catch (error) {
+    if (error instanceof SignupError) return NextResponse.json({ error: error.message }, { status: error.status,
+      headers: error.retryAfter ? { "Retry-After": String(error.retryAfter) } : undefined });
+    if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
+      return NextResponse.json({ error: "이미 등록된 계정이거나 사용된 초대입니다." }, { status: 409 });
+    }
+    console.error("Signup failed", error);
+    return NextResponse.json({ error: "가입 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요." }, { status: 503 });
   }
-
-  const existing = await prisma.user.findUnique({
-    where: { employeeId: employeeId.trim() },
-  });
-  if (existing) {
-    return Response.json({ error: "이미 등록된 사번입니다." }, { status: 409 });
-  }
-
-  const user = await prisma.user.create({
-    data: {
-      name: name.trim(),
-      email: newGuestEmail(),
-      employeeId: employeeId.trim(),
-      status: "PENDING",
-    },
-  });
-
-  // Scanned a group QR before signing up: the group is joined once the account is approved.
-  const claim = await takeAnonymousClaim(req.cookies.get(PENDING_QR_TOKEN_COOKIE_NAME)?.value?.trim(), user.id);
-  if (claim) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { pendingInviteCode: claim.pendingInviteCode, pendingInviteAutoApprove: claim.autoApprove },
-    });
-  }
-
-  // The app signs up without a session, so it sends its phone's push token here; the
-  // "가입 승인" push then reaches that phone once an operator approves the account.
-  const devicePushToken = typeof pushToken === "string" ? pushToken.trim() : "";
-  if (devicePushToken) {
-    await prisma.mobileDeviceToken.upsert({
-      where: { token: devicePushToken },
-      update: { userId: user.id, platform: "ANDROID" },
-      create: { userId: user.id, token: devicePushToken, platform: "ANDROID" },
-    });
-  }
-
-  const admins = await prisma.group.findMany({
-    select: { leader: { select: { pushSubscriptions: true, mobileDeviceTokens: true } } },
-  });
-  const allSubs = admins.flatMap((group) => group.leader.pushSubscriptions);
-  const allMobileTokens = admins.flatMap((group) =>
-    group.leader.mobileDeviceTokens.map((device) => device.token),
-  );
-
-  if (allSubs.length > 0) {
-    await sendPushToUser(allSubs, {
-      title: "회원가입 요청",
-      body: `${name.trim()} 님이 가입 승인을 요청했습니다.`,
-      url: "/",
-    });
-  }
-  if (allMobileTokens.length > 0) {
-    await sendMobilePushToTokens(allMobileTokens, {
-      title: "회원가입 요청",
-      body: `${name.trim()} 님이 가입 승인을 요청했습니다.`,
-      url: "/",
-    });
-  }
-
-  const response = NextResponse.json({ pending: true });
-  response.cookies.delete(PENDING_QR_TOKEN_COOKIE_NAME);
-  return response;
 }

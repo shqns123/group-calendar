@@ -190,7 +190,7 @@ export default function JoinGroupModal({ onClose, onJoined }: Props) {
               </button>
             )}
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-500">{error}</p>}
-            <p className="text-center text-xs text-slate-400">QR 코드는 1분마다 바뀌고 한 번만 쓸 수 있어요.</p>
+            <p className="text-center text-xs text-slate-400">QR은 생성 후 1분 동안 한 번만 쓸 수 있어요. 초대 창을 열어 둬 주세요.</p>
           </div>
         ) : (
           <form onSubmit={handleJoin} className="space-y-4 p-6">

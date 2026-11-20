@@ -115,7 +115,7 @@ export default function JoinScreen() {
   return (
     <QrPopup title="QR로 그룹 가입">
       <T variant="subhead" color={c.text2}>
-        그룹 멤버의 설정 › 「QR로 그룹 초대」 화면에 있는 QR 코드를 비춰 주세요. QR 코드는 1분마다 바뀌고 한 번만 쓸 수 있어요.
+        그룹 멤버의 설정 › 「QR로 그룹 초대」 화면에 있는 QR 코드를 비춰 주세요. QR은 생성 후 1분 동안 한 번만 쓸 수 있어요. 초대 창을 열어 둬 주세요.
       </T>
       {error ? <ErrorBanner message={error} /> : null}
       {!permission ? null : permission.granted ? (

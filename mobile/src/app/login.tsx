@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { Animated, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import { SignupQrStep } from "@/components/SignupQrStep";
+import type { GoogleSignupRequired } from "@/lib/session";
 import { Collapse } from "@/components/Collapse";
 import { Icon } from "@/components/Icon";
 import { KeyboardAware } from "@/components/KeyboardAware";
@@ -15,7 +17,7 @@ import { useSession } from "@/lib/session";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius, type } from "@/theme/tokens";
 
-type Page = "login" | "signup" | "sent";
+type Page = "login" | "signup" | "qr" | "sent";
 
 // Login and signup share one layout (canvas: Login / LoginSignup / LoginSent); only the words change.
 const COPY = {
@@ -30,12 +32,12 @@ const COPY = {
     switchLabel: "회원가입",
   },
   signup: {
-    lead: "가입하면 운영자가 승인한 뒤 바로 쓸 수 있어요.",
+    lead: "초대 QR을 확인하고 운영자가 승인하면 쓸 수 있어요.",
     google: "Google 계정으로 가입",
     googleBusy: "Google 가입 중…",
     section: "이름과 사번으로 가입",
-    cta: "가입 요청",
-    note: "사번은 한 사람에 하나만 등록돼요. 승인 전에는 로그인할 수 없어요.",
+    cta: "다음 · 초대 QR 확인",
+    note: "다음 단계에서 초대 QR을 스캔하면 운영자에게 가입 요청을 보냅니다.",
     switchQ: "이미 계정이 있으신가요?",
     switchLabel: "로그인",
   },
@@ -52,8 +54,15 @@ export default function LoginScreen() {
   const [sent, setSent] = useState<{ name: string; employeeId: string } | null>(null);
   const [busy, setBusy] = useState<"guest" | "google" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [signupPushToken, setSignupPushToken] = useState<string | null>(null);
+  const [googleSignup, setGoogleSignup] = useState<GoogleSignupRequired | null>(null);
   const idRef = useRef<ComponentRef<typeof TextInput>>(null);
   const copy = COPY[page === "signup" ? "signup" : "login"];
+
+  useEffect(() => {
+    if (!HOSTED_WEB) return;
+    void api("/api/auth/signup-context").catch((e) => setError(errorMessage(e)));
+  }, []);
 
   function go(next: Page) {
     setPage(next);
@@ -76,11 +85,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       if (page === "signup") {
-        // Sent with the request so the "가입 승인" push reaches this phone once an operator approves.
-        const pushToken = await devicePushToken();
-        await api("/api/auth/register", { method: "POST", body: { name: n, employeeId: id, ...(pushToken ? { pushToken } : null) } });
-        setSent({ name: n, employeeId: id });
-        go("sent");
+        setSignupPushToken(await devicePushToken());
+        setGoogleSignup(null);
+        go("qr");
       } else {
         await signInGuest(n, id);
       }
@@ -95,11 +102,13 @@ export default function LoginScreen() {
     setBusy("google");
     setError(null);
     try {
-      // Same call for both pages: a new Google account becomes a pending signup on the server,
-      // and the app then shows the approval-waiting screen.
+      // New Google identities receive a signup intent without creating an account.
       if (HOSTED_WEB) { await browserAuth("signin/google"); return; }
       const token = await getGoogleIdToken();
-      if (token) await signInGoogle(token);
+      if (token) {
+        const result = await signInGoogle(token);
+        if ("registrationRequired" in result) { setSignupPushToken(await devicePushToken()); setGoogleSignup(result); go("qr"); }
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -107,8 +116,31 @@ export default function LoginScreen() {
     }
   }
 
+  async function submitQr(qrToken: string) {
+    setBusy("guest");
+    setError(null);
+    try {
+      const pushToken = signupPushToken;
+      await api("/api/auth/register", { method: "POST", body: {
+        qrToken, provider: googleSignup ? "google" : "guest",
+        ...(googleSignup ? { signupToken: googleSignup.signupToken } : { name: name.trim(), employeeId: employeeId.trim() }),
+        ...(pushToken ? { pushToken } : null),
+      } });
+      setSent({ name: googleSignup?.profile.name ?? name.trim(), employeeId: googleSignup?.profile.email ?? employeeId.trim() });
+      go("sent");
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(null); }
+  }
+
   const field = { ...type.body, fontSize: 16, color: c.text, minHeight: 52, paddingHorizontal: 14, borderRadius: radius.control, backgroundColor: c.surface } as const;
   const pad = { flexGrow: 1, justifyContent: "center" as const, paddingHorizontal: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 24 };
+
+  if (page === "qr") return (
+    <ScrollView style={{ flex: 1, backgroundColor: c.surface }} contentContainerStyle={pad}>
+      <SignupQrStep accountLabel={googleSignup ? googleSignup.profile.email : `${name} · ${employeeId}`}
+        onScan={submitQr} busy={busy != null} error={error} onBack={() => { setGoogleSignup(null); go("signup"); }} />
+    </ScrollView>
+  );
 
   if (page === "sent" && sent) {
     return (
@@ -121,12 +153,12 @@ export default function LoginScreen() {
             가입 요청을 보냈어요
           </T>
           <T variant="body" color={c.text2} style={{ fontSize: 15, lineHeight: 22 }}>
-            운영자가 승인하면 이름과 사번으로 로그인할 수 있어요. 승인되면 알림으로 알려 드려요.
+            운영자가 승인하면 가입한 계정으로 로그인할 수 있어요. 승인되면 알림으로 알려 드려요.
           </T>
         </View>
         <View style={{ borderRadius: radius.card, backgroundColor: c.subtle, paddingHorizontal: 18, paddingVertical: 4 }}>
           <InfoRow label="이름" value={sent.name} />
-          <InfoRow label="사번" value={sent.employeeId} divider />
+          <InfoRow label={googleSignup ? "Google 계정" : "사번"} value={sent.employeeId} divider />
           <InfoRow label="상태" value="승인 대기" color={c.onWarn} divider />
         </View>
         <Pressable
@@ -204,6 +236,7 @@ export default function LoginScreen() {
             <View style={{ gap: 10, paddingHorizontal: 12, paddingBottom: 14 }}>
               <TextInput
                 accessibilityLabel="이름"
+                maxLength={20}
                 value={name}
                 onChangeText={setName}
                 placeholder="이름"
@@ -218,6 +251,7 @@ export default function LoginScreen() {
               <TextInput
                 ref={idRef}
                 accessibilityLabel="사번"
+                maxLength={20}
                 value={employeeId}
                 onChangeText={setEmployeeId}
                 placeholder="사번"

@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 
 // Semantic icon names → platform icon sets (DESIGN.md › Icons).
 const MAP = {
+  qr: { ios: "scan-outline", iosOn: "scan", md: "qr-code-scanner" },
   calendar: { ios: "calendar-outline", iosOn: "calendar", md: "calendar-today" },
   list: { ios: "list-outline", iosOn: "list", md: "view-list" },
   bell: { ios: "notifications-outline", iosOn: "notifications", md: "notifications" },

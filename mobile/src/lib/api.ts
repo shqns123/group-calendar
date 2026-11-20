@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { demoFetch } from "./demo";
+import { signupDeviceId } from "./signupDevice";
 
 export const HOSTED_WEB = Platform.OS === "web" && process.env.EXPO_PUBLIC_HOSTED_WEB === "1";
 export const API_URL = HOSTED_WEB ? window.location.origin : (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
@@ -36,9 +37,9 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
-type Options = { method?: string; body?: unknown; query?: Record<string, string | undefined | null> };
+type Options = { method?: string; body?: unknown; query?: Record<string, string | undefined | null>; keepalive?: boolean };
 
-export async function api<T>(path: string, { method = "GET", body, query }: Options = {}): Promise<T> {
+export async function api<T>(path: string, { method = "GET", body, query, keepalive }: Options = {}): Promise<T> {
   const qs = query
     ? Object.entries(query)
         .filter(([, v]) => v != null && v !== "")
@@ -50,6 +51,7 @@ export async function api<T>(path: string, { method = "GET", body, query }: Opti
   if (DEMO) return demoFetch<T>(method, url, body);
 
   const token = await getToken();
+  const device = !HOSTED_WEB && path === "/api/auth/register" ? await signupDeviceId() : null;
   let res: Response;
   try {
     res = await fetch(`${API_URL}${url}`, {
@@ -58,8 +60,10 @@ export async function api<T>(path: string, { method = "GET", body, query }: Opti
         Accept: "application/json",
         ...(body !== undefined ? { "Content-Type": "application/json" } : null),
         ...(token ? { Authorization: `Bearer ${token}` } : null),
+        ...(device ? { "X-Signup-Device": device } : null),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...(HOSTED_WEB && keepalive ? { keepalive: true } : null),
     });
   } catch {
     throw new ApiError(0, "서버에 연결하지 못했어요. 네트워크를 확인해 주세요.");

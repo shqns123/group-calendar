@@ -1,6 +1,8 @@
 import { encode } from "@auth/core/jwt";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { verifyGoogleIdToken } from "@/lib/googleProfile";
+import { createGoogleSignupIntent } from "@/lib/signupIdentity";
 
 const COOKIE_NAME =
   process.env.NODE_ENV === "production"
@@ -8,18 +10,6 @@ const COOKIE_NAME =
     : "authjs.session-token";
 
 const MAX_AGE = 30 * 24 * 60 * 60;
-
-async function verifyGoogleIdToken(idToken: string) {
-  const res = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
-    { cache: "no-store" },
-  );
-  if (!res.ok) throw new Error("Invalid Google ID token");
-  const profile = await res.json();
-  if (profile.aud !== process.env.GOOGLE_CLIENT_ID) throw new Error("Client ID mismatch");
-  if (!profile.email_verified) throw new Error("Email not verified");
-  return profile as { sub: string; email: string; name?: string; picture?: string };
-}
 
 async function makeSessionToken(userId: string, name: string | null, email: string | null, image: string | null, status: string, isOperator: boolean) {
   return encode({
@@ -47,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.provider === "google") {
-    if (!body.idToken) {
+    if (typeof body.idToken !== "string" || !body.idToken) {
       return NextResponse.json({ error: "Missing idToken" }, { status: 400 });
     }
 
@@ -64,6 +54,13 @@ export async function POST(req: NextRequest) {
     );
 
     const existing = await prisma.user.findUnique({ where: { email: profile.email } });
+    if (!isOperator && (!existing || (existing.status === "PENDING" && !existing.signupVerifiedAt))) {
+      return NextResponse.json({ registrationRequired: true, signupToken: await createGoogleSignupIntent(profile),
+        profile: { name: profile.name, email: profile.email } });
+    }
+    if (existing && existing.status !== "ACTIVE" && existing.status !== "PENDING") {
+      return NextResponse.json({ error: "사용할 수 없는 계정입니다." }, { status: 403 });
+    }
     const dbUser = existing
       ? await prisma.user.update({
           where: { id: existing.id },
@@ -79,7 +76,7 @@ export async function POST(req: NextRequest) {
             email: profile.email,
             name: profile.name,
             image: profile.picture,
-            status: isOperator ? "ACTIVE" : "PENDING",
+            status: "ACTIVE",
             isOperator,
           },
         });
@@ -99,8 +96,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.provider === "guest") {
-    const name = (body.name as string | undefined)?.trim();
-    const employeeId = (body.employeeId as string | undefined)?.trim();
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const employeeId = typeof body.employeeId === "string" ? body.employeeId.trim() : "";
     if (!name || !employeeId) {
       return NextResponse.json({ error: "이름과 사번을 입력해 주세요." }, { status: 400 });
     }

@@ -27,10 +27,13 @@ export async function POST(req: Request) {
   }
 
   if (action === "approve") {
-    await prisma.user.update({
-      where: { id: userId },
+    const approved = await prisma.user.updateMany({
+      where: { id: userId, status: "PENDING", signupVerifiedAt: { not: null } },
       data: { status: "ACTIVE" },
     });
+    if (approved.count !== 1) {
+      return Response.json({ error: "초대 QR 확인을 완료한 가입 요청만 승인할 수 있습니다." }, { status: 409 });
+    }
     await consumePendingInviteForUser(userId);
 
     const subs = await prisma.pushSubscription.findMany({ where: { userId } });

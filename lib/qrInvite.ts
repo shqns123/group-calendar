@@ -5,18 +5,11 @@ import { isLeaderRole } from "@/lib/groupPermissions";
 import { createJoinRequestNotification } from "@/lib/notificationStore";
 import { eventBus } from "@/lib/eventBus";
 import { prisma } from "@/lib/prisma";
+import { QR_LEASE_MS, QR_LIFETIME_MS } from "./signupPolicy";
 
-/**
- * Group joins happen only by QR code. Every code is single-use, and only the inviter's newest one
- * works: their screen replaces it every minute (the old one stops working then), and a code left
- * behind on a closed screen expires a little after its minute.
- */
+/** A QR is single-use, valid for exactly 60 seconds, and only live while its issuer's window is open. */
 export const QR_REFRESH_SECONDS = 60;
-const QR_TTL_MS = 75_000;
-/** After a signed-in user scans, how long they have to finish (nickname step). */
-const USER_CLAIM_TTL_MS = 30 * 60_000;
-/** After someone scans before logging in, how long they have to log in or sign up. */
-export const ANON_CLAIM_TTL_MS = 24 * 60 * 60_000;
+const QR_TTL_MS = QR_LIFETIME_MS;
 
 export const QR_INVALID_MESSAGE = "이미 사용됐거나 만료된 QR 코드예요. 새 QR 코드를 받아 주세요.";
 export const INVITE_CODE_GONE_MESSAGE = "초대 코드 가입은 종료됐어요. 그룹 멤버에게 QR 코드를 받아 스캔해 주세요.";
@@ -38,7 +31,7 @@ export function extractQrToken(input: unknown): string | null {
 export async function qrIssuePolicy(userId: string, groupId: string) {
   const [group, me, member] = await Promise.all([
     prisma.group.findUnique({ where: { id: groupId }, select: { id: true, leaderId: true } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { isOperator: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { isOperator: true, status: true } }),
     prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId, userId } },
       select: { role: true, status: true },
@@ -50,26 +43,24 @@ export async function qrIssuePolicy(userId: string, groupId: string) {
   const isOperator = !!me?.isOperator;
   return {
     found: true as const,
-    canIssue: isOperator || isAdmin || active,
+    canIssue: me?.status === "ACTIVE" && (isOperator || isAdmin || active),
     autoApprove: isOperator || isAdmin || (active && isLeaderRole(member?.role)),
   };
 }
 
 export async function issueQrToken(groupId: string, createdById: string, autoApprove: boolean) {
   const now = Date.now();
-  // Codes nobody scanned are useless once expired; don't let the table grow a row a minute.
+  // Remove expired, unclaimed codes left by closed windows.
   await prisma.qrInviteToken.deleteMany({
     where: { claimedAt: null, expiresAt: { lt: new Date(now - 60 * 60_000) } },
   });
-  // Only the code on screen works: this person's earlier codes for the group that nobody has scanned
-  // yet stop working now (reopening the QR screen, the minute refresh, "새 코드 받기").
-  await prisma.qrInviteToken.updateMany({
-    where: { groupId, createdById, claimedAt: null, usedAt: null, expiresAt: { gt: new Date(now) } },
-    data: { expiresAt: new Date(now) },
-  });
+  // Replacing a code revokes all previous unused codes from this issuer for the group.
   const token = crypto.randomBytes(24).toString("base64url");
   const expiresAt = new Date(now + QR_TTL_MS);
-  await prisma.qrInviteToken.create({ data: { token, groupId, createdById, expiresAt, autoApprove } });
+  await prisma.$transaction(async (tx) => {
+    await tx.qrInviteToken.updateMany({ where: { groupId, createdById, usedAt: null, revokedAt: null }, data: { revokedAt: new Date(now) } });
+    await tx.qrInviteToken.create({ data: { token, groupId, createdById, expiresAt, autoApprove, leaseUntil: new Date(now + QR_LEASE_MS) } });
+  });
   return { token, expiresAt, autoApprove, refreshSeconds: QR_REFRESH_SECONDS };
 }
 
@@ -84,18 +75,18 @@ const QR_SELECT = {
 
 /**
  * Claim a code for a signed-in user (the first scan wins). Claiming it again by the same user is
- * fine for a while, so the nickname step and a retry don't burn it.
+ * allowed only while the original QR expiry and issuing-window lease remain valid.
  */
 export async function claimQrForUser(token: string, userId: string): Promise<QrRow | null> {
   const now = new Date();
   const claimed = await prisma.qrInviteToken.updateMany({
-    where: { token, claimedAt: null, usedAt: null, expiresAt: { gt: now } },
+    where: { token, claimedAt: null, usedAt: null, revokedAt: null, expiresAt: { gt: now }, leaseUntil: { gt: now } },
     data: { claimedById: userId, claimedAt: now },
   });
   return prisma.qrInviteToken.findFirst({
     where: claimed.count === 1
-      ? { token }
-      : { token, claimedById: userId, usedAt: null, claimedAt: { gt: new Date(now.getTime() - USER_CLAIM_TTL_MS) } },
+      ? { token, revokedAt: null, expiresAt: { gt: now }, leaseUntil: { gt: now } }
+      : { token, claimedById: userId, usedAt: null, revokedAt: null, expiresAt: { gt: now }, leaseUntil: { gt: now } },
     select: QR_SELECT,
   });
 }
@@ -103,37 +94,24 @@ export async function claimQrForUser(token: string, userId: string): Promise<QrR
 /** Whether a code can still be scanned (not claimed, not expired). Doesn't claim it. */
 export async function peekQr(token: string) {
   return prisma.qrInviteToken.findFirst({
-    where: { token, claimedAt: null, usedAt: null, expiresAt: { gt: new Date() } },
+    where: { token, claimedAt: null, usedAt: null, revokedAt: null, expiresAt: { gt: new Date() }, leaseUntil: { gt: new Date() } },
     select: { group: { select: { name: true } } },
   });
 }
 
-/** Claim a code for someone who still has to log in / sign up; returns the secret for their cookie. */
-export async function claimQrAnonymously(token: string) {
-  const now = new Date();
-  const claimSecret = crypto.randomBytes(24).toString("base64url");
-  const claimed = await prisma.qrInviteToken.updateMany({
-    where: { token, claimedAt: null, usedAt: null, expiresAt: { gt: now } },
-    data: { claimSecret, claimedAt: now },
-  });
-  if (claimed.count !== 1) return null;
-  const row = await prisma.qrInviteToken.findUnique({ where: { token }, select: QR_SELECT });
-  return row ? { claimSecret, groupName: row.group.name } : null;
-}
-
 /**
  * Spend an anonymous claim (from the cookie) for the account that just logged in or signed up. Returns
- * what to store as the user's pending invite (joined once the account is active), or null.
+ * legacy pending invite data, only while the QR is still live. New signups spend QRs atomically in signupService.
  */
 export async function takeAnonymousClaim(claimSecret: string | null | undefined, userId: string) {
   if (!claimSecret) return null;
   const row = await prisma.qrInviteToken.findFirst({
-    where: { claimSecret, usedAt: null, claimedAt: { gt: new Date(Date.now() - ANON_CLAIM_TTL_MS) } },
+    where: { claimSecret, usedAt: null, revokedAt: null, expiresAt: { gt: new Date() }, leaseUntil: { gt: new Date() } },
     select: QR_SELECT,
   });
   if (!row) return null;
   const spent = await prisma.qrInviteToken.updateMany({
-    where: { id: row.id, usedAt: null },
+    where: { id: row.id, usedAt: null, revokedAt: null, expiresAt: { gt: new Date() }, leaseUntil: { gt: new Date() } },
     data: { usedAt: new Date(), claimSecret: null, claimedById: userId },
   });
   if (spent.count !== 1) return null;
@@ -158,7 +136,8 @@ export async function joinWithQr(token: string, userId: string, nickname?: strin
   const row = await claimQrForUser(token, userId);
   if (!row) return { ok: false, status: 410, error: QR_INVALID_MESSAGE };
 
-  const spent = await prisma.qrInviteToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
+  const spent = await prisma.qrInviteToken.updateMany({ where: { id: row.id, usedAt: null, revokedAt: null,
+    expiresAt: { gt: new Date() }, leaseUntil: { gt: new Date() } }, data: { usedAt: new Date() } });
   if (spent.count !== 1) return { ok: false, status: 410, error: QR_INVALID_MESSAGE };
 
   const pending = !row.autoApprove;

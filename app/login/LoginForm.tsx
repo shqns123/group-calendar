@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import SignupQrStep from "@/components/SignupQrStep";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -16,7 +17,23 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [qrStep, setQrStep] = useState(false);
+  const [googleSignup, setGoogleSignup] = useState<{ name?: string; email: string } | null>(null);
+  const [contextReady, setContextReady] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    let live = true;
+    void fetch("/api/auth/signup-context").then(async (res) => {
+      if (!res.ok) throw new Error("가입 정보를 불러오지 못했어요. 새로고침해 주세요.");
+      const context = await res.json();
+      if (!live) return;
+      setContextReady(true);
+      if (context.google) { setGoogleSignup(context.google); setQrStep(true); }
+      else if (searchParams.get("signup") === "qr") setError("Google 가입 정보가 만료됐어요. 다시 Google로 계속해 주세요.");
+    }).catch((e) => { if (live) setError(e.message); });
+    return () => { live = false; };
+  }, [searchParams]);
   const invitedGroupName = searchParams.get("groupName");
 
   const reset = () => {
@@ -24,6 +41,8 @@ export default function LoginForm() {
     setEmployeeId("");
     setError("");
     setPending(false);
+    setQrStep(false);
+    setGoogleSignup(null);
   };
 
   const handleGuestLogin = async (e: React.FormEvent) => {
@@ -56,22 +75,26 @@ export default function LoginForm() {
       setError("이름과 사번을 입력해 주세요.");
       return;
     }
+    if (!contextReady) { setError("가입 정보를 준비 중이에요. 잠시 후 다시 시도해 주세요."); return; }
+    setError("");
+    setGoogleSignup(null);
+    setQrStep(true);
+  };
+
+  const submitInvitedSignup = async (qrToken: string) => {
     setLoading(true);
     setError("");
-
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), employeeId: employeeId.trim() }),
-    });
-    const data = await res.json();
-    setLoading(false);
-
-    if (res.ok && data.pending) {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrToken, provider: googleSignup ? "google" : "guest", ...(googleSignup ? {} : { name: name.trim(), employeeId: employeeId.trim() }) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "회원가입 요청에 실패했습니다.");
+      setQrStep(false);
       setPending(true);
-    } else {
-      setError(data.error || "회원가입 요청에 실패했습니다.");
-    }
+    } catch (e) { setError(e instanceof Error ? e.message : "네트워크를 확인해 주세요."); }
+    finally { setLoading(false); }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -106,6 +129,7 @@ export default function LoginForm() {
             setPending(false);
             setName("");
             setEmployeeId("");
+            setGoogleSignup(null);
           }}
           style={{ marginTop: 4, padding: "8px 20px", borderRadius: 8, border: "1px solid var(--border)", background: "none", color: "var(--text-secondary)", fontSize: "0.825rem", cursor: "pointer", fontFamily: "inherit" }}
         >
@@ -115,8 +139,23 @@ export default function LoginForm() {
     );
   }
 
+  if (qrStep) return <SignupQrStep accountLabel={googleSignup ? googleSignup.email : `${name} · ${employeeId}`}
+    onScan={submitInvitedSignup} busy={loading} error={error} onBack={() => {
+      if (googleSignup) {
+        void fetch("/api/auth/signup-context", { method: "DELETE" });
+        setGoogleSignup(null);
+      }
+      setQrStep(false); setError("");
+    }} />;
+
   return (
     <div>
+      <h1 className="text-2xl font-bold tracking-tight mb-1" style={{ color: "var(--text-primary)", letterSpacing: "-0.03em" }}>
+        {tab === "guest" && guestMode === "register" ? "회원가입" : "로그인"}
+      </h1>
+      <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
+        {tab === "guest" && guestMode === "register" ? "가입 정보를 입력한 뒤 초대 QR을 확인해 주세요" : "계속하려면 로그인하세요"}
+      </p>
       {invitedGroupName && (
         <div
           style={{
@@ -132,7 +171,7 @@ export default function LoginForm() {
         >
           <strong style={{ fontWeight: 800 }}>{invitedGroupName}</strong> 그룹 초대 링크로 접속했습니다.
           <br />
-          로그인 또는 회원가입 후 자동으로 그룹 참가 요청이 진행됩니다.
+          가입 정보를 입력한 뒤 초대 창의 QR을 다시 스캔해 주세요.
         </div>
       )}
       {showInfo && (
@@ -151,12 +190,12 @@ export default function LoginForm() {
             <div style={{ padding: "12px 14px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, fontSize: "0.825rem", color: "#92400E", lineHeight: 1.6 }}>
               <strong style={{ fontWeight: 800 }}>신규 가입은 운영자 승인 후 이용 가능합니다</strong>
               <br />
-              처음 접속하는 계정은 운영자가 승인할 때까지 대기 상태로 표시됩니다.
+              신규 계정은 초대 QR을 확인한 뒤 운영자에게 승인을 요청합니다.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                { label: "Google 로그인", desc: "처음 사용하는 계정이면 운영자에게 가입 승인 요청이 전송됩니다. 이미 승인된 계정은 바로 입장합니다." },
-                { label: "Guest 회원가입", desc: "이름과 사번을 입력해 가입을 요청합니다. 운영자 승인 후 로그인할 수 있습니다." },
+                { label: "Google 로그인", desc: "신규 계정은 Google 인증 후 초대 QR을 스캔합니다. 이미 승인된 계정은 바로 입장합니다." },
+                { label: "Guest 회원가입", desc: "이름과 사번 입력 후 초대 QR을 스캔하면 가입을 요청합니다. 운영자 승인 후 로그인할 수 있습니다." },
                 { label: "Guest 로그인", desc: "승인된 계정은 이름과 사번으로 바로 로그인합니다. 이름 또는 사번이 다르면 로그인할 수 없습니다." },
               ].map((item) => (
                 <div key={item.label} style={{ display: "flex", gap: 10 }}>
@@ -202,6 +241,7 @@ export default function LoginForm() {
         ))}
       </div>
 
+      {error && tab === "google" && <p role="alert" style={{ color: "#B91C1C", fontSize: "0.875rem", marginBottom: 12 }}>{error}</p>}
       {tab === "google" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <button
@@ -237,7 +277,7 @@ export default function LoginForm() {
           <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
             등록된 Google 계정만 로그인됩니다.
             <br />
-            신규 계정은 운영자 승인 후 사용할 수 있습니다.
+            신규 계정은 초대 QR 확인과 운영자 승인 후 사용할 수 있습니다.
           </p>
         </div>
       ) : (
@@ -274,6 +314,7 @@ export default function LoginForm() {
           >
             <input
               type="text"
+              aria-label="이름"
               placeholder="이름"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -284,6 +325,7 @@ export default function LoginForm() {
             />
             <input
               type="text"
+              aria-label="사번"
               placeholder="사번"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
@@ -313,12 +355,12 @@ export default function LoginForm() {
             >
               {loading
                 ? guestMode === "login" ? "로그인 중..." : "요청 중..."
-                : guestMode === "login" ? "로그인" : "가입 요청"}
+                : guestMode === "login" ? "로그인" : "다음 · 초대 QR 확인"}
             </button>
             <p style={{ fontSize: "0.72rem", color: "var(--text-tertiary)", textAlign: "center", margin: 0 }}>
               {guestMode === "login"
                 ? "이름과 사번이 정확히 일치해야 합니다."
-                : "운영자 승인 후 로그인하실 수 있습니다."}
+                : "다음 단계에서 초대 QR을 스캔하면 가입 요청을 보냅니다."}
             </p>
           </form>
         </div>

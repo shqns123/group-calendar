@@ -66,16 +66,6 @@ export default async function LoginPage() {
             <span className="text-sm font-semibold tracking-tight">그룹 캘린더</span>
           </div>
 
-          <h1
-            className="text-2xl font-bold tracking-tight mb-1"
-            style={{ color: "var(--text-primary)", letterSpacing: "-0.03em" }}
-          >
-            로그인
-          </h1>
-          <p className="text-sm mb-8" style={{ color: "var(--text-tertiary)" }}>
-            계속하려면 로그인하세요
-          </p>
-
           <Suspense fallback={<div style={{ minHeight: 320 }} />}>
             <LoginForm />
           </Suspense>

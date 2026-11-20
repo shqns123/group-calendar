@@ -12,7 +12,7 @@ export async function GET() {
   if (!(await isOperator(session.user.id))) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const pending = await prisma.user.findMany({
-    where: { status: "PENDING" },
+    where: { status: "PENDING", signupVerifiedAt: { not: null } },
     select: { id: true, name: true, email: true, employeeId: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });

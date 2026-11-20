@@ -42,6 +42,7 @@ model User {
   employeeId    String?       @unique
   status        String        @default("ACTIVE")
   isOperator    Boolean       @default(false)
+  signupVerifiedAt DateTime?
   pendingInviteCode String?
   pendingInviteAutoApprove Boolean @default(false)
   accounts      Account[]
@@ -151,11 +152,14 @@ model QrInviteToken {
   groupId      String
   createdById  String
   expiresAt    DateTime
-  // QR codes are single-use and live about a minute (the inviter's screen makes a new one every
-  // minute). Made by an operator / the group admin / 그룹장 / 파트장 → joins without approval.
+  // Short heartbeat lease: closing/hiding the issuing window revokes the code.
+  leaseUntil   DateTime?
+  revokedAt    DateTime?
+  // Valid for exactly one minute while the issuing window is open. Elevated issuers
+  // skip group approval for active accounts; new accounts always require operator approval.
   autoApprove  Boolean  @default(false)
-  // The first scan claims the code: a signed-in user (claimedById), or someone who still has to log
-  // in or sign up (claimSecret, kept in a cookie until their account exists).
+  // Signed-in users may reserve the code while entering a nickname, within its lifetime.
+  // claimSecret remains for legacy anonymous claims only.
   claimedById  String?
   claimSecret  String?  @unique
   claimedAt    DateTime?
@@ -164,6 +168,15 @@ model QrInviteToken {
   createdAt    DateTime @default(now())
   group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+}
+
+// Durable signup quotas. Keys hold HMAC digests, never raw IPs/device IDs.
+model SignupQuota {
+  key       String   @id
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model CustomHoliday {
