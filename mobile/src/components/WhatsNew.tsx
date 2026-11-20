@@ -1,10 +1,11 @@
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Linking, Modal, Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { HOSTED_WEB } from "@/lib/api";
 import { todayKey } from "@/lib/date";
 import { DUR, EASE_IN, EASE_OUT, timeTo } from "@/lib/motion";
-import { APP_VERSION, compareVersions, RELEASE_NOTES, type ReleaseSection } from "@/lib/releaseNotes";
+import { APP_VERSION, RELEASE_NOTES, type ReleaseSection } from "@/lib/releaseNotes";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radius } from "@/theme/tokens";
 import { Icon } from "./Icon";
@@ -34,22 +35,47 @@ async function setPref(key: string, value: string) {
 /** Per version: "forever", or "today:YYYY-MM-DD" (hidden for that day only). */
 const noticeKey = (version: string) => `release-notes-${version.replace(/[^0-9a-zA-Z]/g, "_")}`;
 
+type StoreUpdate = { latest: string; immediate: boolean };
+
 /**
- * Newer version on Google Play? Not wired yet: after the Play Store listing, this asks Play's
- * in-app updates API (e.g. an expo/RN in-app-updates package) and returns the newer version name.
- * Until then there is never an update, so the popup doesn't show.
+ * Newer version on Google Play? Asks Play's in-app updates API (expo-in-app-updates). Play answers
+ * only for an app installed from Play; a sideloaded APK (or a build without the native module)
+ * gets null, so no popup. `latest` is Play's versionCode (Play doesn't tell the version name).
  */
-async function checkStoreUpdate(): Promise<{ latest: string; url: string | null } | null> {
-  return null;
+async function checkStoreUpdate(): Promise<StoreUpdate | null> {
+  if (Platform.OS !== "android") return null;
+  try {
+    const { checkForUpdate } = await import("expo-in-app-updates");
+    const info = await checkForUpdate();
+    if (!info.updateAvailable) return null;
+    return { latest: info.storeVersion ?? "", immediate: !!info.immediateAllowed };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 지금 하기: Play's full-screen update (downloads, installs and restarts the app) when Play allows
+ * it, else Play's background update, else the store page.
+ */
+async function startStoreUpdate(update: StoreUpdate | null) {
+  try {
+    const { startUpdate } = await import("expo-in-app-updates");
+    if (await startUpdate(update?.immediate ? true : undefined)) return;
+  } catch {
+    // fall through to the store page
+  }
+  openStore();
 }
 const PACKAGE = "kr.groupcalendar.app";
+const BUILD = Constants.expoConfig?.android?.versionCode;
 
 // "나중에 하기" lasts for this app run.
 let updateSnoozed = false;
 
 export function WhatsNew({ enabled }: { enabled: boolean }) {
   const [step, setStep] = useState<"idle" | "update" | "notes" | "done">("idle");
-  const [update, setUpdate] = useState<{ latest: string; url: string | null } | null>(null);
+  const [update, setUpdate] = useState<StoreUpdate | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -58,7 +84,7 @@ export function WhatsNew({ enabled }: { enabled: boolean }) {
       // 1. Newer version in the store? (Android only.)
       if (Platform.OS === "android" && !updateSnoozed) {
         const found = await checkStoreUpdate().catch(() => null);
-        if (alive && found && compareVersions(found.latest, APP_VERSION) > 0) {
+        if (alive && found) {
           setUpdate(found);
           setStep("update");
           return;
@@ -86,7 +112,7 @@ export function WhatsNew({ enabled }: { enabled: boolean }) {
           void afterUpdate();
         }}
         onNow={() => {
-          openStore(update?.url ?? null);
+          void startStoreUpdate(update);
           void afterUpdate();
         }}
       />
@@ -101,10 +127,10 @@ async function notesHidden() {
   return v === "forever" || v === `today:${todayKey()}`;
 }
 
-function openStore(url: string | null) {
+function openStore() {
   const market = `market://details?id=${PACKAGE}`;
-  const web = url ?? `https://play.google.com/store/apps/details?id=${PACKAGE}`;
-  void Linking.openURL(Platform.OS === "android" && !url ? market : web).catch(() => Linking.openURL(web).catch(() => undefined));
+  const web = `https://play.google.com/store/apps/details?id=${PACKAGE}`;
+  void Linking.openURL(Platform.OS === "android" ? market : web).catch(() => Linking.openURL(web).catch(() => undefined));
 }
 
 // --- Popup shell: dim wash + centered card that fades and scales in (same as the app's dialogs).
@@ -158,7 +184,7 @@ function UpdatePopup({ visible, latest, onLater, onNow }: { visible: boolean; la
           원활한 사용을 위해 업데이트해 주세요.
         </T>
         <T variant="footnote" color={c.muted} style={{ fontWeight: "400" }}>
-          {`현재 ${APP_VERSION} → 최신 ${latest}`}
+          {`현재 ${APP_VERSION}${BUILD ? ` (빌드 ${BUILD})` : ""}${latest ? ` → 새 빌드 ${latest}` : ""}`}
         </T>
       </View>
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 16 }}>

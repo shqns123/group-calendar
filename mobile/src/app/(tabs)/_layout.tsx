@@ -333,7 +333,6 @@ function AppTabBar({ unread }: { unread: number }) {
         style={({ pressed }) => ({ flex: 1, height: "100%", alignItems: "center", justifyContent: "center", gap: 3, opacity: pressed ? 0.6 : 1 })}
       >
         <View style={{ width: 56, height: 30, alignItems: "center", justifyContent: "center" }}>
-          <ActivePill on={focused} color={c.primaryContainer} />
           <TabIcon name={t.icon} color={color} />
           {badge ? (
             <View style={{ position: "absolute", top: -3, right: 4, minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: c.danger, borderWidth: 2, borderColor: c.card, alignItems: "center", justifyContent: "center" }}>
@@ -462,33 +461,6 @@ function QuickAddDock() {
         <QuickAddBar fill date={onCalendar ? dock.date : todayKey()} widen={dockInset - 8} onActiveChange={setTyping} surface={isDark && onCalendar ? "#1E1E1E" : undefined} aiToggle />
       </Animated.View>
     </>
-  );
-}
-
-/**
- * The selected tab's soft accent pill behind its icon (label stays below). It grows out from the
- * middle when the tab is picked and shrinks away when another one is.
- */
-function ActivePill({ on, color }: { on: boolean; color: string }) {
-  const [p] = useState(() => new Animated.Value(on ? 1 : 0));
-  useEffect(() => {
-    timeTo(p, on ? 1 : 0, on ? DUR.open : DUR.close, on ? EASE_OUT : EASE_IN);
-  }, [on, p]);
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderRadius: 15,
-        backgroundColor: color,
-        opacity: p,
-        transform: [{ scaleX: p.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
-      }}
-    />
   );
 }
 
