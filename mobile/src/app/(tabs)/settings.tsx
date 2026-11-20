@@ -167,7 +167,7 @@ export default function SettingsScreen() {
           <Row compact icon="link" label="기존 웹 메뉴 열기" onPress={() => location.assign("/?view=web" + (group ? "&groupId=" + encodeURIComponent(group.id) : ""))} chevron />
         </Section>}
         <Section title="앱 정보" footer="화면 모드는 휴대폰의 라이트/다크 설정을 따라가요.">
-          <Row compact icon="note" label="버전" value={`${Constants.expoConfig?.version ?? "1.0.0"} · ${String(Constants.expoConfig?.extra?.appVariant ?? "")}`} />
+          <Row compact icon="note" label="앱 버전" value={appVersionLabel()} />
         </Section>
 
         <Pressable
@@ -186,4 +186,12 @@ export default function SettingsScreen() {
       </ScrollView>
     </View>
   );
+}
+
+/** "1.1.1 (빌드 31) · production": versionName, Android versionCode (Play's 버전 코드), build variant. */
+function appVersionLabel() {
+  const cfg = Constants.expoConfig;
+  const code = cfg?.android?.versionCode;
+  const variant = String(cfg?.extra?.appVariant ?? "");
+  return [`${cfg?.version ?? "1.0.0"}${code ? ` (빌드 ${code})` : ""}`, variant].filter(Boolean).join(" · ");
 }

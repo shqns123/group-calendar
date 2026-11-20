@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   // Must match the EAS project (EAS_PROJECT_ID) slug.
   slug: "woojin",
   // Each version can carry release notes (src/lib/releaseNotes.ts), shown once after the update.
-  version: "1.1.0",
+  version: "1.1.1",
   scheme: "groupcalendar",
   orientation: "portrait",
   icon: "./assets/icon.png",

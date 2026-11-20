@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { PHONE_VIEWPORT } from "@/lib/phoneViewport";
 import { HOSTED_WEB } from "@/lib/api";
-import { todayKey } from "@/lib/date";
-import { APP_VERSION, RELEASE_NOTES } from "@/lib/releaseNotes";
 import { Stack, useRouter } from "expo-router";
 import { ScreenPopup } from "@/components/ScreenPopup";
 import { closeScreen } from "@/lib/nav";
@@ -17,12 +15,6 @@ import { PaneFrame } from "@/components/PaneFrame";
 import { useSplit, WideModeProvider } from "@/lib/wide";
 import { SessionProvider, useSession } from "@/lib/session";
 import { ThemeProvider, useTheme } from "@/theme/ThemeProvider";
-
-// Phone web app: the update notice shows only until its note's `webUntil` day.
-function webNoticeOpen() {
-  const until = RELEASE_NOTES[APP_VERSION]?.webUntil;
-  return !!until && todayKey() <= until;
-}
 
 // Management screens are pushed onto the stack with a native header.
 const PUSHED = [
@@ -128,9 +120,8 @@ function RootStack() {
           <Stack.Screen name="login" />
         </Stack.Protected>
       </Stack>
-      {/* Update notice: once per phone, after sign-in. The phone web app shows it only until the
-          note's webUntil day (lib/releaseNotes). */}
-      <WhatsNew enabled={active && (!HOSTED_WEB || webNoticeOpen())} />
+      {/* Update notice: once per phone, after sign-in. Installed app only, never the phone web app. */}
+      <WhatsNew enabled={active && !HOSTED_WEB} />
     </>
   );
 }
