@@ -7,6 +7,7 @@ import { api, DEMO, HOSTED_WEB, getToken, setToken, setUnauthorizedHandler } fro
 import type { Group, Me } from "./types";
 import { registerPush, unregisterPush, watchPushToken } from "./push";
 import { setWidgetGroup } from "./widgetSync";
+import { googleSignOut } from "./google";
 
 type SignInResult = { sessionToken: string; cookieName: string; pending: boolean };
 export type GoogleSignupRequired = { registrationRequired: true; signupToken: string; profile: { name?: string; email: string } };
@@ -171,6 +172,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         if (HOSTED_WEB) { await browserAuth("signout"); return; }
         await unregisterPush();
+        await googleSignOut();
         await clear();
       },
     }),

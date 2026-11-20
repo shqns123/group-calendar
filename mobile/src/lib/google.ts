@@ -33,6 +33,9 @@ export async function getGoogleIdToken(): Promise<string | null> {
     configured = true;
   }
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  // App sessions and the Google SDK keep separate state. Clear the previous
+  // selection before every interactive login/signup so the account chooser opens.
+  await GoogleSignin.signOut();
   const res = await GoogleSignin.signIn();
   if (!isSuccessResponse(res)) return null;
   if (!res.data.idToken) throw new Error("Google ID 토큰을 받지 못했어요.");

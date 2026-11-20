@@ -8,3 +8,7 @@ test("allows trusted Google accounts to link by verified email", () => {
 
   assert.equal(options.allowDangerousEmailAccountLinking, true);
 });
+
+test("always requests the Google account chooser for browser login and signup", () => {
+  assert.equal(createGoogleProviderOptions().authorization.params.prompt, "select_account");
+});
